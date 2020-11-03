@@ -132,4 +132,5 @@ dmypy.json
 # ignore file inside DeepView directory
 DeepView/data
 DeepView/cifar10_models
+Deepview/result
 
