@@ -133,4 +133,4 @@ dmypy.json
 DeepView/data
 DeepView/cifar10_models
 Deepview/result
-
+DeepView/mnist_models
