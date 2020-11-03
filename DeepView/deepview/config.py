@@ -20,3 +20,5 @@ max_iter = 2000
 a = 500 # / embedding range
 # This corresponds to the parameter b of UMAP.
 b = 1
+# --- default projection function config -----
+metric = "precomputed"

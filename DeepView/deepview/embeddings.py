@@ -12,7 +12,8 @@ def init_umap(config=None):
 	spread = config.get('spread', defaults.spread)
 	random_state = config.get('random_state', defaults.random_state)
 	verbose = config.get('verbose', defaults.verbose)
-	return umap.UMAP(metric='precomputed', n_neighbors=n_neighbors,
+	metric = config.get('metric', defaults.metric)
+	return umap.UMAP(metric=metric, n_neighbors=n_neighbors,
 		random_state=random_state, spread=spread, min_dist=min_dist, verbose=verbose)
 
 def init_inv_umap(config=None):

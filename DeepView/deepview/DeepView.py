@@ -11,7 +11,8 @@ class DeepView:
 
 	def __init__(self, pred_fn, classes, max_samples, batch_size, data_shape, n=5, 
 				 lam=0.65, resolution=100, cmap='tab10', interactive=True, verbose=True,
-				 title='DeepView', data_viz=None, mapper=None, inv_mapper=None, **kwargs):
+				 title='DeepView', data_viz=None, mapper=None, inv_mapper=None, metric="precomputed",
+				 clip_certainty=1.2, **kwargs):
 		'''
 		This class can be used to embed high dimensional data in
 		2D. With an inverse mapping from 2D back into the sample
@@ -71,6 +72,14 @@ class DeepView:
 			must have the methods of deepview.embeddings.Mapper. fit is called with 2D points and
 			their according data samples. transform is called with 2D points that should be projected to data space. 
 			Defaults to None, in this case deepview.embeddings.InvMapper is used.
+		metric : str
+			A str to indicate whether to use precomputed method to do projection or "euclidean" distance
+			"precomputed": calculate distance matrix first and then feed the distance kernel to umap
+			"euclidean" : feed the sample to umap and indicate the distance to be "euclidean"
+			more umap supported distance metrics can be applied
+		clip_certainty: float
+			A float indicating how much we care about the prediction certainty
+			if it becomes larger, then we care more about certainty
 		kwargs : dict
 			Configuration for the embeddings in case they are not specifically given in mapper and inv_mapper.
 			Defaults to deepview.config.py. 
@@ -99,6 +108,8 @@ class DeepView:
 		self.title = title
 		self.data_viz = data_viz
 		self._init_mappers(mapper, inv_mapper, kwargs)
+		self.distance_metric = metric
+		self.clip_certainty = clip_certainty
 
 	@property
 	def num_samples(self):
@@ -238,9 +249,16 @@ class DeepView:
 	def update_mappings(self):
 		if self.verbose:
 			print('Embedding samples ...')
-		
-		self.mapper.fit(self.distances)
-		self.embedded = self.mapper.transform(self.distances)
+
+		# if metric is set to precomputed ,then we feed the distance kernel to umap
+		# otherwise we feed the sample into umap directly
+		if self.distance_metric == "precomputed":
+			self.mapper.fit(self.distances)
+			self.embedded = self.mapper.transform(self.distances)
+		else:
+			self.mapper.fit(self.samples)
+			self.embedded = self.mapper.transform(self.samples)
+
 		self.inverse.fit(self.embedded, self.samples)
 		self.classifier_view = self.compute_grid()
 
@@ -272,12 +290,13 @@ class DeepView:
 		# add new values to the DeepView lists
 		self.queue_samples(samples, labels, Y_preds)
 
-		# calculate new distances
-		new_discr, new_eucl = calculate_fisher(self.model, samples, self.samples, 
-			self.n, self.batch_size, self.n_classes, self.verbose)
-		# add new distances
-		self.discr_distances = self.update_matrix(self.discr_distances, new_discr)
-		self.eucl_distances = self.update_matrix(self.eucl_distances, new_eucl)
+		if self.distance_metric == "precomputed":
+			# calculate new distances
+			new_discr, new_eucl = calculate_fisher(self.model, samples, self.samples,
+				self.n, self.batch_size, self.n_classes, self.verbose)
+			# add new distances
+			self.discr_distances = self.update_matrix(self.discr_distances, new_discr)
+			self.eucl_distances = self.update_matrix(self.eucl_distances, new_eucl)
 
 		# update mappings
 		self.update_mappings()
@@ -311,7 +330,7 @@ class DeepView:
 		h = -(mesh_preds*np.log(mesh_preds)).sum(axis=1)/np.log(self.n_classes)
 		h = (h/h.max()).reshape(-1, 1)
 		# adjust brightness
-		h = np.clip(h*1.2, 0, 1)
+		h = np.clip(h*self.clip_certainty, 0, 1)
 		color = color[:,0:3]
 		color = (1-h)*(0.5*color) + h*np.ones(color.shape, dtype=np.uint8)
 		decision_view = color.reshape(self.resolution, self.resolution, 3)
@@ -437,6 +456,39 @@ class DeepView:
 		self.fig.canvas.draw()
 		self.fig.canvas.flush_events()
 		plt.show()
+
+	def savefig(self, path):
+		'''
+		Shows the current plot.
+		'''
+		if not hasattr(self, 'fig'):
+			self._init_plots()
+
+		x_min, y_min, x_max, y_max = self._get_plot_measures()
+
+		self.cls_plot.set_data(self.classifier_view)
+		self.cls_plot.set_extent((x_min, x_max, y_max, y_min))
+		self.ax.set_xlim((x_min, x_max))
+		self.ax.set_ylim((y_min, y_max))
+
+		params_str = 'batch size: %d - n: %d - $\lambda$: %.2f - res: %d'
+		desc = params_str % (self.batch_size, self.n, self.lam, self.resolution)
+		self.desc.set_text(desc)
+
+		for c in range(self.n_classes):
+			data = self.embedded[self.y_true == c]
+			self.sample_plots[c].set_data(data.transpose())
+
+		for c in range(self.n_classes):
+			data = self.embedded[np.logical_and(self.y_pred == c, self.y_true != c)]
+			self.sample_plots[self.n_classes + c].set_data(data.transpose())
+
+		if os.name == 'posix':
+			self.fig.canvas.manager.window.raise_()
+
+		self.fig.canvas.draw()
+		self.fig.canvas.flush_events()
+		plt.savefig(path)
 
 	@staticmethod
 	def create_simple_wrapper(classify):
