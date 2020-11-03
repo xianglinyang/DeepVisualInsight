@@ -125,3 +125,11 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+
+# ignore pycharm related files
+.idea
+
+# ignore file inside DeepView directory
+DeepView/data
+DeepView/cifar10_models
+
