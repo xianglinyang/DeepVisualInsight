@@ -35,3 +35,4 @@ def eval_proj_kmeans(X, X_embedded, n_neighbors=[.01, .03, .05, .1], metric="euc
 
 
 def eval_inverse():
+    pass
