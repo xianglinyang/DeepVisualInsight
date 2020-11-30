@@ -187,15 +187,14 @@ class DeepView:
 		x_max, y_max = ebd_max + 0.1 * ebd_extent
 		return x_min, y_min, x_max, y_max
 
-	def _init_plots(self, is_for_frontend=False):
+	def _init_plots(self):
 		'''
 		Initialises matplotlib artists and plots.
 		'''
 		if self.interactive:
 			plt.ion()
 		self.fig, self.ax = plt.subplots(1, 1, figsize=(8, 8))
-		if not is_for_frontend:
-			self.ax.set_title(self.title)
+		self.ax.set_title(self.title)
 		self.desc = self.fig.text(0.5, 0.02, '', fontsize=8, ha='center')
 		self.cls_plot = self.ax.imshow(np.zeros([5, 5, 3]), 
 			interpolation='gaussian', zorder=0, vmin=0, vmax=1)
@@ -218,8 +217,7 @@ class DeepView:
 		self.fig.canvas.mpl_connect('pick_event', self.show_sample)
 		self.fig.canvas.mpl_connect('button_press_event', self.show_sample)
 		self.disable_synth = False
-		if not is_for_frontend:
-			self.ax.legend()
+		self.ax.legend()
 
 	def _predict_batches(self, x):
 		'''
@@ -458,25 +456,6 @@ class DeepView:
 		self.fig.canvas.draw()
 		self.fig.canvas.flush_events()
 		plt.show()
-
-	def show_tensorboard(self):
-		'''
-		show function for frontend
-		'''
-		if not hasattr(self, 'fig'):
-			self._init_plots(is_for_frontend=True)
-
-		x_min, y_min, x_max, y_max = self._get_plot_measures()
-
-		self.cls_plot.set_data(self.classifier_view)
-		self.cls_plot.set_extent((x_min, x_max, y_max, y_min))
-		self.ax.set_xlim((x_min, x_max))
-		self.ax.set_ylim((y_min, y_max))
-
-		plt.axis('off')
-		plt.savefig("cls_view.png", bbox_inches='tight', dpi=self.fig.dpi, pad_inches=0.0)
-		plt.show()
-		return self.embedded
 
 	def savefig(self, path):
 		'''

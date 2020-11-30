@@ -1,6 +1,7 @@
 import torch.nn as nn
 from collections import OrderedDict
 import torch.utils.model_zoo as model_zoo
+import seaborn as sns
 
 model_urls = {
     'mnist': 'http://ml.cs.tsinghua.edu.cn/~chenxi/pytorch-models/mnist-b07bb66b.pth'
