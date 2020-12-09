@@ -12,7 +12,7 @@ class DeepView:
 	def __init__(self, pred_fn, classes, max_samples, batch_size, data_shape, n=5, 
 				 lam=0.65, resolution=100, cmap='tab10', interactive=True, verbose=True,
 				 title='DeepView', data_viz=None, mapper=None, inv_mapper=None, metric="precomputed",
-				 clip_certainty=1.2, **kwargs):
+				 clip_certainty=1.2, encoder=None, decoder=None, **kwargs):
 		'''
 		This class can be used to embed high dimensional data in
 		2D. With an inverse mapping from 2D back into the sample
@@ -76,6 +76,7 @@ class DeepView:
 			A str to indicate whether to use precomputed method to do projection or "euclidean" distance
 			"precomputed": calculate distance matrix first and then feed the distance kernel to umap
 			"euclidean" : feed the sample to umap and indicate the distance to be "euclidean"
+			"parametricUmap" : use a parametric autoencoder for dimension reduction
 			more umap supported distance metrics can be applied
 		clip_certainty: float
 			A float indicating how much we care about the prediction certainty
@@ -110,6 +111,8 @@ class DeepView:
 		self._init_mappers(mapper, inv_mapper, kwargs)
 		self.distance_metric = metric
 		self.clip_certainty = clip_certainty
+		self.encoder = encoder
+		self.decoder = decoder
 
 	@property
 	def num_samples(self):
@@ -257,11 +260,14 @@ class DeepView:
 		if self.distance_metric == "precomputed":
 			self.mapper.fit(self.distances)
 			self.embedded = self.mapper.transform(self.distances)
+			self.inverse.fit(self.embedded, self.samples)
+		elif self.distance_metric == "parametricUmap":
+			self.embedded = self.encoder(self.samples)
 		else:
 			self.mapper.fit(self.samples)
 			self.embedded = self.mapper.transform(self.samples)
+			self.inverse.fit(self.embedded, self.samples)
 
-		self.inverse.fit(self.embedded, self.samples)
 		self.classifier_view = self.compute_grid()
 
 	def queue_samples(self, samples, labels, preds):
@@ -318,7 +324,10 @@ class DeepView:
 		grid = np.swapaxes(self.grid.reshape(self.grid.shape[0],-1),0,1)
 		
 		# map gridmpoint to images
-		grid_samples = self.inverse(grid)
+		if self.distance_metric == "parametricUmap":
+			grid_samples = self.decoder(grid)
+		else:
+			grid_samples = self.inverse(grid)
 
 		mesh_preds = self._predict_batches(grid_samples)
 		mesh_preds = mesh_preds + 1e-8
