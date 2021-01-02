@@ -207,14 +207,14 @@ class DeepView:
 
         for c in range(self.n_classes):
             color = self.cmap(c/(self.n_classes-1))
-            plot = self.ax.plot([], [], 'o', label=self.classes[c], ms=1,
+            plot = self.ax.plot([], [], '.', label=self.classes[c], ms=1,
                 color=color, zorder=2, picker=mpl.rcParams['lines.markersize'])
             self.sample_plots.append(plot[0])
 
         for c in range(self.n_classes):
             color = self.cmap(c/(self.n_classes-1))
             plot = self.ax.plot([], [], 'o', markeredgecolor=color,
-                fillstyle='none', ms=4, mew=2.5, zorder=1)
+                fillstyle='none', ms=3, mew=2.5, zorder=1)
             self.sample_plots.append(plot[0])
 
         # set the mouse-event listeners
@@ -295,6 +295,7 @@ class DeepView:
         # get predictions for the new samples
         Y_probs = self._predict_batches(samples)
         Y_preds = Y_probs.argmax(axis=1)
+        # Y_preds = np.zeros(len(samples))
         # add new values to the DeepView lists
         self.queue_samples(samples, labels, Y_preds)
 
@@ -331,6 +332,12 @@ class DeepView:
 
         mesh_preds = self._predict_batches(grid_samples)
         mesh_preds = mesh_preds + 1e-8
+        sort_preds = np.sort(mesh_preds)
+        diff = sort_preds[:, -1] - sort_preds[:, -2]
+        border = np.zeros(len(diff), dtype=np.uint8)+0.05
+        border[diff < 1.5] = 1
+        diff[border==0] = 0
+        # mesh_preds_norm = (mesh_preds - mesh_preds.min()) / (mesh_preds.max() - mesh_preds.min())
 
         self.mesh_classes = mesh_preds.argmax(axis=1)
         mesh_max_class = max(self.mesh_classes)
@@ -338,13 +345,18 @@ class DeepView:
         # get color of gridpoints
         color = self.cmap(self.mesh_classes/mesh_max_class)
         # scale colors by certainty
-        h = -(mesh_preds*np.log(mesh_preds)).sum(axis=1)/np.log(self.n_classes)
-        h = (h/h.max()).reshape(-1, 1)
+        # h = -(mesh_preds*np.log(mesh_preds)).sum(axis=1)/np.log(self.n_classes)
+#         h_norm = mesh_preds_norm.max(axis=1).reshape(-1, 1)
+#         h = (h/h.max()).reshape(-1, 1)
+        diff = (diff/diff.max()).reshape(-1,1)
         # adjust brightness
-        h = np.clip(h*self.clip_certainty, 0, 1)
-        color = color[:,0:3]
-        color = (1-h)*(0.5*color) + h*np.ones(color.shape, dtype=np.uint8)
+        # h = np.clip(h*self.clip_certainty, 0, 1)
+        color = color[:, 0:3]
+        # color = (1-h)*(0.5*color) + h*np.ones(color.shape, dtype=np.uint8)
+        color = diff*0.5*color + (1-diff)*np.ones(color.shape, dtype=np.uint8)
+        # color_norm = h_norm*(0.7*color) + (1-h_norm)*np.ones(color.shape, dtype=np.uint8)
         decision_view = color.reshape(self.resolution, self.resolution, 3)
+#         decision_view_norm = color_norm.reshape(self.resolution, self.resolution, 3)
         return decision_view
 
     def get_mesh_prediction_at(self, x, y):
