@@ -64,6 +64,20 @@ def get_graph_elements(graph_, n_epochs):
     return graph, epochs_per_sample, head, tail, weight, n_vertices
 
 
+def make_balance_per_sample(edges_to_exp, edges_from_exp, tptp_edges_num, dbpdbp_edges_num, tpdbp_edges_num, tp_num):
+    balance_per_sample = np.ones(shape=(len(edges_to_exp)))
+    dbpdbp_ratio = int(tptp_edges_num / dbpdbp_edges_num)
+    tpdbp_ratio = int(tptp_edges_num / tpdbp_edges_num)
+    balance_per_sample[(edges_to_exp >= tp_num) & (edges_from_exp >= tp_num)] = dbpdbp_ratio
+    balance_per_sample[(edges_to_exp < tp_num) & (edges_from_exp >= tp_num)] = tpdbp_ratio
+    #
+    # balance_per_sample = np.zeros(shape=(len(edges_to_exp)))
+    # balance_per_sample[(edges_to_exp < tp_num) & (edges_from_exp >= tp_num)] = 1
+
+    return balance_per_sample
+
+
+
 def construct_edge_dataset(
     X_input, graph_, n_epochs, batch_size, parametric_embedding, parametric_reconstruction,
 ):
@@ -89,10 +103,10 @@ def construct_edge_dataset(
         Whether the decoder is parametric or non-parametric
     """
 
-    def gather_X(edge_to, edge_from, dbp_ind):
-        edge_to_batch = tf.gather(X, edge_to)
-        edge_from_batch = tf.gather(X, edge_from)
-        dbp_batch = tf.gather(dbp, dbp_ind)
+    def gather_X(edge_to, edge_from, weight):
+        fitting_data = np.concatenate((X, dbp), axis=0)
+        edge_to_batch = tf.gather(fitting_data, edge_to)
+        edge_from_batch = tf.gather(fitting_data, edge_from)
 
         outputs = {"umap": 0}
         if parametric_reconstruction:
@@ -100,9 +114,11 @@ def construct_edge_dataset(
             # edge_out = tf.concat([edge_to_batch, edge_from_batch], axis=0)
             outputs["reconstruction"] = edge_to_batch
 
-        return (edge_to_batch, edge_from_batch, dbp_batch), outputs
+        return (edge_to_batch, edge_from_batch, weight), outputs
 
     X, dbp = X_input
+    tp_num = len(X)
+    dbp_num = len(dbp)
 
     # get data from graph
     graph, epochs_per_sample, head, tail, weight, n_vertices = get_graph_elements(
@@ -122,15 +138,32 @@ def construct_edge_dataset(
         np.repeat(tail, epochs_per_sample.astype("int")),
     )
 
+    weight = np.repeat(weight, epochs_per_sample.astype("int"))
+
+    # tptp_edges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp < tp_num))
+    # dbpdbp_edges_num = np.sum((edges_to_exp >= tp_num) & (edges_from_exp >= tp_num))
+    # tpdbp_edges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp >= tp_num))
+    #
+    # balance_per_sample = make_balance_per_sample(edges_to_exp, edges_from_exp,
+    #                                               tptp_edges_num, dbpdbp_edges_num, tpdbp_edges_num, tp_num)
+    #
+    # edges_to_exp, edges_from_exp = (
+    #     np.repeat(edges_to_exp, balance_per_sample.astype("int")),
+    #     np.repeat(edges_from_exp, balance_per_sample.astype("int")),
+    # )
+    # weight = np.repeat(weight, balance_per_sample.astype("int"))
+
+
     # shuffle edges
     shuffle_mask = np.random.permutation(range(len(edges_to_exp)))
     edges_to_exp = edges_to_exp[shuffle_mask].astype(np.int64)
     edges_from_exp = edges_from_exp[shuffle_mask].astype(np.int64)
-    dbp_exp = np.random.randint(0, high=len(dbp), size=len(edges_to_exp), dtype=np.int64)
+    weight = weight[shuffle_mask].astype(np.float64)
+    weight = np.expand_dims(weight, axis=1)
 
     # create edge iterator
     edge_dataset = tf.data.Dataset.from_tensor_slices(
-        (edges_to_exp, edges_from_exp, dbp_exp)
+        (edges_to_exp, edges_from_exp, weight)
     )
     edge_dataset = edge_dataset.repeat()
     edge_dataset = edge_dataset.shuffle(10000)
@@ -166,7 +199,7 @@ def umap_loss(
         distance parameter in embedding space
     _b : float float
         distance parameter in embedding space
-    edge_weights : array
+    edge_weights : array, (batch_size, 1)
         weights of all edges from sparse UMAP graph
     parametric_embedding : bool
         whether the embeddding is parametric or nonparametric
@@ -179,16 +212,17 @@ def umap_loss(
         loss function that takes in a placeholder (0) and the output of the keras network
     """
 
-    if not parametric_embedding:
-        # multiply loss by weights for nonparametric
-        weights_tiled = np.tile(edge_weights, negative_sample_rate + 1)
+    # if not parametric_embedding:
+    #     # multiply loss by weights for nonparametric
+    #     weights_tiled = np.tile(edge_weights, negative_sample_rate + 1)
 
     @tf.function
     def loss(placeholder_y, embed_to_from):
         # split out to/from
-        embedding_to, embedding_from, embedding_dbp = tf.split(
-            embed_to_from, num_or_size_splits=3, axis=1
+        embedding_to, embedding_from, weights = tf.split(
+            embed_to_from, num_or_size_splits=[2, 2, 1], axis=1
         )
+        # embedding_to, embedding_from, weight = embed_to_from
 
         # get negative samples
         embedding_neg_to = tf.repeat(embedding_to, negative_sample_rate, axis=0)
@@ -197,27 +231,11 @@ def umap_loss(
             repeat_neg, tf.random.shuffle(tf.range(tf.shape(repeat_neg)[0]))
         )
 
-        # DBP/DBP pair
-        embedding_neg_to_dbp = tf.repeat(embedding_dbp, 1, axis=0)
-        repeat_neg_dbp = tf.repeat(embedding_dbp, 1, axis=0)
-        embedding_neg_from_dbp = tf.gather(
-            repeat_neg_dbp, tf.random.shuffle(tf.range(tf.shape(repeat_neg_dbp)[0]))
-        )
-
-        # DBP/TP pair
-        embedding_neg_to_tpdbp = tf.repeat(embedding_to, 1, axis=0)
-        repeat_neg_tpdbp = tf.repeat(embedding_dbp, 1, axis=0)
-        embedding_neg_from_tpdbp = tf.gather(
-            repeat_neg_tpdbp, tf.random.shuffle(tf.range(tf.shape(repeat_neg_tpdbp)[0]))
-        )
-
         #  distances between samples (and negative samples)
         distance_embedding = tf.concat(
             (
                 tf.norm(embedding_to - embedding_from, axis=1),
                 tf.norm(embedding_neg_to - embedding_neg_from, axis=1),
-                tf.norm(embedding_neg_to_dbp - embedding_neg_from_dbp, axis=1),
-                tf.norm(embedding_neg_to_tpdbp - embedding_neg_from_tpdbp, axis=1),
             ),
             axis=0,
         )
@@ -229,25 +247,70 @@ def umap_loss(
 
         # set true probabilities based on negative sampling
         probabilities_graph = tf.concat(
-            (tf.ones(batch_size), tf.zeros(batch_size * (negative_sample_rate + 2))), axis=0,
+            (tf.ones(batch_size), tf.zeros(batch_size * negative_sample_rate)), axis=0,
+        )
+        probabilities = tf.concat(
+            (tf.squeeze(weights), tf.zeros(batch_size * negative_sample_rate)), axis=0,
         )
 
         # compute cross entropy
         (attraction_loss, repellant_loss, ce_loss) = compute_cross_entropy(
             probabilities_graph,
             probabilities_distance,
+            probabilities_graph,
             repulsion_strength=repulsion_strength,
         )
 
-        if not parametric_embedding:
-            ce_loss = ce_loss * weights_tiled
+        # if not parametric_embedding:
+        #     ce_loss = ce_loss * weights_tiled
 
         return tf.reduce_mean(ce_loss)
 
     return loss
 
+def tpdbp_loss():
+    """
+    Generate a keras-ccompatible loss function for UMAP loss
+
+    Parameters
+    ----------
+    batch_size : int
+        size of mini-batches
+    negative_sample_rate : int
+        number of negative samples per positive samples to train on
+    _a : float
+        distance parameter in embedding space
+    _b : float float
+        distance parameter in embedding space
+    edge_weights : array, (batch_size, 1)
+        weights of all edges from sparse UMAP graph
+    parametric_embedding : bool
+        whether the embeddding is parametric or nonparametric
+    repulsion_strength : float, optional
+        strength of repulsion vs attraction for cross-entropy, by default 1.0
+
+    Returns
+    -------
+    loss : function
+        loss function that takes in a placeholder (0) and the output of the keras network
+    """
+
+    # if not parametric_embedding:
+    #     # multiply loss by weights for nonparametric
+    #     weights_tiled = np.tile(edge_weights, negative_sample_rate + 1)
+
+    @tf.function
+    def loss(placeholder_y, weights):
+        # split out to/from
+        weights = tf.squeeze(weights)
+        smallweights = (weights > 0.5)
+
+        num = tf.math.reduce_sum(tf.cast(smallweights, tf.float64))
+        return num
+    return loss
+
 def compute_cross_entropy(
-    probabilities_graph, probabilities_distance, EPS=1e-4, repulsion_strength=1.0
+    probabilities_graph, probabilities_distance, probabilities, EPS=1e-4, repulsion_strength=1.0
 ):
     """
     Compute cross entropy between low and high probability
@@ -258,6 +321,8 @@ def compute_cross_entropy(
         high dimensional probabilities
     probabilities_distance : array
         low dimensional probabilities
+    probabilities : array
+        edge weights + zeros
     EPS : float, optional
         offset to to ensure log is taken of a positive number, by default 1e-4
     repulsion_strength : float, optional
@@ -274,8 +339,9 @@ def compute_cross_entropy(
 
     """
     # cross entropy
-    attraction_term = -probabilities_graph * tf.math.log(
-        tf.clip_by_value(probabilities_distance, EPS, 1.0)
+    attraction_term = (
+            probabilities * tf.math.log(tf.clip_by_value(probabilities, EPS, 1.0))
+            - probabilities * tf.math.log(tf.clip_by_value(probabilities_distance, EPS, 1.0))
     )
     repellant_term = (
         -(1.0 - probabilities_graph)
