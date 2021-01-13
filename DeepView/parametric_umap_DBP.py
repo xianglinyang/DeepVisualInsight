@@ -65,11 +65,12 @@ def get_graph_elements(graph_, n_epochs):
 
 
 def make_balance_per_sample(edges_to_exp, edges_from_exp, tptp_edges_num, dbpdbp_edges_num, tpdbp_edges_num, tp_num):
-    balance_per_sample = np.ones(shape=(len(edges_to_exp)))
+    balance_per_sample = np.zeros(shape=(len(edges_to_exp)))
     dbpdbp_ratio = int(tptp_edges_num / dbpdbp_edges_num)
     tpdbp_ratio = int(tptp_edges_num / tpdbp_edges_num)
-    balance_per_sample[(edges_to_exp >= tp_num) & (edges_from_exp >= tp_num)] = dbpdbp_ratio
-    balance_per_sample[(edges_to_exp < tp_num) & (edges_from_exp >= tp_num)] = tpdbp_ratio
+    balance_per_sample[(edges_to_exp >= tp_num) & (edges_from_exp >= tp_num)] = 1
+    balance_per_sample[(edges_to_exp < tp_num) & (edges_from_exp >= tp_num)] = 1
+    balance_per_sample[(edges_to_exp >= tp_num) & (edges_from_exp < tp_num)] = 1
     #
     # balance_per_sample = np.zeros(shape=(len(edges_to_exp)))
     # balance_per_sample[(edges_to_exp < tp_num) & (edges_from_exp >= tp_num)] = 1
@@ -140,18 +141,20 @@ def construct_edge_dataset(
 
     weight = np.repeat(weight, epochs_per_sample.astype("int"))
 
-    # tptp_edges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp < tp_num))
-    # dbpdbp_edges_num = np.sum((edges_to_exp >= tp_num) & (edges_from_exp >= tp_num))
-    # tpdbp_edges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp >= tp_num))
-    #
-    # balance_per_sample = make_balance_per_sample(edges_to_exp, edges_from_exp,
-    #                                               tptp_edges_num, dbpdbp_edges_num, tpdbp_edges_num, tp_num)
-    #
-    # edges_to_exp, edges_from_exp = (
-    #     np.repeat(edges_to_exp, balance_per_sample.astype("int")),
-    #     np.repeat(edges_from_exp, balance_per_sample.astype("int")),
-    # )
-    # weight = np.repeat(weight, balance_per_sample.astype("int"))
+    tptp_edges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp < tp_num))
+    dbpdbp_edges_num = np.sum((edges_to_exp >= tp_num) & (edges_from_exp >= tp_num))
+    tpdbp_edges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp >= tp_num)) + \
+                      np.sum((edges_to_exp >= tp_num) & (edges_from_exp < tp_num))
+
+
+    balance_per_sample = make_balance_per_sample(edges_to_exp, edges_from_exp,
+                                                  tptp_edges_num, dbpdbp_edges_num, tpdbp_edges_num, tp_num)
+
+    edges_to_exp, edges_from_exp = (
+        np.repeat(edges_to_exp, balance_per_sample.astype("int")),
+        np.repeat(edges_from_exp, balance_per_sample.astype("int")),
+    )
+    weight = np.repeat(weight, balance_per_sample.astype("int"))
 
 
     # shuffle edges
@@ -340,7 +343,7 @@ def compute_cross_entropy(
     """
     # cross entropy
     attraction_term = (
-            probabilities * tf.math.log(tf.clip_by_value(probabilities, EPS, 1.0))
+            # probabilities * tf.math.log(tf.clip_by_value(probabilities, EPS, 1.0))
             - probabilities * tf.math.log(tf.clip_by_value(probabilities_distance, EPS, 1.0))
     )
     repellant_term = (
