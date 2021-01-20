@@ -273,6 +273,11 @@ class ParametricUMAP(UMAP):
         #     )
 
         # get dataset of edges
+        # TODO
+        # FIXME
+        # hard code partition of X
+        train_data = X[:50000]
+        border_center = X[50000:]
         (
             edge_dataset,
             self.batch_size,
@@ -281,7 +286,7 @@ class ParametricUMAP(UMAP):
             tail,
             self.edge_weight,
         ) = construct_edge_dataset(
-            X,
+            (train_data, border_center),
             self.graph_,
             self.n_epochs,
             self.batch_size,
@@ -756,7 +761,7 @@ def prepare_networks(
 
 
 def construct_edge_dataset(
-    X, graph_, n_epochs, batch_size, parametric_embedding, parametric_reconstruction,
+    X_input, graph_, n_epochs, batch_size, parametric_embedding, parametric_reconstruction,
 ):
     """
     Construct a tf.data.Dataset of edges, sampled by edge weight.
@@ -778,8 +783,9 @@ def construct_edge_dataset(
     """
 
     def gather_X(edge_to, edge_from):
-        edge_to_batch = tf.gather(X, edge_to)
-        edge_from_batch = tf.gather(X, edge_from)
+        fitting_data = np.concatenate((X, dbp), axis=0)
+        edge_to_batch = tf.gather(fitting_data, edge_to)
+        edge_from_batch = tf.gather(fitting_data, edge_from)
         outputs = {"umap": 0}
         if parametric_reconstruction:
             # add reconstruction to iterator output
@@ -799,6 +805,10 @@ def construct_edge_dataset(
 
         return sham_generator
 
+    X, dbp = X_input
+    tp_num = len(X)
+    dbp_num = len(dbp)
+
     # get data from graph
     graph, epochs_per_sample, head, tail, weight, n_vertices = get_graph_elements(
         graph_, n_epochs
@@ -816,11 +826,28 @@ def construct_edge_dataset(
         np.repeat(head, epochs_per_sample.astype("int")),
         np.repeat(tail, epochs_per_sample.astype("int")),
     )
+    # weight = np.repeat(weight, epochs_per_sample.astype("int"))
+
+    tptp_edges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp < tp_num))
+    dbpdbp_edges_num = np.sum((edges_to_exp >= tp_num) & (edges_from_exp >= tp_num))
+    tpdbp_edges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp >= tp_num)) + np.sum(
+        (edges_to_exp >= tp_num) & (edges_from_exp < tp_num))
+
+    balance_per_sample = make_balance_per_sample(edges_to_exp, edges_from_exp,
+                                                 tptp_edges_num, dbpdbp_edges_num, tpdbp_edges_num, tp_num)
+
+    edges_to_exp, edges_from_exp = (
+        np.repeat(edges_to_exp, balance_per_sample.astype("int")),
+        np.repeat(edges_from_exp, balance_per_sample.astype("int")),
+    )
+    # weight = np.repeat(weight, balance_per_sample.astype("int"))
 
     # shuffle edges
     shuffle_mask = np.random.permutation(range(len(edges_to_exp)))
     edges_to_exp = edges_to_exp[shuffle_mask].astype(np.int64)
     edges_from_exp = edges_from_exp[shuffle_mask].astype(np.int64)
+    # weight = weight[shuffle_mask].astype(np.float64)
+    # weight = np.expand_dims(weight, axis=1)
 
     # create edge iterator
     if parametric_embedding:
@@ -830,7 +857,8 @@ def construct_edge_dataset(
         edge_dataset = edge_dataset.repeat()
         edge_dataset = edge_dataset.shuffle(10000)
         edge_dataset = edge_dataset.map(
-            gather_X, num_parallel_calls=tf.data.experimental.AUTOTUNE
+            # gather_X, num_parallel_calls=tf.data.experimental.AUTOTUNE
+            gather_X
         )
         edge_dataset = edge_dataset.batch(batch_size, drop_remainder=True)
         edge_dataset = edge_dataset.prefetch(10)
@@ -937,3 +965,16 @@ def load_ParametricUMAP(save_location, verbose=True):
         print("Keras full model loaded from {}".format(parametric_model_output))
 
     return model
+
+def make_balance_per_sample(edges_to_exp, edges_from_exp, tptp_edges_num, dbpdbp_edges_num, tpdbp_edges_num, tp_num):
+    balance_per_sample = np.ones(shape=(len(edges_to_exp)))
+    dbpdbp_ratio = int(tptp_edges_num / dbpdbp_edges_num)
+    tpdbp_ratio = int(tptp_edges_num / tpdbp_edges_num)
+    balance_per_sample[(edges_to_exp >= tp_num) & (edges_from_exp >= tp_num)] = int(dbpdbp_ratio/2)  #dbpdbp)
+    balance_per_sample[(edges_to_exp < tp_num) & (edges_from_exp >= tp_num)] = int(tpdbp_ratio*2)    #tpdbp
+    balance_per_sample[(edges_to_exp >= tp_num) & (edges_from_exp < tp_num)] = int(tpdbp_ratio*2)   #dbptp
+    #
+    # balance_per_sample = np.zeros(shape=(len(edges_to_exp)))
+    # balance_per_sample[(edges_to_exp < tp_num) & (edges_from_exp >= tp_num)] = 1
+
+    return balance_per_sample
