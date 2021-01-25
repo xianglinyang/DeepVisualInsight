@@ -68,9 +68,9 @@ def make_balance_per_sample(edges_to_exp, edges_from_exp, tptp_edges_num, dbpdbp
     balance_per_sample = np.zeros(shape=(len(edges_to_exp)))
     dbpdbp_ratio = int(tptp_edges_num / dbpdbp_edges_num)
     tpdbp_ratio = int(tptp_edges_num / tpdbp_edges_num)
-    balance_per_sample[(edges_to_exp >= tp_num) & (edges_from_exp >= tp_num)] = 1
-    balance_per_sample[(edges_to_exp < tp_num) & (edges_from_exp >= tp_num)] = 1
-    balance_per_sample[(edges_to_exp >= tp_num) & (edges_from_exp < tp_num)] = 1
+    # balance_per_sample[(edges_to_exp >= tp_num) & (edges_from_exp >= tp_num)] = 0  #dbpdbp)
+    balance_per_sample[(edges_to_exp < tp_num) & (edges_from_exp >= tp_num)] = 1    #tpdbp
+    balance_per_sample[(edges_to_exp >= tp_num) & (edges_from_exp < tp_num)] = 1   #dbptp
     #
     # balance_per_sample = np.zeros(shape=(len(edges_to_exp)))
     # balance_per_sample[(edges_to_exp < tp_num) & (edges_from_exp >= tp_num)] = 1
@@ -141,20 +141,19 @@ def construct_edge_dataset(
 
     weight = np.repeat(weight, epochs_per_sample.astype("int"))
 
-    tptp_edges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp < tp_num))
-    dbpdbp_edges_num = np.sum((edges_to_exp >= tp_num) & (edges_from_exp >= tp_num))
-    tpdbp_edges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp >= tp_num)) + \
-                      np.sum((edges_to_exp >= tp_num) & (edges_from_exp < tp_num))
-
-
-    balance_per_sample = make_balance_per_sample(edges_to_exp, edges_from_exp,
-                                                  tptp_edges_num, dbpdbp_edges_num, tpdbp_edges_num, tp_num)
-
-    edges_to_exp, edges_from_exp = (
-        np.repeat(edges_to_exp, balance_per_sample.astype("int")),
-        np.repeat(edges_from_exp, balance_per_sample.astype("int")),
-    )
-    weight = np.repeat(weight, balance_per_sample.astype("int"))
+    # tptp_edges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp < tp_num))
+    # dbpdbp_edges_num = np.sum((edges_to_exp >= tp_num) & (edges_from_exp >= tp_num))
+    # tpdbp_edges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp >= tp_num)) + np.sum((edges_to_exp >= tp_num) & (edges_from_exp < tp_num))
+    #
+    #
+    # balance_per_sample = make_balance_per_sample(edges_to_exp, edges_from_exp,
+    #                                               tptp_edges_num, dbpdbp_edges_num, tpdbp_edges_num, tp_num)
+    #
+    # edges_to_exp, edges_from_exp = (
+    #     np.repeat(edges_to_exp, balance_per_sample.astype("int")),
+    #     np.repeat(edges_from_exp, balance_per_sample.astype("int")),
+    # )
+    # weight = np.repeat(weight, balance_per_sample.astype("int"))
 
 
     # shuffle edges
@@ -260,7 +259,6 @@ def umap_loss(
         (attraction_loss, repellant_loss, ce_loss) = compute_cross_entropy(
             probabilities_graph,
             probabilities_distance,
-            probabilities_graph,
             repulsion_strength=repulsion_strength,
         )
 
@@ -313,7 +311,7 @@ def tpdbp_loss():
     return loss
 
 def compute_cross_entropy(
-    probabilities_graph, probabilities_distance, probabilities, EPS=1e-4, repulsion_strength=1.0
+    probabilities_graph, probabilities_distance, EPS=1e-4, repulsion_strength=1.0
 ):
     """
     Compute cross entropy between low and high probability
@@ -341,15 +339,28 @@ def compute_cross_entropy(
         cross entropy umap loss
 
     """
+    # # cross entropy
+    # attraction_term = (
+    #         # probabilities * tf.math.log(tf.clip_by_value(probabilities, EPS, 1.0))
+    #         - probabilities * tf.math.log(tf.clip_by_value(probabilities_distance, EPS, 1.0))
+    # )
+    # repellant_term = (
+    #     -(1.0 - probabilities_graph)
+    #     * tf.math.log(tf.clip_by_value(1.0 - probabilities_distance, EPS, 1.0))
+    #     * repulsion_strength
+    # )
+    #
+    # # balance the expected losses between atrraction and repel
+    # CE = attraction_term + repellant_term
+    # return attraction_term, repellant_term, CE
     # cross entropy
-    attraction_term = (
-            # probabilities * tf.math.log(tf.clip_by_value(probabilities, EPS, 1.0))
-            - probabilities * tf.math.log(tf.clip_by_value(probabilities_distance, EPS, 1.0))
+    attraction_term = -probabilities_graph * tf.math.log(
+        tf.clip_by_value(probabilities_distance, EPS, 1.0)
     )
     repellant_term = (
-        -(1.0 - probabilities_graph)
-        * tf.math.log(tf.clip_by_value(1.0 - probabilities_distance, EPS, 1.0))
-        * repulsion_strength
+            -(1.0 - probabilities_graph)
+            * tf.math.log(tf.clip_by_value(1.0 - probabilities_distance, EPS, 1.0))
+            * repulsion_strength
     )
 
     # balance the expected losses between atrraction and repel
