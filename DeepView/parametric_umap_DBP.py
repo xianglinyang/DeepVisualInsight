@@ -64,16 +64,11 @@ def get_graph_elements(graph_, n_epochs):
     return graph, epochs_per_sample, head, tail, weight, n_vertices
 
 
-def make_balance_per_sample(edges_to_exp, edges_from_exp, tptp_edges_num, dbpdbp_edges_num, tpdbp_edges_num, tp_num):
+def make_balance_per_sample(edges_to_exp, edges_from_exp, cp_num, centers_num, bc_num):
     balance_per_sample = np.zeros(shape=(len(edges_to_exp)))
-    dbpdbp_ratio = int(tptp_edges_num / dbpdbp_edges_num)
-    tpdbp_ratio = int(tptp_edges_num / tpdbp_edges_num)
-    # balance_per_sample[(edges_to_exp >= tp_num) & (edges_from_exp >= tp_num)] = 0  #dbpdbp)
-    balance_per_sample[(edges_to_exp < tp_num) & (edges_from_exp >= tp_num)] = 1    #tpdbp
-    balance_per_sample[(edges_to_exp >= tp_num) & (edges_from_exp < tp_num)] = 1   #dbptp
-    #
-    # balance_per_sample = np.zeros(shape=(len(edges_to_exp)))
-    # balance_per_sample[(edges_to_exp < tp_num) & (edges_from_exp >= tp_num)] = 1
+    balance_per_sample[(edges_to_exp < cp_num) & (edges_from_exp < cp_num)] = 1
+    balance_per_sample[(edges_to_exp < (cp_num+centers_num)) & (edges_from_exp >= (cp_num + centers_num))] = 1
+    balance_per_sample[(edges_to_exp >= (cp_num + centers_num)) & (edges_from_exp < (cp_num+centers_num))] = 1
 
     return balance_per_sample
 
@@ -141,7 +136,7 @@ def construct_edge_dataset(
 
     weight = np.repeat(weight, epochs_per_sample.astype("int"))
 
-    # tptp_edges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp < tp_num))
+    # tptp_ed    ges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp < tp_num))
     # dbpdbp_edges_num = np.sum((edges_to_exp >= tp_num) & (edges_from_exp >= tp_num))
     # tpdbp_edges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp >= tp_num)) + np.sum((edges_to_exp >= tp_num) & (edges_from_exp < tp_num))
     #
@@ -177,6 +172,105 @@ def construct_edge_dataset(
     edge_dataset = edge_dataset.prefetch(10)
 
     return edge_dataset, batch_size, len(edges_to_exp), head, tail, weight
+
+def construct_mixed_edge_dataset(
+    X_input, old_graph_, new_graph_, n_epochs, batch_size, parametric_embedding, parametric_reconstruction,
+):
+    """
+    Construct a tf.data.Dataset of edges, sampled by edge weight.
+
+    Parameters
+    ----------
+    X : list, [X, DBP_samples]
+        X : array, shape (n_samples, n_features)
+            New data to be transformed.
+        DBP_samples : array, shape(n_samples, n_features)
+            distant border points to be transformed.
+    old_graph_ : scipy.sparse.csr.csr_matrix
+        Generated UMAP graph
+    new_graph_: scipy.sparse.csr.csr_matrix
+        Generated UMAP graph
+    n_epochs : int
+        # of epochs to train each edge
+    batch_size : int
+        batch size
+    parametric_embedding : bool
+        Whether the embedder is parametric or non-parametric
+    parametric_reconstruction : bool
+        Whether the decoder is parametric or non-parametric
+    """
+
+    def gather_X(edge_to, edge_from, weight):
+        edge_to_batch = tf.gather(fitting_data, edge_to)
+        edge_from_batch = tf.gather(fitting_data, edge_from)
+
+        outputs = {"umap": 0}
+        if parametric_reconstruction:
+            # add reconstruction to iterator output
+            # edge_out = tf.concat([edge_to_batch, edge_from_batch], axis=0)
+            outputs["reconstruction"] = edge_to_batch
+
+        return (edge_to_batch, edge_from_batch, weight), outputs
+
+    train_data, centers, border_centers = X_input
+    cp_num = len(train_data)
+    centers_num = len(centers)
+    bc_num = len(border_centers)
+    fitting_data = np.concatenate((train_data,centers, border_centers), axis=0)
+
+    # get data from graph
+    old_graph, old_epochs_per_sample, old_head, old_tail, old_weight, old_n_vertices = get_graph_elements(
+        old_graph_, n_epochs
+    )
+    # get data from graph
+    new_graph, new_epochs_per_sample, new_head, new_tail, new_weight, new_n_vertices = get_graph_elements(
+        new_graph_, n_epochs
+    )
+    ## normalize two graphs
+    new_head = new_head + cp_num
+    new_tail = new_tail + cp_num
+
+    # number of elements per batch for embedding
+    if batch_size is None:
+        # batch size randomly choose a number as batch_size if batch_size is None
+        batch_size = 1000
+    edges_to_exp = np.concatenate((np.repeat(old_head, old_epochs_per_sample.astype("int")),
+                                   np.repeat(new_head, new_epochs_per_sample.astype("int"))), axis=0)
+    edges_from_exp = np.concatenate((np.repeat(old_tail, old_epochs_per_sample.astype("int")),
+                                   np.repeat(new_tail, new_epochs_per_sample.astype("int"))), axis=0)
+
+    weight = np.concatenate((np.repeat(old_weight, old_epochs_per_sample.astype("int")),
+                             np.repeat(new_weight, new_epochs_per_sample.astype("int"))), axis=0)
+
+    balance_per_sample = make_balance_per_sample(edges_to_exp, edges_from_exp, cp_num, centers_num, bc_num)
+
+    edges_to_exp, edges_from_exp = (
+        np.repeat(edges_to_exp, balance_per_sample.astype("int")),
+        np.repeat(edges_from_exp, balance_per_sample.astype("int")),
+    )
+    weight = np.repeat(weight, balance_per_sample.astype("int"))
+
+    # shuffle edges
+    shuffle_mask = np.random.permutation(range(len(edges_to_exp)))
+    edges_to_exp = edges_to_exp[shuffle_mask].astype(np.int64)
+    edges_from_exp = edges_from_exp[shuffle_mask].astype(np.int64)
+    weight = weight[shuffle_mask].astype(np.float64)
+    weight = np.expand_dims(weight, axis=1)
+
+    # create edge iterator
+    edge_dataset = tf.data.Dataset.from_tensor_slices(
+        (edges_to_exp, edges_from_exp, weight)
+    )
+    edge_dataset = edge_dataset.repeat()
+    edge_dataset = edge_dataset.shuffle(10000)
+    edge_dataset = edge_dataset.map(
+        # gather_X, num_parallel_calls=tf.data.experimental.AUTOTUNE
+        gather_X
+    )
+    edge_dataset = edge_dataset.batch(batch_size, drop_remainder=True)
+    edge_dataset = edge_dataset.prefetch(10)
+
+    return edge_dataset, batch_size, len(edges_to_exp), weight
 
 
 def umap_loss(
