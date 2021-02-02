@@ -67,10 +67,20 @@ def get_graph_elements(graph_, n_epochs):
 def make_balance_per_sample(edges_to_exp, edges_from_exp, cp_num, centers_num, bc_num):
     balance_per_sample = np.zeros(shape=(len(edges_to_exp)))
     balance_per_sample[(edges_to_exp < cp_num) & (edges_from_exp < cp_num)] = 1
-    balance_per_sample[(edges_to_exp < (cp_num+centers_num)) & (edges_from_exp >= (cp_num + centers_num))] = 1
-    balance_per_sample[(edges_to_exp >= (cp_num + centers_num)) & (edges_from_exp < (cp_num+centers_num))] = 1
+    # balance_per_sample[(edges_to_exp < (cp_num+centers_num)) & (edges_from_exp >= (cp_num + centers_num))] = 1
+    # balance_per_sample[(edges_to_exp >= (cp_num + centers_num)) & (edges_from_exp < (cp_num+centers_num))] = 1
+    # balance_per_sample[(edges_to_exp < 5000) & (edges_from_exp >= 5000)] = 1
+    # balance_per_sample[(edges_to_exp >= 5000) & (edges_from_exp < 5000)] = 1
 
     return balance_per_sample
+
+# def make_balance_per_sample(edges_to_exp, edges_from_exp, cp_num, centers_num, bc_num):
+#     balance_per_sample = np.ones(shape=(len(edges_to_exp)))
+#     # balance_per_sample[(edges_to_exp < cp_num) & (edges_from_exp < cp_num)] = 1
+#     balance_per_sample[(edges_to_exp >= 5000) & (edges_from_exp >= 5000)] = 0
+#     # balance_per_sample[(edges_to_exp >= (cp_num + centers_num)) & (edges_from_exp < (cp_num+centers_num))] = 1
+#
+#     return balance_per_sample
 
 
 
@@ -136,20 +146,19 @@ def construct_edge_dataset(
 
     weight = np.repeat(weight, epochs_per_sample.astype("int"))
 
-    # tptp_ed    ges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp < tp_num))
+    # tptp_edges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp < tp_num))
     # dbpdbp_edges_num = np.sum((edges_to_exp >= tp_num) & (edges_from_exp >= tp_num))
     # tpdbp_edges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp >= tp_num)) + np.sum((edges_to_exp >= tp_num) & (edges_from_exp < tp_num))
-    #
-    #
-    # balance_per_sample = make_balance_per_sample(edges_to_exp, edges_from_exp,
-    #                                               tptp_edges_num, dbpdbp_edges_num, tpdbp_edges_num, tp_num)
+
+
+    # balance_per_sample = make_balance_per_sample(edges_to_exp, edges_from_exp, tp_num, tp_num, dbp_num)
     #
     # edges_to_exp, edges_from_exp = (
     #     np.repeat(edges_to_exp, balance_per_sample.astype("int")),
     #     np.repeat(edges_from_exp, balance_per_sample.astype("int")),
     # )
     # weight = np.repeat(weight, balance_per_sample.astype("int"))
-
+    #
 
     # shuffle edges
     shuffle_mask = np.random.permutation(range(len(edges_to_exp)))
@@ -242,13 +251,13 @@ def construct_mixed_edge_dataset(
     weight = np.concatenate((np.repeat(old_weight, old_epochs_per_sample.astype("int")),
                              np.repeat(new_weight, new_epochs_per_sample.astype("int"))), axis=0)
 
-    balance_per_sample = make_balance_per_sample(edges_to_exp, edges_from_exp, cp_num, centers_num, bc_num)
-
-    edges_to_exp, edges_from_exp = (
-        np.repeat(edges_to_exp, balance_per_sample.astype("int")),
-        np.repeat(edges_from_exp, balance_per_sample.astype("int")),
-    )
-    weight = np.repeat(weight, balance_per_sample.astype("int"))
+    # balance_per_sample = make_balance_per_sample(edges_to_exp, edges_from_exp, cp_num, centers_num, bc_num)
+    #
+    # edges_to_exp, edges_from_exp = (
+    #     np.repeat(edges_to_exp, balance_per_sample.astype("int")),
+    #     np.repeat(edges_from_exp, balance_per_sample.astype("int")),
+    # )
+    # weight = np.repeat(weight, balance_per_sample.astype("int"))
 
     # shuffle edges
     shuffle_mask = np.random.permutation(range(len(edges_to_exp)))
@@ -271,6 +280,12 @@ def construct_mixed_edge_dataset(
     edge_dataset = edge_dataset.prefetch(10)
 
     return edge_dataset, batch_size, len(edges_to_exp), weight
+
+def temporal_loss():
+    @tf.function
+    def loss(placeholder_y, x):
+        return tf.reduce_mean(x)
+    return loss
 
 
 def umap_loss(
@@ -361,47 +376,6 @@ def umap_loss(
 
         return tf.reduce_mean(ce_loss)
 
-    return loss
-
-def tpdbp_loss():
-    """
-    Generate a keras-ccompatible loss function for UMAP loss
-
-    Parameters
-    ----------
-    batch_size : int
-        size of mini-batches
-    negative_sample_rate : int
-        number of negative samples per positive samples to train on
-    _a : float
-        distance parameter in embedding space
-    _b : float float
-        distance parameter in embedding space
-    edge_weights : array, (batch_size, 1)
-        weights of all edges from sparse UMAP graph
-    parametric_embedding : bool
-        whether the embeddding is parametric or nonparametric
-    repulsion_strength : float, optional
-        strength of repulsion vs attraction for cross-entropy, by default 1.0
-
-    Returns
-    -------
-    loss : function
-        loss function that takes in a placeholder (0) and the output of the keras network
-    """
-
-    # if not parametric_embedding:
-    #     # multiply loss by weights for nonparametric
-    #     weights_tiled = np.tile(edge_weights, negative_sample_rate + 1)
-
-    @tf.function
-    def loss(placeholder_y, weights):
-        # split out to/from
-        weights = tf.squeeze(weights)
-        smallweights = (weights > 0.5)
-
-        num = tf.math.reduce_sum(tf.cast(smallweights, tf.float64))
-        return num
     return loss
 
 def compute_cross_entropy(
