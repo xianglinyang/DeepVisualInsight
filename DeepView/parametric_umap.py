@@ -114,7 +114,7 @@ class ParametricUMAP(UMAP):
 
         # how many epochs to train for (different than n_epochs which is specific to each sample)
         self.n_training_epochs = n_training_epochs
-        self.negative_sample_rate = negative_sampling_rate
+        self.negative_sampling_rate = negative_sampling_rate
         # set optimizer
         if optimizer is None:
             if parametric_embedding:
