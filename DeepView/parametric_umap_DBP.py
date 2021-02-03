@@ -9,6 +9,8 @@ from sklearn.utils import check_random_state
 import codecs, pickle
 from sklearn.neighbors import KDTree
 import tensorflow as tf
+from sklearn.cluster import DBSCAN
+from sklearn.cluster import KMeans
 
 def get_graph_elements(graph_, n_epochs):
     """
@@ -437,3 +439,25 @@ def compute_cross_entropy(
 
 def convert_distance_to_probability(distances, a=1.0, b=1.0):
     return 1.0 / (1.0 + a * distances ** (2 * b))
+
+
+def find_centers(train_data, num_tot):
+    """
+    find the center points of training data
+    :param train_data:
+    :return: centers
+    """
+    clustering = DBSCAN(eps=.5, min_samples=10).fit_predict(train_data)
+    cluster_num = clustering.max() + 1
+
+    cluster_center_num = num_tot / cluster_num
+    centers = np.zeros(shape=(num_tot, train_data.shape[1]))
+    for i in range(cluster_num):
+        r1 = i*cluster_center_num
+        r2 = (i+1)*cluster_center_num
+        index = np.argwhere(clustering == i).squeeze()
+        c = train_data[index]
+        kmeans = KMeans(n_clusters=cluster_center_num, random_state=0).fit(c)
+        centers[r1:r2] = kmeans.cluster_centers_
+    return centers
+
