@@ -469,12 +469,17 @@ def define_autoencoder(dims, n_components, units, encoder=None, decoder=None):
         return encoder, decoder
 
 
-def define_model(dims, encoder, decoder):
+def define_model(dims, low_dims, encoder, decoder, temporal):
     # inputs
     to_x = tf.keras.layers.Input(shape=dims, name="to_x")
     from_x = tf.keras.layers.Input(shape=dims, name="from_x")
     weight = tf.keras.layers.Input(shape=(1,), name="weight")
-    inputs = (to_x, from_x, weight)
+    if not temporal:
+        inputs = (to_x, from_x, weight)
+    else:
+        to_alpha = tf.keras.layers.Input(shape=(1, ), name="to_alpha")
+        to_px = tf.keras.layers.Input(shape=(low_dims,), name="to_px")
+        inputs = (to_x, from_x, to_alpha, to_px, weight)
 
     # parametric embedding
     embedding_to = encoder(to_x)
@@ -497,11 +502,18 @@ def define_model(dims, encoder, decoder):
 
     outputs["umap"] = embedding_to_from
 
+    if temporal:
+        embedding_diff = tf.concat((to_px, embedding_to, to_alpha), axis=1)
+        embedding_diff = tf.keras.layers.Lambda(lambda x: x, name="temporal")(
+            embedding_diff
+        )
+        outputs["temporal"] = embedding_diff
+
     parametric_model = tf.keras.Model(inputs=inputs, outputs=outputs,)
     return parametric_model
 
 
-def define_losses(batch_size):
+def define_losses(batch_size, n_epoch, tot_epochs, temporal):
     # compile models
     losses = {}
     loss_weights = {}
@@ -525,6 +537,19 @@ def define_losses(batch_size):
     losses["reconstruction"] = tf.keras.losses.MeanSquaredError()
     loss_weights["reconstruction"] = 1.0
 
+    if temporal:
+        ratio = n_epoch / float(tot_epochs)
+        C = 1.0
+        if ratio <= 0.3:
+            C = 0
+        elif ratio <= 0.5:
+            C = 0.3
+        elif ratio <= 0.8:
+            C = 0.5
+        temporal_loss_fn = temporal_loss()
+        losses["temporal"] = temporal_loss_fn
+        loss_weights["temporal"] = C
+
     return losses, loss_weights
 
 
@@ -547,4 +572,158 @@ def define_lr_schedule(epoch):
         lr *= 1e-1
     print('Learning rate: ', lr)
     return lr
+
+
+def construct_temporal_mixed_edge_dataset(
+    X_input, old_graph_, new_graph_, n_epochs, batch_size, parametric_embedding,
+        parametric_reconstruction, alpha, prev_embedding
+):
+    """
+    Construct a tf.data.Dataset of edges, sampled by edge weight.
+
+    Parameters
+    ----------
+    X : list, [X, DBP_samples]
+        X : array, shape (n_samples, n_features)
+            New data to be transformed.
+        DBP_samples : array, shape(n_samples, n_features)
+            distant border points to be transformed.
+    old_graph_ : scipy.sparse.csr.csr_matrix
+        Generated UMAP graph
+    new_graph_: scipy.sparse.csr.csr_matrix
+        Generated UMAP graph
+    n_epochs : int
+        # of epochs to train each edge
+    batch_size : int
+        batch size
+    parametric_embedding : bool
+        Whether the embedder is parametric or non-parametric
+    parametric_reconstruction : bool
+        Whether the decoder is parametric or non-parametric
+    alpha : ndarray [n_samples]
+    prev_embedding: [n_samples, 2(n_components)]
+    """
+
+    def gather_X(edge_to, edge_from, to_alpha, to_pe, weight):
+        edge_to_batch = tf.gather(fitting_data, edge_to)
+        edge_from_batch = tf.gather(fitting_data, edge_from)
+        to_alpha_batch = tf.gather(alpha, to_alpha)
+        to_pe_batch = tf.gather(prev_embedding, to_pe)
+
+        outputs = {"umap": 0, "temporal": 0}
+        if parametric_reconstruction:
+            # add reconstruction to iterator output
+            # edge_out = tf.concat([edge_to_batch, edge_from_batch], axis=0)
+            outputs["reconstruction"] = edge_to_batch
+
+        return (edge_to_batch, edge_from_batch, to_alpha_batch, to_pe_batch, weight), outputs
+
+    train_data, centers, border_centers = X_input
+    cp_num = len(train_data)
+    centers_num = len(centers)
+    bc_num = len(border_centers)
+    fitting_data = np.concatenate((train_data, centers, border_centers), axis=0)
+    alpha = np.expand_dims(alpha, axis=1)
+    alpha = np.concatenate((alpha, np.zeros((centers_num + bc_num, 1))), axis=0)
+    prev_embedding = np.concatenate((prev_embedding, np.zeros((centers_num + bc_num, 2))), axis=0)
+
+    # get data from graph
+    old_graph, old_epochs_per_sample, old_head, old_tail, old_weight, old_n_vertices = get_graph_elements(
+        old_graph_, n_epochs
+    )
+    # get data from graph
+    new_graph, new_epochs_per_sample, new_head, new_tail, new_weight, new_n_vertices = get_graph_elements(
+        new_graph_, n_epochs
+    )
+    ## normalize two graphs
+    new_head = new_head + cp_num
+    new_tail = new_tail + cp_num
+
+    # number of elements per batch for embedding
+    if batch_size is None:
+        # batch size randomly choose a number as batch_size if batch_size is None
+        batch_size = 1000
+    edges_to_exp = np.concatenate((np.repeat(old_head, old_epochs_per_sample.astype("int")),
+                                   np.repeat(new_head, new_epochs_per_sample.astype("int"))), axis=0)
+    edges_from_exp = np.concatenate((np.repeat(old_tail, old_epochs_per_sample.astype("int")),
+                                   np.repeat(new_tail, new_epochs_per_sample.astype("int"))), axis=0)
+
+    weight = np.concatenate((np.repeat(old_weight, old_epochs_per_sample.astype("int")),
+                             np.repeat(new_weight, new_epochs_per_sample.astype("int"))), axis=0)
+
+    # shuffle edges
+    shuffle_mask = np.random.permutation(range(len(edges_to_exp)))
+    edges_to_exp = edges_to_exp[shuffle_mask].astype(np.int64)
+    edges_from_exp = edges_from_exp[shuffle_mask].astype(np.int64)
+    weight = weight[shuffle_mask].astype(np.float64)
+    # to_alpha = to_alpha[shuffle_mask].astype(np.float64)
+    # to_pe = to_pe[shuffle_mask].astype(np.float64)
+    weight = np.expand_dims(weight, axis=1)
+
+    # create edge iterator
+    edge_dataset = tf.data.Dataset.from_tensor_slices(
+        (edges_to_exp, edges_from_exp, edges_to_exp, edges_to_exp, weight)
+    )
+    edge_dataset = edge_dataset.repeat()
+    edge_dataset = edge_dataset.shuffle(10000)
+    edge_dataset = edge_dataset.map(
+        # gather_X, num_parallel_calls=tf.data.experimental.AUTOTUNE
+        gather_X
+    )
+    edge_dataset = edge_dataset.batch(batch_size, drop_remainder=True)
+    edge_dataset = edge_dataset.prefetch(10)
+
+    return edge_dataset, batch_size, len(edges_to_exp), weight
+
+
+def temporal_loss():
+    @tf.function
+    def loss(placeholder_y, x):
+        to_px, embedding_to, to_alpha = tf.split(
+            x, num_or_size_splits=[2, 2, 1], axis=1
+        )
+        to_alpha = tf.squeeze(to_alpha)
+        diff = tf.reduce_sum(tf.math.square(to_px-embedding_to), axis=1)
+        diff = tf.math.multiply(to_alpha, diff)
+        return tf.reduce_mean(diff)
+    return loss
+
+
+def find_alpha(prev_data, train_data, n_neighbors):
+    if prev_data is None:
+        return np.zeros(len(train_data))
+    # number of trees in random projection forest
+    n_trees = min(64, 5 + int(round((train_data.shape[0]) ** 0.5 / 20.0)))
+    # max number of nearest neighbor iters to perform
+    n_iters = max(5, int(round(np.log2(train_data.shape[0]))))
+    # distance metric
+    metric = "euclidean"
+
+    from pynndescent import NNDescent
+    # get nearest neighbors
+    nnd = NNDescent(
+        train_data,
+        n_neighbors=n_neighbors,
+        metric="euclidean",
+        n_trees=n_trees,
+        n_iters=n_iters,
+        max_candidates=60,
+        verbose=True
+    )
+    train_indices, _ = nnd.neighbor_graph
+    prev_nnd = NNDescent(
+        prev_data,
+        n_neighbors=n_neighbors,
+        metric="euclidean",
+        n_trees=n_trees,
+        n_iters=n_iters,
+        max_candidates=60,
+        verbose=True
+    )
+    prev_indices, _ = prev_nnd.neighbor_graph
+    temporal_pres = np.zeros(len(train_data))
+    for i in range(len(train_indices)):
+        pres = np.intersect1d(train_indices[i], prev_indices[i])
+        temporal_pres[i] = len(pres) / float(n_neighbors)
+    return temporal_pres
 
