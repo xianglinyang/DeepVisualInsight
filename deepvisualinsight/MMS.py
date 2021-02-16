@@ -6,8 +6,8 @@ import matplotlib as mpl
 
 
 class MMS:
-    def __init__(self, content_path, model_structure, epoch_start, epoch_end, repr_num, class_num, classes, cmap="tab10", resolution=100,
-                 boundary_diff=1.5, neurons=None, verbose=1):
+    def __init__(self, content_path, model_structure, epoch_start, epoch_end, repr_num, class_num, classes, low_dims=2,
+                 cmap="tab10", resolution=100, boundary_diff=1.5, neurons=None, temporal=False, verbose=1):
         '''
         This class contains the model management system (super DB) and provides
         several DVI user interface for dimension reduction and inverse projection function
@@ -29,6 +29,8 @@ class MMS:
             the length of classification labels
         classes	: list, tuple of str
             All classes that the classifier uses as a list/tuple of strings.
+        low_dims: tuple
+            the expected low dimension shape
         cmap : str, by default 'tab10'
             Name of the colormap to use for visualization.
             The number of distinguishable colors should correspond to class_num.
@@ -39,6 +41,8 @@ class MMS:
             the difference between top1 and top2 logits from last layer. The difference is used to define boundary.
         neurons : int
             the number of units inside each layer of autoencoder
+        temporal: boolean, by default False
+            choose whether to add temporal loss or not
         verbose : int, by default 1
         '''
         self.model = model_structure
@@ -51,11 +55,13 @@ class MMS:
         self.data_epoch_index = None
         self.testing_data = None
         self.repr_num = repr_num
+        self.low_dims = low_dims
         self.cmap = plt.get_cmap(cmap)
         self.resolution = resolution
         self.boundary_diff = boundary_diff
         self.class_num = class_num
         self.classes = classes
+        self.temporal = temporal
         self.verbose = verbose
         self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         self.tf_device = tf.config.list_physical_devices('GPU')[0]
@@ -140,14 +146,14 @@ class MMS:
             ),
             tf.keras.callbacks.LearningRateScheduler(define_lr_schedule),
         ]
-        parametric_model = define_model(dims, self.encoder, self.decoder)
-        losses, loss_weights = define_losses(200)
-        parametric_model.compile(
-            optimizer=optimizer, loss=losses, loss_weights=loss_weights,
-        )
+        parametric_model = define_model(dims, self.low_dims, self.encoder, self.decoder, self.temporal)
 
         # self.data_preprocessing()
         for n_epoch in range(self.epoch_start, self.epoch_end+1, 1):
+            losses, loss_weights = define_losses(200, n_epoch, self.epoch_end-self.epoch_start, self.temporal)
+            parametric_model.compile(
+                optimizer=optimizer, loss=losses, loss_weights=loss_weights,
+            )
 
             train_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch + 1), "train_centers.npy")
             border_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch + 1), "border_centers.npy")
@@ -163,20 +169,50 @@ class MMS:
 
             complex = fuzzy_complex(train_data, 15)
             bw_complex = boundary_wise_complex(train_centers, border_centers, 15)
-            (
-                edge_dataset,
-                _batch_size,
-                n_edges,
-                _edge_weight,
-            ) = construct_mixed_edge_dataset(
-                (train_data, train_centers, border_centers),
-                complex,
-                bw_complex,
-                50,
-                batch_size,
-                parametric_embedding=True,
-                parametric_reconstruction=True,
-            )
+            if not self.temporal:
+                (
+                    edge_dataset,
+                    _batch_size,
+                    n_edges,
+                    _edge_weight,
+                ) = construct_mixed_edge_dataset(
+                    (train_data, train_centers, border_centers),
+                    complex,
+                    bw_complex,
+                    50,
+                    batch_size,
+                    parametric_embedding=True,
+                    parametric_reconstruction=True,
+                )
+            else:
+                prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "train_data.npy")
+                if os.path.exists(prev_data_loc):
+                    prev_data = np.load(prev_data_loc)
+                else:
+                    prev_data = None
+                if prev_data is None:
+                    prev_embedding = np.zeros((len(prev_data), self.low_dims))
+                else:
+                    encoder = self.get_proj_model(n_epoch)
+                    prev_embedding = encoder(prev_data).cpu().numpy()
+                alpha = find_alpha(prev_data, train_data, n_neighbors=15)
+                (
+                    edge_dataset,
+                    batch_size,
+                    n_edges,
+                    edge_weight,
+                ) = construct_temporal_mixed_edge_dataset(
+                    (train_data, train_centers, border_centers),
+                    complex,
+                    bw_complex,
+                    50,
+                    batch_size,
+                    parametric_embedding=True,
+                    parametric_reconstruction=True,
+                    alpha=alpha,
+                    prev_embedding=prev_embedding
+                )
+
             steps_per_epoch = int(
                 n_edges / batch_size / 10
             )
@@ -453,8 +489,9 @@ class MMS:
         '''
         Shows the current plot. from DeepView
         '''
-        if not hasattr(self, 'fig'):
-            self._s()
+        # if not hasattr(self, 'fig'):
+        #     self._s()
+        self._s()
 
         x_min, y_min, x_max, y_max = self.get_epoch_plot_measures(epoch_id)
 
@@ -494,8 +531,9 @@ class MMS:
         '''
         Shows the current plot.
         '''
-        if not hasattr(self, 'fig'):
-            self._s()
+        # if not hasattr(self, 'fig'):
+        #     self._s()
+        self._s()
 
         x_min, y_min, x_max, y_max = self.get_epoch_plot_measures(epoch_id)
 
