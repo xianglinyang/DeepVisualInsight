@@ -184,8 +184,10 @@ def construct_edge_dataset(
 
     return edge_dataset, batch_size, len(edges_to_exp), head, tail, weight
 
-def construct_mixed_edge_dataset(
-    X_input, old_graph_, new_graph_, n_epochs, batch_size, parametric_embedding, parametric_reconstruction,
+
+def construct_temporal_mixed_edge_dataset(
+    X_input, old_graph_, new_graph_, n_epochs, batch_size, parametric_embedding,
+        parametric_reconstruction, alpha, prev_embedding
 ):
     """
     Construct a tf.data.Dataset of edges, sampled by edge weight.
@@ -209,25 +211,32 @@ def construct_mixed_edge_dataset(
         Whether the embedder is parametric or non-parametric
     parametric_reconstruction : bool
         Whether the decoder is parametric or non-parametric
+    alpha : ndarray [n_samples]
+    prev_embedding: [n_samples, 2(n_components)]
     """
 
-    def gather_X(edge_to, edge_from, weight):
+    def gather_X(edge_to, edge_from, to_alpha, to_pe, weight):
         edge_to_batch = tf.gather(fitting_data, edge_to)
         edge_from_batch = tf.gather(fitting_data, edge_from)
+        to_alpha_batch = tf.gather(alpha, to_alpha)
+        to_pe_batch = tf.gather(prev_embedding, to_pe)
 
-        outputs = {"umap": 0}
+        outputs = {"umap": 0, "temporal": 0}
         if parametric_reconstruction:
             # add reconstruction to iterator output
             # edge_out = tf.concat([edge_to_batch, edge_from_batch], axis=0)
             outputs["reconstruction"] = edge_to_batch
 
-        return (edge_to_batch, edge_from_batch, weight), outputs
+        return (edge_to_batch, edge_from_batch, to_alpha_batch, to_pe_batch, weight), outputs
 
     train_data, centers, border_centers = X_input
     cp_num = len(train_data)
     centers_num = len(centers)
     bc_num = len(border_centers)
-    fitting_data = np.concatenate((train_data,centers, border_centers), axis=0)
+    fitting_data = np.concatenate((train_data, centers, border_centers), axis=0)
+    alpha = np.expand_dims(alpha, axis=1)
+    alpha = np.concatenate((alpha, np.zeros((centers_num + bc_num, 1))), axis=0)
+    prev_embedding = np.concatenate((prev_embedding, np.zeros((centers_num + bc_num, 2))), axis=0)
 
     # get data from graph
     old_graph, old_epochs_per_sample, old_head, old_tail, old_weight, old_n_vertices = get_graph_elements(
@@ -253,13 +262,77 @@ def construct_mixed_edge_dataset(
     weight = np.concatenate((np.repeat(old_weight, old_epochs_per_sample.astype("int")),
                              np.repeat(new_weight, new_epochs_per_sample.astype("int"))), axis=0)
 
-    # balance_per_sample = make_balance_per_sample(edges_to_exp, edges_from_exp, cp_num, centers_num, bc_num)
-    #
-    # edges_to_exp, edges_from_exp = (
-    #     np.repeat(edges_to_exp, balance_per_sample.astype("int")),
-    #     np.repeat(edges_from_exp, balance_per_sample.astype("int")),
-    # )
-    # weight = np.repeat(weight, balance_per_sample.astype("int"))
+    # shuffle edges
+    shuffle_mask = np.random.permutation(range(len(edges_to_exp)))
+    edges_to_exp = edges_to_exp[shuffle_mask].astype(np.int64)
+    edges_from_exp = edges_from_exp[shuffle_mask].astype(np.int64)
+    weight = weight[shuffle_mask].astype(np.float64)
+    # to_alpha = to_alpha[shuffle_mask].astype(np.float64)
+    # to_pe = to_pe[shuffle_mask].astype(np.float64)
+    weight = np.expand_dims(weight, axis=1)
+
+    # create edge iterator
+    edge_dataset = tf.data.Dataset.from_tensor_slices(
+        (edges_to_exp, edges_from_exp, edges_to_exp, edges_to_exp, weight)
+    )
+    edge_dataset = edge_dataset.repeat()
+    edge_dataset = edge_dataset.shuffle(10000)
+    edge_dataset = edge_dataset.map(
+        # gather_X, num_parallel_calls=tf.data.experimental.AUTOTUNE
+        gather_X
+    )
+    edge_dataset = edge_dataset.batch(batch_size, drop_remainder=True)
+    edge_dataset = edge_dataset.prefetch(10)
+
+    return edge_dataset, batch_size, len(edges_to_exp), weight
+
+
+def construct_mixed_edge_dataset(
+    X_input, old_graph_, new_graph_, n_epochs, batch_size, parametric_embedding,
+        parametric_reconstruction
+):
+
+    def gather_X(edge_to, edge_from, weight):
+        edge_to_batch = tf.gather(fitting_data, edge_to)
+        edge_from_batch = tf.gather(fitting_data, edge_from)
+
+        outputs = {"umap": 0}
+        if parametric_reconstruction:
+            # add reconstruction to iterator output
+            # edge_out = tf.concat([edge_to_batch, edge_from_batch], axis=0)
+            outputs["reconstruction"] = edge_to_batch
+
+        return (edge_to_batch, edge_from_batch, weight), outputs
+
+    train_data, centers, border_centers = X_input
+    cp_num = len(train_data)
+    centers_num = len(centers)
+    bc_num = len(border_centers)
+    fitting_data = np.concatenate((train_data, centers, border_centers), axis=0)
+
+    # get data from graph
+    old_graph, old_epochs_per_sample, old_head, old_tail, old_weight, old_n_vertices = get_graph_elements(
+        old_graph_, n_epochs
+    )
+    # get data from graph
+    new_graph, new_epochs_per_sample, new_head, new_tail, new_weight, new_n_vertices = get_graph_elements(
+        new_graph_, n_epochs
+    )
+    ## normalize two graphs
+    new_head = new_head + cp_num
+    new_tail = new_tail + cp_num
+
+    # number of elements per batch for embedding
+    if batch_size is None:
+        # batch size randomly choose a number as batch_size if batch_size is None
+        batch_size = 1000
+    edges_to_exp = np.concatenate((np.repeat(old_head, old_epochs_per_sample.astype("int")),
+                                   np.repeat(new_head, new_epochs_per_sample.astype("int"))), axis=0)
+    edges_from_exp = np.concatenate((np.repeat(old_tail, old_epochs_per_sample.astype("int")),
+                                   np.repeat(new_tail, new_epochs_per_sample.astype("int"))), axis=0)
+
+    weight = np.concatenate((np.repeat(old_weight, old_epochs_per_sample.astype("int")),
+                             np.repeat(new_weight, new_epochs_per_sample.astype("int"))), axis=0)
 
     # shuffle edges
     shuffle_mask = np.random.permutation(range(len(edges_to_exp)))
@@ -286,7 +359,13 @@ def construct_mixed_edge_dataset(
 def temporal_loss():
     @tf.function
     def loss(placeholder_y, x):
-        return tf.reduce_mean(x)
+        to_px, embedding_to, to_alpha = tf.split(
+            x, num_or_size_splits=[2, 2, 1], axis=1
+        )
+        to_alpha = tf.squeeze(to_alpha)
+        diff = tf.reduce_sum(tf.math.square(to_px-embedding_to), axis=1)
+        diff = tf.math.multiply(to_alpha, diff)
+        return tf.reduce_mean(diff)
     return loss
 
 
@@ -460,4 +539,43 @@ def find_centers(train_data, num_tot):
         kmeans = KMeans(n_clusters=cluster_center_num, random_state=0).fit(c)
         centers[r1:r2] = kmeans.cluster_centers_
     return centers
+
+
+def find_alpha(prev_data, train_data, n_neighbors):
+    if prev_data is None:
+        return np.zeros(len(train_data))
+    # number of trees in random projection forest
+    n_trees = min(64, 5 + int(round((train_data.shape[0]) ** 0.5 / 20.0)))
+    # max number of nearest neighbor iters to perform
+    n_iters = max(5, int(round(np.log2(train_data.shape[0]))))
+    # distance metric
+    metric = "euclidean"
+
+    from pynndescent import NNDescent
+    # get nearest neighbors
+    nnd = NNDescent(
+        train_data,
+        n_neighbors=n_neighbors,
+        metric="euclidean",
+        n_trees=n_trees,
+        n_iters=n_iters,
+        max_candidates=60,
+        verbose=True
+    )
+    train_indices, _ = nnd.neighbor_graph
+    prev_nnd = NNDescent(
+        prev_data,
+        n_neighbors=n_neighbors,
+        metric="euclidean",
+        n_trees=n_trees,
+        n_iters=n_iters,
+        max_candidates=60,
+        verbose=True
+    )
+    prev_indices, _ = prev_nnd.neighbor_graph
+    temporal_pres = np.zeros(len(train_data))
+    for i in range(len(train_indices)):
+        pres = np.intersect1d(train_indices[i], prev_indices[i])
+        temporal_pres[i] = len(pres) / float(n_neighbors)
+    return temporal_pres
 
