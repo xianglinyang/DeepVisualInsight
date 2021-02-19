@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import torch
 
 # content_path = "E:\\DVI_exp_data\\resnet18"
-content_path = "E:\\DVI_exp_data\\active_learning\\random_tl"
+content_path = "E:\\DVI_exp_data\\active_learning\\entropy_tl"
 sys.path.append(content_path)
 
 from Model.model import *
@@ -20,11 +20,11 @@ mms.data_preprocessing()
 mms.prepare_visualization_for_all()
 
 # grid, decision_view = mms.get_epoch_decision_view(180)
-# mms.show(181)
+# mms.savefig(181, "t.png")
 # img_save_location = os.path.join(mms.content_path, "img")
 # if not os.path.exists(img_save_location):
 #     os.mkdir(img_save_location)
-# for i in range(1, 184, 1):
+# for i in range(184, 201, 1):
 #     train_data = mms.get_epoch_repr_data(i)
 #     labels = mms.get_epoch_labels(i)
 #     if train_data is None:
@@ -44,3 +44,4 @@ mms.prepare_visualization_for_all()
 #     ax.axis('equal')
 #     ax.set_title("parametric UMAP autoencoder embeddings-training data", fontsize=20)
 #     plt.savefig(os.path.join(img_save_location,"{:d}".format(i)))
+#     mms.savefig(i, os.path.join(img_save_location,"b_{:d}".format(i)))

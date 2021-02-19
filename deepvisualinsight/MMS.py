@@ -3,7 +3,7 @@ from deepvisualinsight.utils import *
 from deepvisualinsight.backend import *
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-
+import evaluate
 
 class MMS:
     def __init__(self, content_path, model_structure, epoch_start, epoch_end, repr_num, class_num, classes, low_dims=2,
@@ -96,12 +96,12 @@ class MMS:
         save data for later training
         '''
         for n_epoch in range(self.epoch_start, self.epoch_end+1, 1):
-            index_file = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch+1), "index.json")
+            index_file = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "index.json")
             index = load_labelled_data_index(index_file)
             training_data = self.training_data[index]
             training_labels = self.training_labels[index]
 
-            model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch+1), "subject_model.pth")
+            model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
             self.model.load_state_dict(torch.load(model_location))
             self.model = self.model.to(self.device)
 
@@ -114,16 +114,16 @@ class MMS:
             border_points = border_points.to(self.device)
             border_representation = batch_run(repr_model, border_points, self.repr_num)
             border_centers = clustering(border_representation, n_clusters, verbose=0)
-            location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch+1), "border_centers.npy")
+            location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "border_centers.npy")
             np.save(location, border_centers)
 
             train_data = training_data.to(self.device)
             train_data_representation = batch_run(repr_model, train_data, self.repr_num)
-            location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch + 1), "train_data.npy")
+            location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "train_data.npy")
             np.save(location, train_data_representation)
 
             train_centers = clustering(train_data_representation, n_clusters, verbose=0)
-            location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch+1), "train_centers.npy")
+            location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "train_centers.npy")
             np.save(location, train_centers)
             if self.verbose > 0:
                 print("Finish data preprocessing for Epoch {:d}...".format(n_epoch))
@@ -150,14 +150,14 @@ class MMS:
 
         # self.data_preprocessing()
         for n_epoch in range(self.epoch_start, self.epoch_end+1, 1):
-            losses, loss_weights = define_losses(200, n_epoch, self.epoch_end-self.epoch_start, self.temporal)
+            losses, loss_weights = define_losses(200, n_epoch, self.epoch_end-self.epoch_start+1, self.temporal)
             parametric_model.compile(
                 optimizer=optimizer, loss=losses, loss_weights=loss_weights,
             )
 
-            train_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch + 1), "train_centers.npy")
-            border_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch + 1), "border_centers.npy")
-            train_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch + 1), "train_data.npy")
+            train_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "train_centers.npy")
+            border_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "border_centers.npy")
+            train_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "train_data.npy")
 
             # in case no data save for vis
             if not os.path.exists(train_data_loc):
@@ -185,7 +185,7 @@ class MMS:
                     parametric_reconstruction=True,
                 )
             else:
-                prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "train_data.npy")
+                prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch-1), "train_data.npy")
                 if os.path.exists(prev_data_loc):
                     prev_data = np.load(prev_data_loc)
                 else:
@@ -193,7 +193,7 @@ class MMS:
                 if prev_data is None:
                     prev_embedding = np.zeros((len(prev_data), self.low_dims))
                 else:
-                    encoder = self.get_proj_model(n_epoch)
+                    encoder = self.get_proj_model(n_epoch-1)
                     prev_embedding = encoder(prev_data).cpu().numpy()
                 alpha = find_alpha(prev_data, train_data, n_neighbors=15)
                 (
@@ -225,11 +225,11 @@ class MMS:
                 max_queue_size=100,
             )
 
-            self.encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch + 1), "encoder"))
-            self.decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch + 1), "decoder"))
+            self.encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder"))
+            self.decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "decoder"))
 
             if self.verbose > 0:
-                print("save visualized model for Epoch {:d}".format(n_epoch + 1))
+                print("save visualized model for Epoch {:d}".format(n_epoch))
 
     def get_proj_model(self, epoch_id):
         '''
@@ -400,6 +400,12 @@ class MMS:
         x_min, y_min = ebd_min - 0.1 * ebd_extent
         x_max, y_max = ebd_max + 0.1 * ebd_extent
 
+        x_min = min(x_min, y_min)
+        y_min = min(x_min, y_min)
+        x_max = max(x_max, y_max)
+        y_max = max(x_max, y_max)
+
+
         return x_min, y_min, x_max, y_max
 
     def get_epoch_decision_view(self, epoch_id, resolution=-1):
@@ -448,6 +454,44 @@ class MMS:
         decision_view = color.reshape(resolution, resolution, 3)
         grid_view = grid.reshape(resolution, resolution, 2)
         return grid_view, decision_view
+
+    def get_epoch_view(self, epoch_id, resolution=-1):
+        '''
+        get background view
+        :param epoch_id: epoch that need to be visualized
+        :param resolution: background resolution
+        :return:
+            grid_view : numpy.ndarray, self.resolution,self.resolution, 2
+            color : numpy.ndarray, self.resolution,self.resolution, 3
+        '''
+        if self.verbose > 0:
+            print('Computing decision regions ...')
+        if resolution == -1:
+            resolution = self.resolution
+
+        decoder = self.get_inv_model(epoch_id)
+
+        x_min, y_min, x_max, y_max = self.get_epoch_plot_measures(epoch_id)
+
+        # create grid
+        xs = np.linspace(x_min, x_max, resolution)
+        ys = np.linspace(y_min, y_max, resolution)
+        grid = np.array(np.meshgrid(xs, ys))
+        grid = np.swapaxes(grid.reshape(grid.shape[0], -1), 0, 1)
+
+        # map gridmpoint to images
+        grid_samples = decoder(grid).cpu().numpy()
+        mesh_preds = self.get_pred(epoch_id, grid_samples)
+        mesh_preds = mesh_preds + 1e-8
+
+        mesh_classes = mesh_preds.argmax(axis=1)
+        mesh_max_class = max(mesh_classes)
+        color = self.cmap(mesh_classes / mesh_max_class)
+
+        color = color[:, 0:3]
+        color = color.reshape(resolution, resolution, 3)
+        grid_view = grid.reshape(resolution, resolution, 2)
+        return grid_view, color
 
     def _s(self, is_for_frontend=False):
         '''
@@ -568,3 +612,14 @@ class MMS:
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
         plt.savefig(path)
+
+    def proj_nn_perseverance_knn_train(self, epoch_id):
+        train_data = self.get_epoch_repr_data(epoch_id)
+        train_labels = self.get_epoch_labels(epoch_id)
+        encoder = self.get_proj_model(epoch_id)
+        embedding = encoder(train_data).cpu().numpy()
+
+        val = evaluate.evaluate_proj_nn_perseverance_knn(train_data, embedding, 15, metric="euclidean")
+        return val
+
+    # def proj_nn_perseverance_knn_test(self, epoch_id):
