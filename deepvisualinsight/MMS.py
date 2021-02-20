@@ -3,7 +3,7 @@ from deepvisualinsight.utils import *
 from deepvisualinsight.backend import *
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-import evaluate
+# from deepvisualinsight import evaluate
 
 class MMS:
     def __init__(self, content_path, model_structure, epoch_start, epoch_end, repr_num, class_num, classes, low_dims=2,
@@ -455,7 +455,7 @@ class MMS:
         grid_view = grid.reshape(resolution, resolution, 2)
         return grid_view, decision_view
 
-    def get_epoch_view(self, epoch_id, resolution=-1):
+    def get_epoch_standard_view(self, epoch_id, resolution=-1):
         '''
         get background view
         :param epoch_id: epoch that need to be visualized
@@ -612,14 +612,13 @@ class MMS:
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
         plt.savefig(path)
-
-    def proj_nn_perseverance_knn_train(self, epoch_id):
-        train_data = self.get_epoch_repr_data(epoch_id)
-        train_labels = self.get_epoch_labels(epoch_id)
-        encoder = self.get_proj_model(epoch_id)
-        embedding = encoder(train_data).cpu().numpy()
-
-        val = evaluate.evaluate_proj_nn_perseverance_knn(train_data, embedding, 15, metric="euclidean")
-        return val
+    #
+    # def proj_nn_perseverance_knn_train(self, epoch_id):
+    #     train_data = self.get_epoch_repr_data(epoch_id)
+    #     encoder = self.get_proj_model(epoch_id)
+    #     embedding = encoder(train_data).cpu().numpy()
+    #
+    #     val = evaluate.evaluate_proj_nn_perseverance_knn(train_data, embedding, 15, metric="euclidean")
+    #     return val
 
     # def proj_nn_perseverance_knn_test(self, epoch_id):
