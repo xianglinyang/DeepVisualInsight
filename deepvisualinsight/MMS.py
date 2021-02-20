@@ -612,6 +612,17 @@ class MMS:
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
         plt.savefig(path)
+
+    def get_embedding(self, data, epoch_id):
+        '''
+        get embedding of subject model at epoch_id
+        :param data: torch.Tensor
+        :param epoch_id:
+        :return: embedding, numpy.array
+        '''
+        repr_data = self.get_representation_data(epoch_id, data)
+        embedding = self.batch_project(repr_data, epoch_id)
+        return embedding
     #
     # def proj_nn_perseverance_knn_train(self, epoch_id):
     #     train_data = self.get_epoch_repr_data(epoch_id)
