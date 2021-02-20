@@ -19,8 +19,8 @@ mms = MMS(content_path, net, 1, 200, 512, 10, classes, cmap="tab10", resolution=
 # mms.data_preprocessing()
 # mms.prepare_visualization_for_all()
 
-grid, decision_view = mms.get_epoch_decision_view(180, 100)
-grid, standard_view = mms.get_epoch_standard_view(180, 100)
+# grid, decision_view = mms.get_epoch_decision_view(180, 100)
+standard_color = mms.get_standard_classes_color()
 
 # mms.savefig(181, "t.png")
 # img_save_location = os.path.join(mms.content_path, "img")

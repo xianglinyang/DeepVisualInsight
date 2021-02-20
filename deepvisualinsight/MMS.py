@@ -455,7 +455,7 @@ class MMS:
         grid_view = grid.reshape(resolution, resolution, 2)
         return grid_view, decision_view
 
-    def get_epoch_standard_view(self, epoch_id, resolution=-1):
+    def get_standard_classes_color(self):
         '''
         get background view
         :param epoch_id: epoch that need to be visualized
@@ -464,34 +464,12 @@ class MMS:
             grid_view : numpy.ndarray, self.resolution,self.resolution, 2
             color : numpy.ndarray, self.resolution,self.resolution, 3
         '''
-        if self.verbose > 0:
-            print('Computing decision regions ...')
-        if resolution == -1:
-            resolution = self.resolution
-
-        decoder = self.get_inv_model(epoch_id)
-
-        x_min, y_min, x_max, y_max = self.get_epoch_plot_measures(epoch_id)
-
-        # create grid
-        xs = np.linspace(x_min, x_max, resolution)
-        ys = np.linspace(y_min, y_max, resolution)
-        grid = np.array(np.meshgrid(xs, ys))
-        grid = np.swapaxes(grid.reshape(grid.shape[0], -1), 0, 1)
-
-        # map gridmpoint to images
-        grid_samples = decoder(grid).cpu().numpy()
-        mesh_preds = self.get_pred(epoch_id, grid_samples)
-        mesh_preds = mesh_preds + 1e-8
-
-        mesh_classes = mesh_preds.argmax(axis=1)
-        mesh_max_class = max(mesh_classes)
+        mesh_max_class = self.class_num - 1
+        mesh_classes = np.arange(10)
         color = self.cmap(mesh_classes / mesh_max_class)
 
         color = color[:, 0:3]
-        color = color.reshape(resolution, resolution, 3)
-        grid_view = grid.reshape(resolution, resolution, 2)
-        return grid_view, color
+        return color
 
     def _s(self, is_for_frontend=False):
         '''
