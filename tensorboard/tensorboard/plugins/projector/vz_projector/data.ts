@@ -77,6 +77,9 @@ export interface DataPoint {
    * Metadata for each point. Each metadata is a set of key/value pairs
    * where the value can be a string or a number.
    */
+  original_vector?: Float32Array;
+  mislabel_vector?: boolean;
+  color?: string;
   metadata: PointMetadata;
   /** index of the sequence, used for highlighting on click */
   sequenceIndex?: number;
@@ -89,8 +92,8 @@ export interface DataPoint {
 }
 const IS_FIREFOX = navigator.userAgent.toLowerCase().indexOf('firefox') >= 0;
 /** Controls whether nearest neighbors computation is done on the GPU or CPU. */
-export const TSNE_SAMPLE_SIZE = 10000;
-export const UMAP_SAMPLE_SIZE = 5000;
+export const TSNE_SAMPLE_SIZE = 500;
+export const UMAP_SAMPLE_SIZE = 500;
 export const PCA_SAMPLE_SIZE = 50000;
 /** Number of dimensions to sample when doing approximate PCA. */
 export const PCA_SAMPLE_DIM = 200;
@@ -234,7 +237,18 @@ export class DataSet {
         },
       };
     });
-    return new DataSet(points, this.spriteAndMetadataInfo);
+    const dp_list: DataPoint[] = [];
+    for (let i = 0; i < points.length; i++) {
+      const dp: DataPoint = {
+        metadata: pointsSubset[i].metadata,
+        index: pointsSubset[i].index,
+        vector: points[i].vector,
+        original_vector: pointsSubset[i].vector,
+        projections: points[i].projections,
+      };
+      dp_list.push(dp);
+    }
+    return new DataSet(dp_list, this.spriteAndMetadataInfo);
   }
   /**
    * Computes the centroid, shifts all points to that centroid,
@@ -317,11 +331,11 @@ export class DataSet {
     });
   }
   /** Runs tsne on the data. */
-  projectTSNE(
+  async projectTSNE(
     perplexity: number,
     learningRate: number,
     tsneDim: number,
-    stepCallback: (iter: number) => void
+    stepCallback: (iter: number, bg?:string, dataset?:DataSet) => void
   ) {
     this.hasTSNERun = true;
     let k = Math.floor(3 * perplexity);
@@ -333,6 +347,116 @@ export class DataSet {
     this.tSNEShouldStop = false;
     this.tSNEIteration = 0;
     let sampledIndices = this.shuffledDataIndices.slice(0, TSNE_SAMPLE_SIZE);
+    let headers = new Headers();
+    console.log(this.points);
+    headers.append('Content-Type', 'application/json');
+    headers.append('Accept', 'application/json');
+    const sampledData = sampledIndices.map((i) => this.points[i]);
+    let result = [[[0]]];
+    let bg_list = ["0"];
+    let model_prediction = [[true]];
+    const delay = ms => new Promise(res => setTimeout(res, ms));
+
+    function componentToHex(c: number) {
+      const hex = c.toString(16);
+      return hex.length == 1 ? "0" + hex : hex;
+    }
+    function rgbToHex(r:number, g:number, b:number) {
+      return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+    }
+    let epoch = 0;
+    //console.log(this.points);
+
+    for (let i = 0; i < 100; i++) {
+      for (let j = 0; j < 100; j++) {
+        const newDataPoint : DataPoint = {
+        metadata: {label: -1},
+        index: 10000 + i * 100 + j,
+        vector: new Float32Array(),
+        projections: {
+          'tsne-0': 0.1 * i - 0.5,
+          'tsne-1': 0.1 * j - 0.5,
+          'tsne-2': 0
+        },
+        color: rgbToHex(0,   Math.round(i / 100 * 255), Math.round((100-j)/ 100 * 255)),
+        };
+        this.points.push(newDataPoint);
+      }
+    }
+    stepCallback(0, undefined, new DataSet(this.points, this.spriteAndMetadataInfo));
+    //console.log(this.points);
+    let step = async () => {
+      if (this.tSNEShouldStop || epoch >= 5) {
+        this.projections['tsne'] = false;
+        stepCallback(null, null);
+        this.tsne = null;
+        this.hasTSNERun = false;
+        return;
+      }
+      if (!this.tSNEShouldPause) {
+        sampledIndices.forEach((index, i) => {
+          let dataPoint = this.points[index];
+          //dataPoint.projections['tsne-0'] = result[epoch][i][0];
+          //dataPoint.projections['tsne-1'] = result[epoch][i][1];
+          dataPoint.projections['tsne-0'] = Math.random();
+          dataPoint.projections['tsne-1'] = Math.random();
+          if (tsneDim === 3) {
+            dataPoint.projections['tsne-2'] = 0;
+          }
+          //dataPoint.mislabel_vector = !model_prediction[epoch][i];
+        });
+        this.projections['tsne'] = true;
+        this.tSNEIteration++;
+        //const bg = 'data:image/png;base64,'+ bg_list[epoch];
+        epoch++;
+        stepCallback(this.tSNEIteration);
+        await delay(1000);
+      }
+      requestAnimationFrame(step);
+    };
+    await step();
+    /*
+    let step = async () => {
+      if (this.tSNEShouldStop || epoch >= 5) {
+        this.projections['tsne'] = false;
+        stepCallback(null, null);
+        this.tsne = null;
+        this.hasTSNERun = false;
+        return;
+      }
+      if (!this.tSNEShouldPause) {
+        sampledIndices.forEach((index, i) => {
+          let dataPoint = this.points[index];
+          dataPoint.projections['tsne-0'] = result[epoch][i][0];
+          dataPoint.projections['tsne-1'] = result[epoch][i][1];
+          if (tsneDim === 3) {
+            dataPoint.projections['tsne-2'] = 0;
+          }
+          dataPoint.mislabel_vector = !model_prediction[epoch][i];
+        });
+        this.projections['tsne'] = true;
+        this.tSNEIteration++;
+        const bg = 'data:image/png;base64,'+ bg_list[epoch];
+        epoch++;
+        stepCallback(this.tSNEIteration, bg);
+        await delay(10000);
+      }
+      requestAnimationFrame(step);
+    };
+
+    await fetch("http://192.168.10.115:5000/animation", {
+      method: 'POST',
+      body: JSON.stringify({"sampled_data": sampledData}),
+      headers: headers,
+      mode: 'cors'
+    }).then(response => response.json()).then(data => {
+      result = data.result;
+      bg_list = data.bg_list;
+      model_prediction = data.model_prediction;
+      console.log(model_prediction);
+      step();
+    });*/
+    /*
     let step = () => {
       if (this.tSNEShouldStop) {
         this.projections['tsne'] = false;
@@ -357,8 +481,9 @@ export class DataSet {
         stepCallback(this.tSNEIteration);
       }
       requestAnimationFrame(step);
-    };
-    const sampledData = sampledIndices.map((i) => this.points[i]);
+    };*/
+    //const sampledData = sampledIndices.map((i) => this.points[i]);
+    /*
     const knnComputation = this.computeKnn(sampledData, k);
     knnComputation.then((nearest) => {
       util
@@ -366,86 +491,53 @@ export class DataSet {
           this.tsne.initDataDist(nearest);
         })
         .then(step);
-    });
+    });*/
   }
   /** Runs UMAP on the data. */
   async projectUmap(
     nComponents: number,
     nNeighbors: number,
-    stepCallback: (iter: number) => void
+    stepCallback: (iter: number, bg:string) => void
   ) {
-    this.hasUmapRun = true;
-    this.umap = new UMAP({nComponents, nNeighbors});
-    let currentEpoch = 0;
-    const epochStepSize = 10;
-    const sampledIndices = this.shuffledDataIndices.slice(0, UMAP_SAMPLE_SIZE);
-    const sampledData = sampledIndices.map((i) => this.points[i]);
-    // TODO: Switch to a Float32-based UMAP internal
-    const X = sampledData.map((x) => Array.from(x.vector));
-    const nearest = await this.computeKnn(sampledData, nNeighbors);
-    const nEpochs = await util.runAsyncTask(
-      'Initializing UMAP...',
-      () => {
-        const knnIndices = nearest.map((row) =>
-          row.map((entry) => entry.index)
-        );
-        const knnDistances = nearest.map((row) =>
-          row.map((entry) => entry.dist)
-        );
-        // Initialize UMAP and return the number of epochs.
-        this.umap.setPrecomputedKNN(knnIndices, knnDistances);
-        return this.umap.initializeFit(X);
-      },
-      UMAP_MSG_ID
-    );
-    // Now, iterate through all epoch batches of the UMAP optimization, updating
-    // the modal window with the progress rather than animating each step since
-    // the UMAP animation is not nearly as informative as t-SNE.
+       this.hasUmapRun = true;
+       this.umap = new UMAP({nComponents, nNeighbors});
+       let currentEpoch = 0;
+       const sampledIndices = this.shuffledDataIndices.slice(0, UMAP_SAMPLE_SIZE);
+       const sampledData = sampledIndices.map((i) => this.points[i]);
+
+       let headers = new Headers();
+       headers.append('Content-Type', 'application/json');
+       headers.append('Accept', 'application/json');
+
+       const result_bg = await fetch("http://192.168.1.115:5000/visualize", {
+         method: 'POST',
+         body: JSON.stringify({"sampled_data": sampledData}),
+         headers: headers,
+         mode: 'cors'
+       }).then(response => response.json()).then(data => [data.result, data.bg]);
+       const result = result_bg[0];
+       const bg = 'data:image/png;base64,'+result_bg[1];
+
+
     return new Promise((resolve, reject) => {
-      const step = () => {
-        // Compute a batch of epochs since we don't want to update the UI
-        // on every epoch.
-        const epochsBatch = Math.min(epochStepSize, nEpochs - currentEpoch);
-        for (let i = 0; i < epochsBatch; i++) {
-          currentEpoch = this.umap.step();
-        }
-        const progressMsg = `Optimizing UMAP (epoch ${currentEpoch} of ${nEpochs})`;
-        // Wrap the logic in a util.runAsyncTask in order to correctly update
-        // the modal with the progress of the optimization.
-        util
-          .runAsyncTask(
-            progressMsg,
-            () => {
-              if (currentEpoch < nEpochs) {
-                requestAnimationFrame(step);
-              } else {
-                const result = this.umap.getEmbedding();
-                sampledIndices.forEach((index, i) => {
+      util.runAsyncTask(`Updating`, () => {
+        sampledIndices.forEach((index, i) => {
                   const dataPoint = this.points[index];
                   dataPoint.projections['umap-0'] = result[i][0];
                   dataPoint.projections['umap-1'] = result[i][1];
                   if (nComponents === 3) {
-                    dataPoint.projections['umap-2'] = result[i][2];
+                    //dataPoint.projections['umap-2'] = result[i][2];
+                    dataPoint.projections['umap-2'] = 0;
                   }
                 });
                 this.projections['umap'] = true;
                 logging.setModalMessage(null, UMAP_MSG_ID);
                 this.hasUmapRun = true;
-                stepCallback(currentEpoch);
+                stepCallback(currentEpoch, bg);
                 resolve();
-              }
-            },
-            UMAP_MSG_ID,
-            0
-          )
-          .catch((error) => {
-            logging.setModalMessage(null, UMAP_MSG_ID);
-            reject(error);
-          });
-      };
-      requestAnimationFrame(step);
+      });
     });
-  }
+  };
   /** Computes KNN to provide to the UMAP and t-SNE algorithms. */
   private async computeKnn(
     data: DataPoint[],
