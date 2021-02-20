@@ -613,7 +613,7 @@ class MMS:
         self.fig.canvas.flush_events()
         plt.savefig(path)
 
-    def get_embedding(self, data, epoch_id):
+    def batch_get_embedding(self, data, epoch_id):
         '''
         get embedding of subject model at epoch_id
         :param data: torch.Tensor
