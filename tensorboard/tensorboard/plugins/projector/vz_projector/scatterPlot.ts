@@ -80,7 +80,7 @@ export class ScatterPlot {
   private backgroundColor: number = BACKGROUND_COLOR;
   private dimensionality: number = 3;
   private renderer: THREE.WebGLRenderer;
-  private scene: THREE.Scene;
+  public scene: THREE.Scene;
   private pickingTexture: THREE.WebGLRenderTarget;
   private light: THREE.PointLight;
   private cameraDef: CameraDef = null;

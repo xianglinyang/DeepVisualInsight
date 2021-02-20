@@ -473,6 +473,9 @@ class Projector
     }
     const colorer = (ds: DataSet, i: number) => {
       let value = ds.points[i].metadata[this.selectedColorOption.name];
+      if (value == -1) {
+        return ds.points[i].color;
+      }
       if (value == null) {
         return POINT_COLOR_MISSING;
       }
@@ -621,8 +624,13 @@ class Projector
     }
     this.notifyProjectionChanged(projection);
   }
-  notifyProjectionPositionsUpdated() {
-    this.projectorScatterPlotAdapter.notifyProjectionPositionsUpdated();
+  notifyProjectionPositionsUpdated(bg?: string, ds?: DataSet) {
+    this.projectorScatterPlotAdapter.notifyProjectionPositionsUpdated(bg);
+    if(ds !== undefined) {
+      this.dataSet = ds;
+      this.projectorScatterPlotAdapter.setDataSet(ds);
+      this.projectorScatterPlotAdapter.updateScatterPlotAttributes();
+    }
   }
   /**
    * Gets the current view of the embedding and saves it as a State object.

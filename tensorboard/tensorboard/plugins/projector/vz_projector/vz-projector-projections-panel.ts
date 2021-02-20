@@ -477,12 +477,12 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
       this.perplexity,
       this.learningRate,
       this.tSNEis3d ? 3 : 2,
-      (iteration: number) => {
+      (iteration: number, bg?: string, dataset?: DataSet) => {
         if (iteration != null) {
           this.runTsneButton.disabled = false;
           this.pauseTsneButton.disabled = false;
           this.iterationLabelTsne.innerText = '' + iteration;
-          this.projector.notifyProjectionPositionsUpdated();
+          this.projector.notifyProjectionPositionsUpdated(bg, dataset);
           if (!projectionChangeNotified && this.dataSet.projections['tsne']) {
             this.projector.onProjectionChanged();
             projectionChangeNotified = true;
@@ -527,10 +527,10 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     this.runUmapButton.disabled = true;
     const nComponents = this.umapIs3d ? 3 : 2;
     const nNeighbors = this.umapNeighbors;
-    this.dataSet.projectUmap(nComponents, nNeighbors, (iteration: number) => {
+    this.dataSet.projectUmap(nComponents, nNeighbors, (iteration: number, bg: string) => {
       if (iteration != null) {
         this.runUmapButton.disabled = false;
-        this.projector.notifyProjectionPositionsUpdated();
+        this.projector.notifyProjectionPositionsUpdated(bg);
         if (!projectionChangeNotified && this.dataSet.projections['umap']) {
           this.projector.onProjectionChanged();
           projectionChangeNotified = true;

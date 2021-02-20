@@ -130,8 +130,8 @@ export class ProjectorScatterPlotAdapter {
     );
     this.createVisualizers(false);
   }
-  notifyProjectionPositionsUpdated() {
-    this.updateScatterPlotPositions();
+  notifyProjectionPositionsUpdated(bg?: string) {
+    this.updateScatterPlotPositions(bg);
     this.scatterPlot.render();
   }
   setDataSet(dataSet: DataSet) {
@@ -202,7 +202,17 @@ export class ProjectorScatterPlotAdapter {
       false
     );
   }
-  updateScatterPlotPositions() {
+  updateScatterPlotPositions(bg?: string) {
+    if(bg !== undefined) {
+      let image = new Image();
+      image.src = bg;
+      let texture = new THREE.Texture();
+      texture.image = image;
+      image.onload = function () {
+        texture.needsUpdate = true;
+      };
+      this.scatterPlot.scene.background = texture;
+    }
     const ds = this.projection == null ? null : this.projection.dataSet;
     const projectionComponents =
       this.projection == null ? null : this.projection.projectionComponents;
@@ -721,6 +731,7 @@ export class ProjectorScatterPlotAdapter {
     scatterPlot.addVisualizer(this.polylineVisualizer);
   }
   private getSpriteImageMode(): boolean {
+    return false;
     if (this.projection == null) {
       return false;
     }
