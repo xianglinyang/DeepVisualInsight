@@ -157,10 +157,17 @@ export function getSearchPredicate(
   } else {
     // Doing a case insensitive substring match.
     query = query.toLowerCase();
-    predicate = (p) => {
+    if(query == 'mislabel_true' || query == 'mislabel_false') {
+      predicate = (p) => {
+        return (p.mislabel_vector == true && query == 'mislabel_true') || (p.mislabel_vector == false && query == 'mislabel_false')
+      };
+    } else {
+      predicate = (p) => {
       let label = p.metadata[fieldName].toString().toLowerCase();
       return label.indexOf(query) >= 0;
-    };
+      };
+    }
+
   }
   return predicate;
 }
