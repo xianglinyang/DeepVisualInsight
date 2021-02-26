@@ -39,11 +39,12 @@ def clustering(data, n_clusters, verbose=0):
     t0 = time.time()
     r1 = 0
     r2 = 0
+    ratio = len(data) / n_clusters
     for i in range(10):
         index = np.argwhere(labels == i).squeeze()
         c = data[index]
         if i < 9:
-            num = int(len(c) / 10)
+            num = math.ceil(len(c) / ratio)
             r2 = r1 + num
         else:
             num = len(centers) - r1
@@ -65,12 +66,13 @@ def adv_attack(image, epsilon, data_grad):
     return perturbed_image
 
 
-def get_border_points(data_, target_, model, diff, epsilon=.01, limit=5):
+def get_border_points(data_, target_, model, diff, device, epsilon=.01, limit=5,):
     """get border points by fgsm adversarial attack"""
 
     num = len(data_)
+    model.eval()
 
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    # device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     criterion = nn.CrossEntropyLoss()
 
     adv_data = np.zeros(data_.shape)
@@ -100,7 +102,7 @@ def get_border_points(data_, target_, model, diff, epsilon=.01, limit=5):
 
             final_pred = output.max(1, keepdim=True)[1]
 
-            adv_ex = perturbed_data.squeeze().detach().cpu().numpy()
+            adv_ex = perturbed_data.squeeze(0).detach().cpu().numpy()
             data = torch.from_numpy(np.expand_dims(adv_ex, axis=0)).to(device)
             data.requires_grad = True
             j = j + 1

@@ -67,9 +67,12 @@ def evaluate_inv_distance(data, inv_data):
     return np.linalg.norm(data-inv_data, axis=1).mean()
 
 
-def evaluate_inv_accu():
-    pass
+def evaluate_inv_accu(labels, pred):
+    return np.sum(labels == pred) / len(labels)
 
 
-def evaluate_inv_conf():
-    pass
+def evaluate_inv_conf(labels, ori_pred, new_pred):
+    old_conf = ori_pred[labels]
+    new_pred = new_pred[labels]
+    diff = old_conf - new_pred
+    return diff.mean(), diff.max(), diff.min()

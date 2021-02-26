@@ -538,17 +538,22 @@ def define_losses(batch_size, n_epoch, tot_epochs, temporal):
     loss_weights["reconstruction"] = 1.0
 
     if temporal:
-        ratio = n_epoch / float(tot_epochs)
-        C = 1.0
-        if ratio <= 0.3:
-            C = 0
-        elif ratio <= 0.5:
-            C = 0.3
-        elif ratio <= 0.8:
-            C = 0.5
         temporal_loss_fn = temporal_loss()
         losses["temporal"] = temporal_loss_fn
-        loss_weights["temporal"] = C
+        loss_weights["temporal"] = 1
+
+    # if temporal:
+    #     ratio = n_epoch / float(tot_epochs)
+    #     C = 1.0
+    #     if ratio <= 0.3:
+    #         C = 0
+    #     elif ratio <= 0.5:
+    #         C = 0.3
+    #     elif ratio <= 0.8:
+    #         C = 0.5
+    #     temporal_loss_fn = temporal_loss()
+    #     losses["temporal"] = temporal_loss_fn
+    #     loss_weights["temporal"] = C
 
     return losses, loss_weights
 
