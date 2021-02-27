@@ -1,5 +1,4 @@
 import numpy as np
-from umap import UMAP
 from warnings import warn, catch_warnings, filterwarnings
 from umap.umap_ import make_epochs_per_sample
 from numba import TypingError

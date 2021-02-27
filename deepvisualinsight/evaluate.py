@@ -1,5 +1,5 @@
 from sklearn.neighbors import KDTree
-import backend
+from deepvisualinsight import backend
 import numpy as np
 from scipy.stats import spearmanr
 from pynndescent import NNDescent
