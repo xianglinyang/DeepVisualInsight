@@ -540,7 +540,7 @@ def define_losses(batch_size, n_epoch, tot_epochs, temporal):
     if temporal:
         temporal_loss_fn = temporal_loss()
         losses["temporal"] = temporal_loss_fn
-        loss_weights["temporal"] = 1
+        loss_weights["temporal"] = 1.0
 
     # if temporal:
     #     ratio = n_epoch / float(tot_epochs)
@@ -688,7 +688,19 @@ def temporal_loss():
             x, num_or_size_splits=[2, 2, 1], axis=1
         )
         to_alpha = tf.squeeze(to_alpha)
-        diff = tf.reduce_sum(tf.math.square(to_px-embedding_to), axis=1)
+        to_alpha = to_alpha/(1+to_alpha)
+
+        min_ = tf.minimum(to_px, embedding_to)
+        max_ = tf.maximum(to_px, embedding_to)
+        x_min = tf.reduce_min(min_[:, 0])
+        y_min = tf.reduce_min(min_[:, 1])
+        x_max = tf.reduce_max(max_[:, 0])
+        y_max = tf.reduce_max(max_[:, 1])
+        min_tot = tf.minimum(x_min, y_min)
+        max_tot = tf.minimum(x_max, y_max)
+        diff = (to_px-embedding_to)/(max_tot-min_tot)
+
+        diff = tf.reduce_sum(tf.math.square(diff), axis=1)
         diff = tf.math.multiply(to_alpha, diff)
         return tf.reduce_mean(diff)
     return loss
