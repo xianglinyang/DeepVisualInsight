@@ -348,13 +348,15 @@ export class DataSet {
     this.tSNEIteration = 0;
     let sampledIndices = this.shuffledDataIndices.slice(0, TSNE_SAMPLE_SIZE);
     let headers = new Headers();
-    console.log(this.points);
     headers.append('Content-Type', 'application/json');
     headers.append('Accept', 'application/json');
     const sampledData = sampledIndices.map((i) => this.points[i]);
     let result = [[[0]]];
     let bg_list = ["0"];
     let model_prediction = [[true]];
+    let grid_index = [];
+    let grid_color = [];
+    let label_color_list = [];
     const delay = ms => new Promise(res => setTimeout(res, ms));
 
     function componentToHex(c: number) {
@@ -365,28 +367,11 @@ export class DataSet {
       return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
     }
     let epoch = 0;
-    //console.log(this.points);
-
-    for (let i = 0; i < 100; i++) {
-      for (let j = 0; j < 100; j++) {
-        const newDataPoint : DataPoint = {
-        metadata: {label: -1},
-        index: 10000 + i * 100 + j,
-        vector: new Float32Array(),
-        projections: {
-          'tsne-0': 0.1 * i - 0.5,
-          'tsne-1': 0.1 * j - 0.5,
-          'tsne-2': 0
-        },
-        color: rgbToHex(0,   Math.round(i / 100 * 255), Math.round((100-j)/ 100 * 255)),
-        };
-        this.points.push(newDataPoint);
-      }
-    }
-    stepCallback(0, undefined, new DataSet(this.points, this.spriteAndMetadataInfo));
+    let real_data_number = this.points.length;
+    let background_point_number = 0;
     //console.log(this.points);
     let step = async () => {
-      if (this.tSNEShouldStop || epoch >= 5) {
+      if (this.tSNEShouldStop || epoch >= 20) {
         this.projections['tsne'] = false;
         stepCallback(null, null);
         this.tsne = null;
@@ -394,27 +379,60 @@ export class DataSet {
         return;
       }
       if (!this.tSNEShouldPause) {
-        sampledIndices.forEach((index, i) => {
-          let dataPoint = this.points[index];
-          //dataPoint.projections['tsne-0'] = result[epoch][i][0];
-          //dataPoint.projections['tsne-1'] = result[epoch][i][1];
-          dataPoint.projections['tsne-0'] = Math.random();
-          dataPoint.projections['tsne-1'] = Math.random();
-          if (tsneDim === 3) {
-            dataPoint.projections['tsne-2'] = 0;
-          }
-          //dataPoint.mislabel_vector = !model_prediction[epoch][i];
-        });
+        this.points = this.points.slice(0, real_data_number);
+        //console.log("older points");
+        //console.log(this.points);
+        for (let i = 0; i < real_data_number; i++) {
+          let dataPoint = this.points[i];
+          dataPoint.projections['tsne-0'] = result[epoch][i][0];
+          dataPoint.projections['tsne-1'] = result[epoch][i][1];
+          dataPoint.projections['tsne-2'] = 0;
+          dataPoint.color = rgbToHex(label_color_list[i][0], label_color_list[i][1], label_color_list[i][2])
+          //console.log(classes.indexOf(dataPoint.metadata.label));
+          /*
+          console.log(classes_color_map[label]);
+          dataPoint.color = rgbToHex(classes_color_map[label][0],
+              classes_color_map[label][1], classes_color_map[label][2]);*/
+        }
+        console.log(this.points);
+        for (let i = 0; i < background_point_number; i++) {
+          const newDataPoint : DataPoint = {
+            metadata: {label: -1},
+            index: real_data_number + i,
+            vector: new Float32Array(),
+            projections: {
+              'tsne-0': grid_index[epoch][i][0],
+              'tsne-1': grid_index[epoch][i][1],
+              'tsne-2': 0
+            },
+        color: rgbToHex(grid_color[epoch][i][0],   grid_color[epoch][i][1], grid_color[epoch][i][2]),
+        };
+        this.points.push(newDataPoint);
+        }
+        //console.log("newer points");
+        //console.log(this.points);
         this.projections['tsne'] = true;
         this.tSNEIteration++;
         //const bg = 'data:image/png;base64,'+ bg_list[epoch];
         epoch++;
-        stepCallback(this.tSNEIteration);
+        stepCallback(this.tSNEIteration, undefined, new DataSet(this.points, this.spriteAndMetadataInfo));
         await delay(1000);
       }
       requestAnimationFrame(step);
     };
-    await step();
+    await fetch("http://192.168.10.115:5000/animation", {
+      method: 'POST',
+      //body: JSON.stringify({"sampled_data": sampledData}),
+      headers: headers,
+      mode: 'cors'
+    }).then(response => response.json()).then(data => {
+      result = data.result;
+      grid_index = data.grid_index;
+      grid_color = data.grid_color;
+      background_point_number = grid_index[0].length;
+      label_color_list = data.label_color_list;
+      step();
+    });
     /*
     let step = async () => {
       if (this.tSNEShouldStop || epoch >= 5) {

@@ -473,13 +473,11 @@ class Projector
     }
     const colorer = (ds: DataSet, i: number) => {
       let value = ds.points[i].metadata[this.selectedColorOption.name];
-      if (value == -1) {
-        return ds.points[i].color;
-      }
       if (value == null) {
         return POINT_COLOR_MISSING;
       }
-      return colorOption.map(value);
+      return ds.points[i].color;
+      //return colorOption.map(value);
     };
     return colorer;
   }

@@ -159,6 +159,7 @@ export class ProjectorScatterPlotAdapter {
     if (metadata.spriteImage == null || metadata.spriteMetadata == null) {
       return;
     }
+    return;
     const n = dataSet.points.length;
     const spriteIndices = new Float32Array(n);
     for (let i = 0; i < n; ++i) {
