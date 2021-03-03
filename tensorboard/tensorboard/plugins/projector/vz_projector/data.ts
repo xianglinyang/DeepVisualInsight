@@ -397,7 +397,7 @@ export class DataSet {
         console.log(this.points);
         for (let i = 0; i < background_point_number; i++) {
           const newDataPoint : DataPoint = {
-            metadata: {label: -1},
+            metadata: {label: "background"},
             index: real_data_number + i,
             vector: new Float32Array(),
             projections: {

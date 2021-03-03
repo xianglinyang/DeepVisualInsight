@@ -374,11 +374,17 @@ class Projector
       // normal selection mode
       this.selectedPointIndices = newSelectedPointIndices;
       if (newSelectedPointIndices.length === 1) {
+        /*
         neighbors = this.dataSet.findNeighbors(
           newSelectedPointIndices[0],
           this.inspectorPanel.distFunc,
           this.inspectorPanel.numNN
-        );
+        );*/
+        if (this.dataSet.points[newSelectedPointIndices[0]].metadata.label != "background")
+        neighbors[0] = {
+          index: newSelectedPointIndices[0],
+          dist: 0
+        };
         this.metadataCard.updateMetadata(
           this.dataSet.points[newSelectedPointIndices[0]].metadata
         );
