@@ -4,6 +4,9 @@ from deepvisualinsight.backend import *
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from deepvisualinsight.evaluate import *
+import gc
+from scipy.special import softmax
+
 
 class MMS:
     def __init__(self, content_path, model_structure, epoch_start, epoch_end, repr_num, class_num, classes, low_dims=2,
@@ -63,9 +66,9 @@ class MMS:
         self.classes = classes
         self.temporal = temporal
         self.verbose = verbose
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        # self.device = torch.device('cpu')
-        if tf.test.is_gpu_available():
+        # self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('cpu')
+        if len(tf.config.list_physical_devices('GPU')) > 0:
             self.tf_device = tf.config.list_physical_devices('GPU')[0]
             tf.config.experimental.set_memory_growth(self.tf_device, True)
         else:
@@ -99,6 +102,7 @@ class MMS:
         preprocessing data. This process includes find_train_centers, find_border_points and find_border_centers
         save data for later training
         '''
+        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         for n_epoch in range(self.epoch_start, self.epoch_end+1, 1):
             index_file = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "index.json")
             index = load_labelled_data_index(index_file)
@@ -106,22 +110,23 @@ class MMS:
             training_labels = self.training_labels[index]
 
             model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
-            self.model.load_state_dict(torch.load(model_location))
-            self.model = self.model.to(self.device)
+            self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
+            self.model = self.model.to(device)
+            self.model.eval()
 
             repr_model = torch.nn.Sequential(*(list(self.model.children())[:-1]))
 
             n_clusters = math.floor(len(index) / 10)
 
-            border_points = get_border_points(training_data, training_labels, self.model, self.boundary_diff, self.device)
+            border_points = get_border_points(training_data, training_labels, self.model, self.boundary_diff, device)
             border_points = torch.from_numpy(border_points)
-            border_points = border_points.to(self.device)
+            border_points = border_points.to(device)
             border_representation = batch_run(repr_model, border_points, self.repr_num)
             border_centers = clustering(border_representation, n_clusters, verbose=0)
             location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "border_centers.npy")
             np.save(location, border_centers)
 
-            train_data = training_data.to(self.device)
+            train_data = training_data.to(device)
             train_data_representation = batch_run(repr_model, train_data, self.repr_num)
             location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "train_data.npy")
             np.save(location, train_data_representation)
@@ -131,6 +136,7 @@ class MMS:
             np.save(location, train_centers)
             if self.verbose > 0:
                 print("Finish data preprocessing for Epoch {:d}...".format(n_epoch))
+        self.model = self.model.to(self.device)
 
     def prepare_visualization_for_all(self):
         """
@@ -183,7 +189,7 @@ class MMS:
                     (train_data, train_centers, border_centers),
                     complex,
                     bw_complex,
-                    50,
+                    20,
                     batch_size,
                     parametric_embedding=True,
                     parametric_reconstruction=True,
@@ -210,7 +216,7 @@ class MMS:
                     (train_data, train_centers, border_centers),
                     complex,
                     bw_complex,
-                    50,
+                    20,
                     batch_size,
                     parametric_embedding=True,
                     parametric_reconstruction=True,
@@ -338,8 +344,9 @@ class MMS:
         :return: result, ndarray of boolean
         '''
         model_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "subject_model.pth")
-        self.model.load_state_dict(torch.load(model_location))
+        self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
         self.model = self.model.to(self.device)
+        self.model.eval()
 
         fc_model = torch.nn.Sequential(*(list(self.model.children())[-1:]))
         data = data.to(self.device)
@@ -358,6 +365,7 @@ class MMS:
         model_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "subject_model.pth")
         self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
         self.model = self.model.to(self.device)
+        self.model.eval()
 
         repr_model = torch.nn.Sequential(*(list(self.model.children())[:-1]))
 
@@ -375,6 +383,7 @@ class MMS:
         model_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "subject_model.pth")
         self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
         self.model = self.model.to(self.device)
+        self.model.eval()
 
         fc_model = torch.nn.Sequential(*(list(self.model.children())[-1:]))
 
@@ -628,15 +637,18 @@ class MMS:
             print("No data!")
             return None
 
-    def proj_nn_perseverance_knn_train(self, epoch_id):
+    def proj_nn_perseverance_knn_train(self, epoch_id, n_neighbors=15):
         train_data = self.get_epoch_repr_data(epoch_id)
         encoder = self.get_proj_model(epoch_id)
         embedding = encoder(train_data).cpu().numpy()
 
-        val = evaluate_proj_nn_perseverance_knn(train_data, embedding, 15, metric="euclidean")
+        del encoder
+        gc.collect()
+
+        val = evaluate_proj_nn_perseverance_knn(train_data, embedding, n_neighbors, metric="euclidean")
         return val
 
-    def proj_nn_perseverance_knn_test(self, epoch_id):
+    def proj_nn_perseverance_knn_test(self, epoch_id, n_neighbors=15):
         test_data = self.get_representation_data(epoch_id, self.testing_data)
         train_data = self.get_epoch_repr_data(epoch_id)
 
@@ -644,21 +656,28 @@ class MMS:
         encoder = self.get_proj_model(epoch_id)
         embedding = encoder(fitting_data).cpu().numpy()
 
-        val = evaluate_proj_nn_perseverance_knn(fitting_data, embedding, 15, metric="euclidean")
+        del encoder
+        gc.collect()
+
+        val = evaluate_proj_nn_perseverance_knn(fitting_data, embedding, n_neighbors, metric="euclidean")
         return val
 
-    def proj_boundary_perseverance_knn_train(self, epoch_id):
+    def proj_boundary_perseverance_knn_train(self, epoch_id, n_neighbors=15):
         encoder = self.get_proj_model(epoch_id)
         border_centers = self.get_epoch_border_centers(epoch_id)
         train_data = self.get_epoch_repr_data(epoch_id)
 
         low_center = encoder(border_centers).cpu().numpy()
         low_train = encoder(train_data).cpu().numpy()
-        val = evaluate_proj_boundary_perseverance_knn(train_data, low_train, border_centers, low_center, 15)
+
+        del encoder
+        gc.collect()
+
+        val = evaluate_proj_boundary_perseverance_knn(train_data, low_train, border_centers, low_center, n_neighbors)
 
         return val
 
-    def proj_boundary_perseverance_knn_test(self, epoch_id):
+    def proj_boundary_perseverance_knn_test(self, epoch_id, n_neighbors=15):
         encoder = self.get_proj_model(epoch_id)
         border_centers = self.get_epoch_border_centers(epoch_id)
         train_data = self.get_epoch_repr_data(epoch_id)
@@ -666,36 +685,151 @@ class MMS:
         fitting_data = np.concatenate((train_data, test_data), axis=0)
 
         low_center = encoder(border_centers).cpu().numpy()
-        low_data= encoder(fitting_data).cpu().numpy()
-        val = evaluate_proj_boundary_perseverance_knn(fitting_data, low_data, border_centers, low_center, 15)
+        low_data = encoder(fitting_data).cpu().numpy()
+
+        del encoder
+        gc.collect()
+
+        val = evaluate_proj_boundary_perseverance_knn(fitting_data, low_data, border_centers, low_center, n_neighbors)
 
         return val
 
-    def proj_temporal_perseverance_train(self, epoch_id):
-        if epoch_id == self.epoch_start:
-            return 1.0
+    def proj_temporal_perseverance_train(self, n_neighbors=15):
+        alpha = np.zeros(self.epoch_end-self.epoch_start)
+        delta_x = np.zeros(self.epoch_end-self.epoch_start)
+        for n_epoch in range(self.epoch_start+1, self.epoch_end+1):
 
-        prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id - 1), "train_data.npy")
-        prev_data = np.load(prev_data_loc)
-        encoder = self.get_proj_model(epoch_id - 1)
-        prev_embedding = encoder(prev_data).cpu().numpy()
+            prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch - 1), "train_data.npy")
+            prev_data = np.load(prev_data_loc)
+            encoder = self.get_proj_model(n_epoch - 1)
+            prev_embedding = encoder(prev_data).cpu().numpy()
 
+            data = self.get_epoch_repr_data(n_epoch)
+            embedding = encoder(data).cpu().numpy()
+
+            del encoder
+            gc.collect()
+
+            alpha_ = backend.find_alpha(prev_data, data, n_neighbors).mean()
+            delta_x_ = np.linalg.norm(prev_embedding - embedding, axis=1).mean()
+            alpha[n_epoch-1-self.epoch_start] = alpha_
+            delta_x[n_epoch-1-self.epoch_start] = delta_x_
+
+        val = evaluate_proj_temporal_perseverance(alpha, delta_x)
+        return val
+
+    def proj_temporal_perseverance_test(self, n_neighbors=15):
+        alpha = np.zeros(self.epoch_end - self.epoch_start)
+        delta_x = np.zeros(self.epoch_end - self.epoch_start)
+        for n_epoch in range(self.epoch_start + 1, self.epoch_end + 1):
+
+            prev_data = self.get_representation_data(n_epoch-1, self.testing_data)
+            encoder = self.get_proj_model(n_epoch - 1)
+            prev_embedding = encoder(prev_data).cpu().numpy()
+
+            data = self.get_representation_data(n_epoch, self.testing_data)
+            embedding = encoder(data).cpu().numpy()
+
+            del encoder
+            gc.collect()
+
+            alpha_ = backend.find_alpha(prev_data, data, n_neighbors).mean()
+            delta_x_ = np.linalg.norm(prev_embedding - embedding, axis=1).mean()
+            alpha[n_epoch - 1 - self.epoch_start] = alpha_
+            delta_x[n_epoch - 1 - self.epoch_start] = delta_x_
+
+        val = evaluate_proj_temporal_perseverance(alpha, delta_x)
+
+        return val
+
+    def inv_accu_train(self, epoch_id):
+        train_data = self.get_epoch_repr_data(epoch_id)
+        labels = self.get_epoch_labels(epoch_id)
+        pred = self.get_pred(epoch_id, train_data)
+        pred = pred.argmax(axis=1)
+        val = evaluate_inv_accu(labels, pred)
+        return val
+
+    def inv_accu_test(self, epoch_id):
+        test_data = self.get_representation_data(epoch_id, self.testing_data)
+        labels = self.testing_labels.cpu().numpy()
+        pred = self.get_pred(epoch_id, test_data)
+        pred = pred.argmax(axis=1)
+        val = evaluate_inv_accu(labels, pred)
+        return val
+
+    def inv_dist_train(self, epoch_id):
         data = self.get_epoch_repr_data(epoch_id)
+        encoder = self.get_proj_model(epoch_id)
         embedding = encoder(data).cpu().numpy()
+        del encoder
+        gc.collect()
 
-        val = evaluate_proj_temporal_perseverance(prev_data, prev_embedding, data, embedding, 15)
+        decoder = self.get_inv_model(epoch_id)
+        inv_data = decoder(embedding).cpu().numpy()
+        del decoder
+        gc.collect()
 
+        val = evaluate_inv_distance(data, inv_data)
         return val
 
-    def proj_temporal_perseverance_test(self):
-        pass
+    def inv_dist_test(self, epoch_id):
+        data = self.get_representation_data(epoch_id, self.testing_data)
+        encoder = self.get_proj_model(epoch_id)
+        embedding = encoder(data).cpu().numpy()
+        del encoder
+        gc.collect()
 
-    def inv_accu(self):
-        pass
+        decoder = self.get_inv_model(epoch_id)
+        inv_data = decoder(embedding).cpu().numpy()
+        del decoder
+        gc.collect()
 
-    def inv_dist(self):
-        pass
+        val = evaluate_inv_distance(data, inv_data)
+        return val
 
-    def inv_conf_diff(self):
-        pass
+    def inv_conf_diff_train(self, epoch_id):
+        data = self.get_epoch_repr_data(epoch_id)
+        encoder = self.get_proj_model(epoch_id)
+        embedding = encoder(data).cpu().numpy()
+        del encoder
+        gc.collect()
+
+        decoder = self.get_inv_model(epoch_id)
+        inv_data = decoder(embedding).cpu().numpy()
+        del decoder
+        gc.collect()
+
+        labels = self.get_epoch_labels(epoch_id)
+        ori_pred = self.get_pred(epoch_id, data)
+        new_pred = self.get_pred(epoch_id, inv_data)
+
+        ori_pred = softmax(ori_pred, axis=1)
+        new_pred = softmax(new_pred, axis=1)
+
+        val = evaluate_inv_conf(labels, ori_pred, new_pred)
+        return val
+
+    def inv_conf_diff_test(self, epoch_id):
+        data = self.get_representation_data(epoch_id, self.testing_data)
+        encoder = self.get_proj_model(epoch_id)
+        embedding = encoder(data).cpu().numpy()
+        del encoder
+        gc.collect()
+
+        decoder = self.get_inv_model(epoch_id)
+        inv_data = decoder(embedding).cpu().numpy()
+        del decoder
+        gc.collect()
+
+        labels = self.get_epoch_labels(epoch_id)
+
+        ori_pred = self.get_pred(epoch_id, data)
+        new_pred = self.get_pred(epoch_id, inv_data)
+
+        ori_pred = softmax(ori_pred, axis=1)
+        new_pred = softmax(new_pred, axis=1)
+
+        val = evaluate_inv_conf(labels, ori_pred, new_pred)
+        return val
 

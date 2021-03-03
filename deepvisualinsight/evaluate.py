@@ -1,5 +1,5 @@
 from sklearn.neighbors import KDTree
-import backend
+from deepvisualinsight import backend
 import numpy as np
 from scipy.stats import spearmanr
 from pynndescent import NNDescent
@@ -56,9 +56,7 @@ def evaluate_proj_boundary_perseverance_knn(data, embedding, high_centers, low_c
     return border_pres.mean(), border_pres.max(), border_pres.min()
 
 
-def evaluate_proj_temporal_perseverance(prev_data, prev_embedding, data, embedding, n_neighbors):
-    alpha = backend.find_alpha(prev_data, data, n_neighbors)
-    delta_x = np.linalg.norm(prev_embedding - embedding, axis=1)
+def evaluate_proj_temporal_perseverance(alpha, delta_x):
     correlation, pvalue = spearmanr(alpha, delta_x)
     return correlation
 
@@ -72,7 +70,10 @@ def evaluate_inv_accu(labels, pred):
 
 
 def evaluate_inv_conf(labels, ori_pred, new_pred):
-    old_conf = ori_pred[labels]
-    new_pred = new_pred[labels]
-    diff = old_conf - new_pred
+    old_conf = [ori_pred[i, labels[i]] for i in range(len(labels))]
+    new_conf = [new_pred[i, labels[i]] for i in range(len(labels))]
+    old_conf = np.array(old_conf)
+    new_conf = np.array(new_conf)
+
+    diff = old_conf - new_conf
     return diff.mean(), diff.max(), diff.min()
