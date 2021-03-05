@@ -10,7 +10,7 @@ from scipy.special import softmax
 
 class MMS:
     def __init__(self, content_path, model_structure, epoch_start, epoch_end, repr_num, class_num, classes, low_dims=2,
-                 cmap="tab10", resolution=100, boundary_diff=1.5, neurons=None, temporal=False, verbose=1):
+                 cmap="tab10", resolution=100, boundary_diff=1.5, neurons=None, temporal=False, verbose=1, stop_grad=False):
         '''
         This class contains the model management system (super DB) and provides
         several DVI user interface for dimension reduction and inverse projection function
@@ -151,7 +151,7 @@ class MMS:
             tf.keras.callbacks.EarlyStopping(
                 monitor='loss',
                 min_delta=10 ** -2,
-                patience=10,
+                patience=8,
                 verbose=1,
             ),
             tf.keras.callbacks.LearningRateScheduler(define_lr_schedule),
@@ -207,6 +207,7 @@ class MMS:
                     encoder = self.get_proj_model(n_epoch-1)
                     prev_embedding = encoder(prev_data).cpu().numpy()
                 alpha = find_alpha(prev_data, train_data, n_neighbors=15)
+                alpha[alpha < 0.5] = 0.0# alpha >=0.5 is convincing
                 (
                     edge_dataset,
                     batch_size,
@@ -695,8 +696,10 @@ class MMS:
         return val
 
     def proj_temporal_perseverance_train(self, n_neighbors=15):
-        alpha = np.zeros(self.epoch_end-self.epoch_start)
-        delta_x = np.zeros(self.epoch_end-self.epoch_start)
+        l = len(self.training_labels)
+        eval_num = self.epoch_end - self.epoch_start
+        alpha = np.zeros((eval_num, l))
+        delta_x = np.zeros((eval_num, l))
         for n_epoch in range(self.epoch_start+1, self.epoch_end+1):
 
             prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch - 1), "train_data.npy")
@@ -710,17 +713,20 @@ class MMS:
             del encoder
             gc.collect()
 
-            alpha_ = backend.find_alpha(prev_data, data, n_neighbors).mean()
-            delta_x_ = np.linalg.norm(prev_embedding - embedding, axis=1).mean()
-            alpha[n_epoch-1-self.epoch_start] = alpha_
-            delta_x[n_epoch-1-self.epoch_start] = delta_x_
+            alpha_ = backend.find_alpha(prev_data, data, n_neighbors)
+            delta_x_ = np.linalg.norm(prev_embedding - embedding, axis=1)
+
+            alpha[n_epoch - 1 - self.epoch_start] = alpha_
+            delta_x[n_epoch - 1 - self.epoch_start] = delta_x_
 
         val = evaluate_proj_temporal_perseverance(alpha, delta_x)
         return val
 
     def proj_temporal_perseverance_test(self, n_neighbors=15):
-        alpha = np.zeros(self.epoch_end - self.epoch_start)
-        delta_x = np.zeros(self.epoch_end - self.epoch_start)
+        l = len(self.testing_labels)
+        eval_num = self.epoch_end - self.epoch_start
+        alpha = np.zeros((eval_num, l))
+        delta_x = np.zeros((eval_num, l))
         for n_epoch in range(self.epoch_start + 1, self.epoch_end + 1):
 
             prev_data = self.get_representation_data(n_epoch-1, self.testing_data)
@@ -733,8 +739,8 @@ class MMS:
             del encoder
             gc.collect()
 
-            alpha_ = backend.find_alpha(prev_data, data, n_neighbors).mean()
-            delta_x_ = np.linalg.norm(prev_embedding - embedding, axis=1).mean()
+            alpha_ = backend.find_alpha(prev_data, data, n_neighbors)
+            delta_x_ = np.linalg.norm(prev_embedding - embedding, axis=1)
             alpha[n_epoch - 1 - self.epoch_start] = alpha_
             delta_x[n_epoch - 1 - self.epoch_start] = delta_x_
 
@@ -743,19 +749,41 @@ class MMS:
         return val
 
     def inv_accu_train(self, epoch_id):
-        train_data = self.get_epoch_repr_data(epoch_id)
-        labels = self.get_epoch_labels(epoch_id)
-        pred = self.get_pred(epoch_id, train_data)
-        pred = pred.argmax(axis=1)
-        val = evaluate_inv_accu(labels, pred)
+        data = self.get_epoch_repr_data(epoch_id)
+
+        encoder = self.get_proj_model(epoch_id)
+        embedding = encoder(data).cpu().numpy()
+        del encoder
+        gc.collect()
+
+        decoder = self.get_inv_model(epoch_id)
+        inv_data = decoder(embedding).cpu().numpy()
+        del decoder
+        gc.collect()
+
+        pred = self.get_pred(epoch_id, data).argmax(axis=1)
+        new_pred = self.get_pred(epoch_id, inv_data).argmax(axis=1)
+
+        val = evaluate_inv_accu(pred, new_pred)
         return val
 
     def inv_accu_test(self, epoch_id):
-        test_data = self.get_representation_data(epoch_id, self.testing_data)
-        labels = self.testing_labels.cpu().numpy()
-        pred = self.get_pred(epoch_id, test_data)
-        pred = pred.argmax(axis=1)
-        val = evaluate_inv_accu(labels, pred)
+        data = self.get_representation_data(epoch_id, self.testing_data)
+
+        encoder = self.get_proj_model(epoch_id)
+        embedding = encoder(data).cpu().numpy()
+        del encoder
+        gc.collect()
+
+        decoder = self.get_inv_model(epoch_id)
+        inv_data = decoder(embedding).cpu().numpy()
+        del decoder
+        gc.collect()
+
+        pred = self.get_pred(epoch_id, data).argmax(axis=1)
+        new_pred = self.get_pred(epoch_id, inv_data).argmax(axis=1)
+
+        val = evaluate_inv_accu(pred, new_pred)
         return val
 
     def inv_dist_train(self, epoch_id):
@@ -822,7 +850,7 @@ class MMS:
         del decoder
         gc.collect()
 
-        labels = self.get_epoch_labels(epoch_id)
+        labels = self.testing_labels.cpu().numpy()
 
         ori_pred = self.get_pred(epoch_id, data)
         new_pred = self.get_pred(epoch_id, inv_data)
@@ -832,4 +860,27 @@ class MMS:
 
         val = evaluate_inv_conf(labels, ori_pred, new_pred)
         return val
+
+    def nn_pred_accu(self, epoch_id, n_neighbors=15):
+        data = self.get_epoch_repr_data(epoch_id)
+        n_trees = min(64, 5 + int(round((data.shape[0]) ** 0.5 / 20.0)))
+        n_iters = max(5, int(round(np.log2(data.shape[0]))))
+        nnd = NNDescent(
+            data,
+            n_neighbors=n_neighbors,
+            metric="euclidean",
+            n_trees=n_trees,
+            n_iters=n_iters,
+            max_candidates=60,
+            verbose=True
+        )
+        indices, _ = nnd.neighbor_graph
+        pred = self.get_pred(epoch_id, data)
+        pred = pred.argmax(axis=1)
+        pers = pred[indices]
+        res = np.zeros(len(pred))
+        for i in range(len(pred)):
+            res[i] = np.sum(pers[i] == pred[i])/n_neighbors
+        return res.mean()
+
 
