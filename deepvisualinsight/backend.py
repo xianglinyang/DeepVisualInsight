@@ -468,7 +468,7 @@ def define_autoencoder(dims, n_components, units, encoder=None, decoder=None):
         return encoder, decoder
 
 
-def define_model(dims, low_dims, encoder, decoder, temporal):
+def define_model(dims, low_dims, encoder, decoder, temporal, stop_grad=False):
     # inputs
     to_x = tf.keras.layers.Input(shape=dims, name="to_x")
     from_x = tf.keras.layers.Input(shape=dims, name="from_x")
@@ -484,8 +484,12 @@ def define_model(dims, low_dims, encoder, decoder, temporal):
     embedding_to = encoder(to_x)
     embedding_from = encoder(from_x)
 
-    # parametric reconstruction
-    embedding_to_recon = decoder(embedding_to)
+    if stop_grad:
+        embedding_to_recon = decoder(tf.stop_gradient(embedding_to))
+    else:
+        # parametric reconstruction
+        embedding_to_recon = decoder(embedding_to)
+
 
     embedding_to_recon = tf.keras.layers.Lambda(
         lambda x: x, name="reconstruction"
@@ -539,7 +543,7 @@ def define_losses(batch_size, n_epoch, tot_epochs, temporal):
     if temporal:
         temporal_loss_fn = temporal_loss()
         losses["temporal"] = temporal_loss_fn
-        loss_weights["temporal"] = 1.0
+        loss_weights["temporal"] = 0.01
 
     # if temporal:
     #     ratio = n_epoch / float(tot_epochs)
@@ -570,9 +574,9 @@ def define_lr_schedule(epoch):
         lr (float32): learning rate
     """
     lr = 1e-3
-    if epoch > 5:
+    if epoch > 10:
         lr *= 1e-1
-    elif epoch > 15:
+    elif epoch > 20:
         lr *= 1e-1
     print('Learning rate: ', lr)
     return lr
