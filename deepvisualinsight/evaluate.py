@@ -2,6 +2,7 @@ from sklearn.neighbors import KDTree
 from deepvisualinsight import backend
 import numpy as np
 from scipy.stats import spearmanr
+from scipy.stats import pearsonr
 from pynndescent import NNDescent
 from sklearn.manifold import trustworthiness
 
@@ -57,8 +58,16 @@ def evaluate_proj_boundary_perseverance_knn(data, embedding, high_centers, low_c
 
 
 def evaluate_proj_temporal_perseverance(alpha, delta_x):
-    correlation, pvalue = spearmanr(alpha, delta_x)
-    return correlation
+    shape = alpha.shape
+    data_num = shape[1]
+    corr = np.zeros(data_num)
+    for i in range(data_num):
+        # correlation, pvalue = spearmanr(alpha[:, i], delta_x[:, i])
+        correlation, pvalue = pearsonr(alpha[:, i], delta_x[:, i])
+        if np.isnan(correlation):
+            correlation = 0.0
+        corr[i] = correlation
+    return corr.mean()
 
 
 def evaluate_inv_distance(data, inv_data):
