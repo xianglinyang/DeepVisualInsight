@@ -367,11 +367,12 @@ export class DataSet {
       return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
     }
     let epoch = 0;
+    let total_epoch_number = 0;
     let real_data_number = this.points.length;
     let background_point_number = 0;
     //console.log(this.points);
     let step = async () => {
-      if (this.tSNEShouldStop || epoch >= 20) {
+      if (this.tSNEShouldStop || epoch >= total_epoch_number) {
         this.projections['tsne'] = false;
         stepCallback(null, null);
         this.tsne = null;
@@ -380,7 +381,6 @@ export class DataSet {
       }
       if (!this.tSNEShouldPause) {
         this.points = this.points.slice(0, real_data_number);
-        //console.log("older points");
         //console.log(this.points);
         for (let i = 0; i < real_data_number; i++) {
           let dataPoint = this.points[i];
@@ -388,13 +388,7 @@ export class DataSet {
           dataPoint.projections['tsne-1'] = result[epoch][i][1];
           dataPoint.projections['tsne-2'] = 0;
           dataPoint.color = rgbToHex(label_color_list[i][0], label_color_list[i][1], label_color_list[i][2])
-          //console.log(classes.indexOf(dataPoint.metadata.label));
-          /*
-          console.log(classes_color_map[label]);
-          dataPoint.color = rgbToHex(classes_color_map[label][0],
-              classes_color_map[label][1], classes_color_map[label][2]);*/
         }
-        console.log(this.points);
         for (let i = 0; i < background_point_number; i++) {
           const newDataPoint : DataPoint = {
             metadata: {label: "background"},
@@ -409,11 +403,8 @@ export class DataSet {
         };
         this.points.push(newDataPoint);
         }
-        //console.log("newer points");
-        //console.log(this.points);
         this.projections['tsne'] = true;
         this.tSNEIteration++;
-        //const bg = 'data:image/png;base64,'+ bg_list[epoch];
         epoch++;
         stepCallback(this.tSNEIteration, undefined, new DataSet(this.points, this.spriteAndMetadataInfo));
         await delay(1000);
@@ -431,6 +422,8 @@ export class DataSet {
       grid_color = data.grid_color;
       background_point_number = grid_index[0].length;
       label_color_list = data.label_color_list;
+      real_data_number = label_color_list.length;
+      total_epoch_number = result.length;
       step();
     });
     /*
