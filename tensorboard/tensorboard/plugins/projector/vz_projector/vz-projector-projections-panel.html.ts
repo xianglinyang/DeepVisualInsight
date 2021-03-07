@@ -143,20 +143,9 @@ export const template = html`
     <div id="main">
       <div class="ink-panel-header">
         <div class="ink-tab-group">
-          <div data-tab="umap" id="umap-tab" class="ink-tab projection-tab">
-            UMAP
-          </div>
-          <paper-tooltip
-            for="umap-tab"
-            position="bottom"
-            animation-delay="0"
-            fit-to-visible-bounds
-          >
-            uniform manifold approximation and projection
-          </paper-tooltip>
 
           <div data-tab="tsne" id="tsne-tab" class="ink-tab projection-tab">
-            t-SNE
+            DVI
           </div>
           <paper-tooltip
             for="tsne-tab"
@@ -164,7 +153,7 @@ export const template = html`
             animation-delay="0"
             fit-to-visible-bounds
           >
-            t-distributed stochastic neighbor embedding
+            Deep Visual Insight
           </paper-tooltip>
 
           <div data-tab="pca" id="pca-tab" class="ink-tab projection-tab">
@@ -179,22 +168,6 @@ export const template = html`
             Principal component analysis
           </paper-tooltip>
 
-          <div
-            data-tab="custom"
-            id="custom-tab"
-            class="ink-tab projection-tab"
-            title="Linear projection of two custom vectors"
-          >
-            Custom
-          </div>
-          <paper-tooltip
-            for="custom-tab"
-            position="bottom"
-            animation-delay="0"
-            fit-to-visible-bounds
-          >
-            Search for two vectors upon which to project all points.
-          </paper-tooltip>
         </div>
       </div>
       <div class="container">
@@ -262,121 +235,20 @@ export const template = html`
         </div>
         <!-- TSNE Controls -->
         <div data-panel="tsne" class="ink-panel-content">
-          <div class="slider">
-            <label>Dimension</label>
-            <div class="two-way-toggle">
-              <span>2D</span>
-              <paper-toggle-button id="tsne-toggle" checked="{{tSNEis3d}}"
-                >3D</paper-toggle-button
-              >
-            </div>
-          </div>
-          <div class="slider tsne-perplexity">
-            <label>
-              Perplexity
-              <paper-icon-button
-                icon="help"
-                class="help-icon"
-              ></paper-icon-button>
-              <paper-tooltip
-                position="right"
-                animation-delay="0"
-                fit-to-visible-bounds
-              >
-                The most appropriate perplexity value depends on the density of
-                the data. Loosely speaking, a larger / denser dataset requires a
-                larger perplexity. Typical values for perplexity range between 5
-                and 50.
-              </paper-tooltip>
-            </label>
-            <paper-slider
-              id="perplexity-slider"
-              pin
-              min="2"
-              max="100"
-              value="30"
-            ></paper-slider>
-            <span></span>
-          </div>
-          <div class="slider tsne-learning-rate">
-            <label>
-              Learning rate
-              <paper-icon-button
-                icon="help"
-                class="help-icon"
-              ></paper-icon-button>
-              <paper-tooltip
-                position="right"
-                animation-delay="0"
-                fit-to-visible-bounds
-              >
-                The ideal learning rate often depends on the size of the data,
-                with smaller datasets requiring smaller learning rates.
-              </paper-tooltip>
-            </label>
-            <paper-slider
-              id="learning-rate-slider"
-              snaps
-              min="-3"
-              max="2"
-              step="1"
-              value="1"
-              max-markers="6"
-            >
-            </paper-slider>
-            <span></span>
-          </div>
-          <div class="slider tsne-supervise-factor">
-            <label>
-              Supervise
-              <paper-icon-button
-                icon="help"
-                class="help-icon"
-              ></paper-icon-button>
-              <paper-tooltip
-                position="right"
-                animation-delay="0"
-                fit-to-visible-bounds
-              >
-                The label importance used for supervision, from 0 (disabled) to
-                100 (full importance).
-              </paper-tooltip>
-            </label>
-            <paper-slider
-              id="supervise-factor-slider"
-              min="0"
-              max="100"
-              pin
-              value="{{superviseFactor}}"
-            >
-            </paper-slider>
-            <span></span>
-          </div>
           <p>
-            <button class="run-tsne ink-button" title="Re-run t-SNE">
+            <button class="run-tsne ink-button" title="Re-run DVI">
               Run
             </button>
-            <button class="pause-tsne ink-button" title="Pause t-SNE">
+            <button class="pause-tsne ink-button" title="Pause DVI">
               Pause
             </button>
-            <button class="perturb-tsne ink-button" title="Perturb t-SNE">
-              Perturb
+            <button class="previous-dvi ink-button" title="Previous DVI">
+              Previous
             </button>
           </p>
           <p>Iteration: <span class="run-tsne-iter">0</span></p>
+          <p>Total iteration number: <span class="dvi-total-iter">0</span></p>
           <p id="tsne-sampling" class="notice">
-            For faster results, the data will be sampled down to
-            [[getTsneSampleSizeText()]] points.
-          </p>
-          <p>
-            <iron-icon icon="book" class="book-icon"></iron-icon>
-            <a
-              target="_blank"
-              href="http://distill.pub/2016/misread-tsne/"
-              rel="noopener noreferrer"
-            >
-              How to use t-SNE effectively.
-            </a>
           </p>
         </div>
         <!-- PCA Controls -->

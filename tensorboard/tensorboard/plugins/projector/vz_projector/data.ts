@@ -143,8 +143,11 @@ export class DataSet {
   spriteAndMetadataInfo: SpriteAndMetadataInfo;
   fracVariancesExplained: number[];
   tSNEIteration: number = 0;
+  tSNEShouldPauseAndCheck = false;
   tSNEShouldPause = false;
   tSNEShouldStop = true;
+  tSNEShouldKill = false;
+  tSNEJustPause = false;
   superviseFactor: number;
   superviseLabels: string[];
   superviseInput: string = '';
@@ -335,16 +338,14 @@ export class DataSet {
     perplexity: number,
     learningRate: number,
     tsneDim: number,
-    stepCallback: (iter: number, bg?:string, dataset?:DataSet) => void
+    stepCallback: (iter: number, bg?:string, dataset?:DataSet, totalIter?: number) => void
   ) {
+    //console.log('here3');
     this.hasTSNERun = true;
-    let k = Math.floor(3 * perplexity);
-    let opt = {epsilon: learningRate, perplexity: perplexity, dim: tsneDim};
-    this.tsne = new TSNE(opt);
-    this.tsne.setSupervision(this.superviseLabels, this.superviseInput);
-    this.tsne.setSuperviseFactor(this.superviseFactor);
+    this.tSNEShouldKill = false;
     this.tSNEShouldPause = false;
     this.tSNEShouldStop = false;
+    this.tSNEJustPause = false;
     this.tSNEIteration = 0;
     let sampledIndices = this.shuffledDataIndices.slice(0, TSNE_SAMPLE_SIZE);
     let headers = new Headers();
@@ -363,29 +364,35 @@ export class DataSet {
       const hex = c.toString(16);
       return hex.length == 1 ? "0" + hex : hex;
     }
+
     function rgbToHex(r:number, g:number, b:number) {
       return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
     }
-    let epoch = 0;
+
     let total_epoch_number = 0;
     let real_data_number = this.points.length;
     let background_point_number = 0;
     //console.log(this.points);
     let step = async () => {
-      if (this.tSNEShouldStop || epoch >= total_epoch_number) {
-        this.projections['tsne'] = false;
-        stepCallback(null, null);
-        this.tsne = null;
-        this.hasTSNERun = false;
+      if (this.tSNEShouldKill) {
+        //console.log('here2');
         return;
       }
-      if (!this.tSNEShouldPause) {
+      if (this.tSNEShouldStop || this.tSNEIteration >= total_epoch_number) {
+        this.projections['tsne'] = false;
+        this.tSNEJustPause = true;
+        stepCallback(null);
+        this.hasTSNERun = false;
+        //return;
+      }
+      if (!(this.tSNEShouldStop || this.tSNEIteration >= total_epoch_number)
+          && (!this.tSNEShouldPause || this.tSNEShouldPauseAndCheck)) {
         this.points = this.points.slice(0, real_data_number);
         //console.log(this.points);
         for (let i = 0; i < real_data_number; i++) {
           let dataPoint = this.points[i];
-          dataPoint.projections['tsne-0'] = result[epoch][i][0];
-          dataPoint.projections['tsne-1'] = result[epoch][i][1];
+          dataPoint.projections['tsne-0'] = result[this.tSNEIteration][i][0];
+          dataPoint.projections['tsne-1'] = result[this.tSNEIteration][i][1];
           dataPoint.projections['tsne-2'] = 0;
           dataPoint.color = rgbToHex(label_color_list[i][0], label_color_list[i][1], label_color_list[i][2])
         }
@@ -395,19 +402,23 @@ export class DataSet {
             index: real_data_number + i,
             vector: new Float32Array(),
             projections: {
-              'tsne-0': grid_index[epoch][i][0],
-              'tsne-1': grid_index[epoch][i][1],
+              'tsne-0': grid_index[this.tSNEIteration][i][0],
+              'tsne-1': grid_index[this.tSNEIteration][i][1],
               'tsne-2': 0
             },
-        color: rgbToHex(grid_color[epoch][i][0],   grid_color[epoch][i][1], grid_color[epoch][i][2]),
+        color: rgbToHex(grid_color[this.tSNEIteration][i][0],   grid_color[this.tSNEIteration][i][1], grid_color[this.tSNEIteration][i][2]),
         };
         this.points.push(newDataPoint);
         }
         this.projections['tsne'] = true;
-        this.tSNEIteration++;
-        epoch++;
-        stepCallback(this.tSNEIteration, undefined, new DataSet(this.points, this.spriteAndMetadataInfo));
-        await delay(1000);
+
+        stepCallback(this.tSNEIteration + 1, undefined, new DataSet(this.points, this.spriteAndMetadataInfo),
+            total_epoch_number);
+        if(!this.tSNEShouldPauseAndCheck)  {
+           this.tSNEIteration++;
+           await delay(1000);
+        }
+
       }
       requestAnimationFrame(step);
     };
