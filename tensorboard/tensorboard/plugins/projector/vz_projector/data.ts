@@ -148,6 +148,7 @@ export class DataSet {
   tSNEShouldStop = true;
   tSNEShouldKill = false;
   tSNEJustPause = false;
+  tSNETotalIter = 0;
   superviseFactor: number;
   superviseLabels: string[];
   superviseInput: string = '';
@@ -346,7 +347,9 @@ export class DataSet {
     this.tSNEShouldPause = false;
     this.tSNEShouldStop = false;
     this.tSNEJustPause = false;
+    this.tSNEShouldPauseAndCheck = false;
     this.tSNEIteration = 0;
+    this.tSNETotalIter = 0;
     let sampledIndices = this.shuffledDataIndices.slice(0, TSNE_SAMPLE_SIZE);
     let headers = new Headers();
     headers.append('Content-Type', 'application/json');
@@ -385,6 +388,7 @@ export class DataSet {
         this.hasTSNERun = false;
         //return;
       }
+
       if (!(this.tSNEShouldStop || this.tSNEIteration >= total_epoch_number)
           && (!this.tSNEShouldPause || this.tSNEShouldPauseAndCheck)) {
         this.points = this.points.slice(0, real_data_number);
@@ -435,6 +439,7 @@ export class DataSet {
       label_color_list = data.label_color_list;
       real_data_number = label_color_list.length;
       total_epoch_number = result.length;
+      this.tSNETotalIter = total_epoch_number;
       step();
     });
     /*

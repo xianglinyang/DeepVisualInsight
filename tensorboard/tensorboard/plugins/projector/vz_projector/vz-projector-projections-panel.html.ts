@@ -29,7 +29,7 @@ export const template = html`
         border-radius: 2px;
         font-size: 13px;
         padding: 10px;
-        min-width: 88px;
+        min-width: 100px;
         flex-shrink: 0;
         background: #e3e3e3;
       }
@@ -77,6 +77,18 @@ export const template = html`
 
       .two-columns > div {
         width: 50%;
+      }
+      
+      .two-rows {
+        display: flex;
+        justify-content: space-between;
+        flex-direction: column;
+      }
+      
+      .row {
+        display: flex;
+        margin-bottom: 15px;
+        justify-content: space-around;
       }
 
       .dropdown-item {
@@ -235,17 +247,24 @@ export const template = html`
         </div>
         <!-- TSNE Controls -->
         <div data-panel="tsne" class="ink-panel-content">
-          <p>
-            <button class="run-tsne ink-button" title="Re-run DVI">
-              Run
-            </button>
-            <button class="pause-tsne ink-button" title="Pause DVI">
-              Pause
-            </button>
-            <button class="previous-dvi ink-button" title="Previous DVI">
-              Previous
-            </button>
-          </p>
+           <div class="two-rows">
+              <div class="row">
+                <button class="run-tsne ink-button" title="Re-run DVI">
+                  Run
+                </button>
+                <button class="pause-tsne ink-button" title="Pause DVI">
+                  Pause
+                </button>
+              </div> 
+              <div class="row">
+                 <button class="previous-dvi ink-button" title="Previous DVI">
+                   Previous
+                 </button>
+                 <button class="next-dvi ink-button" title="Next DVI">
+                   Next
+                 </button>
+              </div>
+          </div>
           <p>Iteration: <span class="run-tsne-iter">0</span></p>
           <p>Total iteration number: <span class="dvi-total-iter">0</span></p>
           <p id="tsne-sampling" class="notice">

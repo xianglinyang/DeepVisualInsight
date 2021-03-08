@@ -109,6 +109,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   private pauseTsneButton: HTMLButtonElement;
   //private perturbTsneButton: HTMLButtonElement;
   private previousDVIButton: HTMLButtonElement;
+  private nextDVIButton: HTMLButtonElement;
   //private perplexitySlider: HTMLInputElement;
   //private learningRateInput: HTMLInputElement;
   //private superviseFactorInput: HTMLInputElement;
@@ -140,6 +141,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     this.pauseTsneButton = this.$$('.pause-tsne') as HTMLButtonElement;
     //this.perturbTsneButton = this.$$('.perturb-tsne') as HTMLButtonElement;
     this.previousDVIButton = this.$$('.previous-dvi') as HTMLButtonElement;
+    this.nextDVIButton = this.$$('.next-dvi') as HTMLButtonElement;
     //this.perplexitySlider = this.$$('#perplexity-slider') as HTMLInputElement;
     /*
     this.learningRateInput = this.$$(
@@ -214,6 +216,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
         this.dataSet.tSNEShouldPause = false;
         this.pauseTsneButton.innerText = 'Pause';
         this.previousDVIButton.disabled = true;
+        this.nextDVIButton.disabled = true;
         this.dataSet.tSNEShouldPauseAndCheck = false;
       } else {
         this.dataSet.tSNEShouldPause = true;
@@ -221,6 +224,9 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
         this.dataSet.tSNEJustPause = true;
         if (this.dataSet.tSNEIteration != 1) {
            this.previousDVIButton.disabled = false;
+        }
+        if (this.dataSet.tSNEIteration != this.dataSet.tSNETotalIter) {
+          this.nextDVIButton.disabled = false;
         }
       }
     });
@@ -244,6 +250,29 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
         this.dataSet.tSNEShouldPause = true;
         this.dataSet.hasTSNERun = true;
       }
+      this.nextDVIButton.disabled = false;
+    });
+
+    this.nextDVIButton.addEventListener('click', () => {
+      if (this.dataSet.tSNEJustPause) {
+        this.dataSet.tSNEJustPause = false;
+      } else {
+        this.dataSet.tSNEIteration ++;
+      }
+      this.dataSet.tSNEShouldPauseAndCheck = true;
+      if(this.dataSet.tSNEIteration == this.dataSet.tSNETotalIter) {
+        this.nextDVIButton.disabled = true;
+      }
+      if(!this.dataSet.hasTSNERun) {
+        this.runTsneButton.innerText = 'Stop';
+        this.runTsneButton.disabled = false;
+        this.pauseTsneButton.innerText = 'Resume';
+        this.pauseTsneButton.disabled = false;
+        this.dataSet.tSNEShouldStop = false;
+        this.dataSet.tSNEShouldPause = true;
+        this.dataSet.hasTSNERun = true;
+      }
+      this.previousDVIButton.disabled = false;
     });
     /*
     this.perturbTsneButton.addEventListener('mousedown', () => {
@@ -522,6 +551,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     this.pauseTsneButton.innerText = 'Pause';
     this.pauseTsneButton.disabled = true;
     this.previousDVIButton.disabled = true;
+    this.nextDVIButton.disabled = true;
     //this.perturbTsneButton.disabled = false;
     this.dataSet.projectTSNE(
       this.perplexity,
