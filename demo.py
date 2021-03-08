@@ -6,12 +6,12 @@ import matplotlib.pyplot as plt
 import torch
 import json
 
-content_path = "E:\\DVI_exp_data\\resnet18_cifar10"
+# content_path = "E:\\DVI_exp_data\\resnet18_cifar10"
 # content_path = "E:\\DVI_exp_data\\resnet18_fashionmnist"
 # content_path = "E:\\DVI_exp_data\\resnet18_mnist"
 # content_path = "E:\\DVI_exp_data\\active_learning\\random_tl_cifar10"
 # content_path = "E:\\DVI_exp_data\\active_learning\\entropy_tl_cifar10"
-# content_path = "E:\\DVI_exp_data\\noisy_model\\resnet18_cifar10"
+content_path = "E:\\DVI_exp_data\\noisy_model\\resnet18_cifar10"
 
 sys.path.append(content_path)
 
@@ -25,10 +25,18 @@ classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "sh
 
 
 # TODO temporal loss dynamically change weight?
-mms = MMS(content_path, net, 1, 200, 512, 10, classes, cmap="tab10", resolution=100, boundary_diff=1, neurons=256, verbose=1, temporal=True)
+mms = MMS(content_path, net, 1, 200, 512, 10, classes, cmap="tab10", resolution=100, boundary_diff=1, neurons=128, verbose=1, temporal=False)
 # mms.data_preprocessing()
 # mms.prepare_visualization_for_all()
 
+# mms.nn_pred_accu(1, 15)
+# mms.nn_pred_accu(200, 15)
+# mms.inv_conf_diff_train(2)
+# mms.inv_conf_diff_train(2)
+# mms.inv_conf_diff_train(5)
+# mms.inv_conf_diff_train(1)
+# mms.nn_pred_accu(1, 15)
+# print(1)
 # print(mms.inv_accu_train(1))
 # for i in range(0, 11, 1):
 #     print(mms.nn_pred_accu(i, n_neighbors=15))
@@ -60,11 +68,11 @@ mms = MMS(content_path, net, 1, 200, 512, 10, classes, cmap="tab10", resolution=
     # print(mms.inv_dist_train(i))
     # print(mms.inv_dist_test(i))
 
-
+#
 img_save_location = os.path.join(mms.content_path, "img")
 if not os.path.exists(img_save_location):
     os.mkdir(img_save_location)
-for i in range(1, 21, 1):
+for i in range(1, 201, 1):
     train_data = mms.get_epoch_repr_data(i)
     labels = mms.get_epoch_labels(i)
     # with open("E:\\DVI_exp_data\\noisy_model\\resnet18\\index.json", 'r') as f:
@@ -87,5 +95,5 @@ for i in range(1, 21, 1):
     )
     ax.axis('equal')
     ax.set_title("parametric UMAP autoencoder embeddings-training data", fontsize=20)
-    plt.savefig(os.path.join(img_save_location, "temporal_{:d}".format(i)))
-    mms.savefig(i, os.path.join(img_save_location, "temporal_b_{:d}".format(i)))
+    plt.savefig(os.path.join(img_save_location, "{:d}".format(i)))
+    mms.savefig(i, os.path.join(img_save_location, "b_{:d}".format(i)))

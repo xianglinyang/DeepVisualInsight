@@ -177,8 +177,8 @@ class MMS:
             border_centers = np.load(border_centers_loc)
             train_data = np.load(train_data_loc)
 
-            complex = fuzzy_complex(train_data, 15)
-            bw_complex = boundary_wise_complex(train_centers, border_centers, 15)
+            complex, sigmas, rhos = fuzzy_complex(train_data, 15)
+            bw_complex, _, _ = boundary_wise_complex(train_centers, border_centers, 15)
             if not self.temporal:
                 (
                     edge_dataset,
@@ -207,7 +207,10 @@ class MMS:
                     encoder = self.get_proj_model(n_epoch-1)
                     prev_embedding = encoder(prev_data).cpu().numpy()
                 alpha = find_alpha(prev_data, train_data, n_neighbors=15)
-                alpha[alpha < 0.5] = 0.0# alpha >=0.5 is convincing
+                alpha[alpha < 0.5] = 0.0 # alpha >=0.5 is convincing
+                update_dists = find_update_dist(prev_data, train_data, sigmas, rhos)
+                update_dists[update_dists < 0.05] = 0.0
+                alpha = alpha*update_dists
                 (
                     edge_dataset,
                     batch_size,
@@ -828,9 +831,9 @@ class MMS:
         del decoder
         gc.collect()
 
-        labels = self.get_epoch_labels(epoch_id)
         ori_pred = self.get_pred(epoch_id, data)
         new_pred = self.get_pred(epoch_id, inv_data)
+        labels = ori_pred.argmax(-1)
 
         ori_pred = softmax(ori_pred, axis=1)
         new_pred = softmax(new_pred, axis=1)
@@ -850,13 +853,32 @@ class MMS:
         del decoder
         gc.collect()
 
-        labels = self.testing_labels.cpu().numpy()
 
         ori_pred = self.get_pred(epoch_id, data)
         new_pred = self.get_pred(epoch_id, inv_data)
+        labels = ori_pred.argmax(-1)
 
         ori_pred = softmax(ori_pred, axis=1)
         new_pred = softmax(new_pred, axis=1)
+
+        val = evaluate_inv_conf(labels, ori_pred, new_pred)
+        return val
+
+    def inv_logits_diff_train(self, epoch_id):
+        data = self.get_epoch_repr_data(epoch_id)
+        encoder = self.get_proj_model(epoch_id)
+        embedding = encoder(data).cpu().numpy()
+        del encoder
+        gc.collect()
+
+        decoder = self.get_inv_model(epoch_id)
+        inv_data = decoder(embedding).cpu().numpy()
+        del decoder
+        gc.collect()
+
+        labels = self.get_epoch_labels(epoch_id)
+        ori_pred = self.get_pred(epoch_id, data)
+        new_pred = self.get_pred(epoch_id, inv_data)
 
         val = evaluate_inv_conf(labels, ori_pred, new_pred)
         return val
