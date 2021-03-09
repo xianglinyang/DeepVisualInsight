@@ -150,6 +150,11 @@ export class DataSet {
   tSNEJustPause = false;
   tSNETotalIter = 0;
   DVIsubjectModelPath = "";
+  DVIUseCache = true;
+  DVIStartIter = 1;
+  DVIEndIter = 2;
+  DVIColorChanel = 1;
+  DVIResolution = 400;
   superviseFactor: number;
   superviseLabels: string[];
   superviseInput: string = '';
@@ -432,7 +437,10 @@ export class DataSet {
     };
     await fetch("http://192.168.10.115:5000/animation", {
       method: 'POST',
-      body: JSON.stringify({"rawdata": rawdata, "metadata": metadata, "path": this.DVIsubjectModelPath}),
+      body: this.DVIUseCache ? JSON.stringify({"cache": this.DVIUseCache})
+          :JSON.stringify({"cache": this.DVIUseCache, "rawdata": rawdata, "metadata": metadata,
+            "path": this.DVIsubjectModelPath, "start_iter":this.DVIStartIter, "end_iter":this.DVIEndIter,
+          "color_channel":this.DVIColorChanel, "resolution":this.DVIResolution}),
       headers: headers,
       mode: 'cors'
     }).then(response => response.json()).then(data => {

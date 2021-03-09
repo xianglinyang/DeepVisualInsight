@@ -247,6 +247,15 @@ export const template = html`
         </div>
         <!-- TSNE Controls -->
         <div data-panel="tsne" class="ink-panel-content">
+           <div class="slider">
+            <label>Cache</label>
+            <div class="two-way-toggle">
+              <span>Yes</span>
+              <paper-toggle-button id="DVI-toggle" checked="{{DVINotCache}}"
+                >No</paper-toggle-button
+              >
+            </div>
+          </div>
            <div class="two-rows">
               <div class="row">
                 <button class="run-tsne ink-button" title="Re-run DVI">

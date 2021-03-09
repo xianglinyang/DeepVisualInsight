@@ -84,6 +84,8 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   // Custom projection.
   @property({type: String})
   customSelectedSearchByMetadataOption: string;
+  @property({type: Boolean})
+  DVINotCache: boolean = false;
 
   private projector: any; // Projector; type omitted b/c LegacyElement
 
@@ -452,11 +454,14 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     this.setZDropdownEnabled(this.pcaIs3d);
     this.beginProjection(this.currentProjection);
   }
-  /*
-  @observe('tSNEis3d')
-  _tsneDimensionToggleObserver() {
-    this.beginProjection(this.currentProjection);
-  }*/
+
+  @observe('DVINotCache')
+  _DVICacheToggleObserver() {
+    if(this.dataSet != null) {
+      this.dataSet.DVIUseCache = !this.DVINotCache;
+    }
+  }
+
   @observe('umapIs3d')
   _umapDimensionToggleObserver() {
     this.beginProjection(this.currentProjection);
@@ -529,6 +534,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     if (dataSet == null) {
       return;
     }
+    this.dataSet.DVIUseCache = !this.DVINotCache;
     const accessors = getProjectionComponents('tsne', [
       0,
       1,

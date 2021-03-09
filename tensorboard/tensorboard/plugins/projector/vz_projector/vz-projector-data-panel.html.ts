@@ -125,10 +125,17 @@ export const template = html`
     .metadata-editor,
     .supervise-settings,
     .colorlabel-container,
-    .subject-model-path-editor {
+    .subject-model-path-editor,
+    .iteration-setting-editor,
+    .misc-setting-editor {
       display: flex;
     }
-
+    
+    .iteration-setting-editor,
+    .misc-setting-editor {
+      justify-content: space-between;
+    }
+    
     #labelby {
       width: 100px;
       margin-right: 10px;
@@ -161,7 +168,15 @@ export const template = html`
     }
     
     .subject-model-path-editor paper-input {
-       width: calc(100% - 110px);
+       width: 100%;
+    }
+    
+    .iteration-setting-editor paper-input {
+       width: 45%;
+    }
+    
+    .misc-setting-editor paper-input {
+       width: 45%;
     }
 
     .config-checkbox {
@@ -411,11 +426,41 @@ export const template = html`
         </paper-input>
       </div>
     <!-- Subject Model Path -->
-    <div class="subject-model-path-editor">
+    <div hidden$="[[!showDVISettings]]" class="subject-model-path-editor">
         <paper-input
           value="{{subjectModelPathEditorInput}}"
           label="Subject Model Path"
           on-input="subjectModelPathEditorInputChange"
+        >
+        </paper-input>
+    </div>
+    <!-- Iteration Setting -->
+    <div hidden$="[[!showDVISettings]]" class="iteration-setting-editor">
+        <paper-input
+          value="{{startIterationEditorInput}}"
+          label="Start Iteration"
+          on-input="startIterationEditorInputChange"
+        >
+        </paper-input>
+        <paper-input
+          value="{{endIterationEditorInput}}"
+          label="End Iteration"
+          on-input="endIterationEditorInputChange"
+        >
+        </paper-input>
+    </div>
+    <!-- Misc Setting -->
+    <div hidden$="[[!showDVISettings]]" class="misc-setting-editor">
+        <paper-input
+          value="{{colorChannelEditorInput}}"
+          label="Color Channel"
+          on-input="colorChannelEditorInputChange"
+        >
+        </paper-input>
+        <paper-input
+          value="{{resolutionEditorInput}}"
+          label="Resolution"
+          on-input="resolutionEditorInputChange"
         >
         </paper-input>
     </div>
