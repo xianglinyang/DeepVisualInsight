@@ -381,7 +381,7 @@ export const template = html`
         </paper-input>
       </div>
       <!-- Edit by -->
-      <div class="metadata-editor">
+      <div hidden$="[[!showEditSettings]]" class="metadata-editor">
         <paper-dropdown-menu no-animations label="Edit by">
           <paper-listbox
             attr-for-selected="value"
@@ -417,49 +417,6 @@ export const template = html`
         </paper-tooltip>
         <paper-button id="upload" class="ink-button" on-tap="_openDataDialog"
           >Load</paper-button
-        >
-      </span>
-      <span id="publish-container" class="button-container">
-        <paper-tooltip
-          position="bottom"
-          animation-delay="0"
-          fit-to-visible-bounds
-        >
-          Publish your embedding visualization and data
-        </paper-tooltip>
-        <paper-button
-          id="host-embedding"
-          class="ink-button"
-          on-tap="_openConfigDialog"
-          >Publish</paper-button
-        >
-      </span>
-      <span class="button-container">
-        <paper-tooltip
-          position="bottom"
-          animation-delay="0"
-          fit-to-visible-bounds
-        >
-          Download the metadata with applied modifications
-        </paper-tooltip>
-        <paper-button class="ink-button" on-click="downloadMetadataClicked"
-          >Download</paper-button
-        >
-        <a href="#" id="downloadMetadataLink" hidden></a>
-      </span>
-      <span id="label-button" class="button-container">
-        <paper-tooltip
-          position="bottom"
-          animation-delay="0"
-          fit-to-visible-bounds
-        >
-          Label selected metadata
-        </paper-tooltip>
-        <paper-button
-          class="ink-button"
-          on-click="metadataEditorButtonClicked"
-          disabled="[[metadataEditorButtonDisabled]]"
-          >Label</paper-button
         >
       </span>
     </div>
