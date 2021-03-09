@@ -516,17 +516,32 @@ class MMS:
 
         self.sample_plots = []
 
+        # labels = prediction
         for c in range(self.class_num):
             color = self.cmap(c/(self.class_num-1))
             plot = self.ax.plot([], [], '.', label=self.classes[c], ms=1,
                 color=color, zorder=2, picker=mpl.rcParams['lines.markersize'])
             self.sample_plots.append(plot[0])
 
+        # labels != prediction, labels be a large circle
         for c in range(self.class_num):
             color = self.cmap(c/(self.class_num-1))
             plot = self.ax.plot([], [], 'o', markeredgecolor=color,
-                fillstyle='none', ms=3, mew=2.5, zorder=1)
+                fillstyle='full', ms=3, mew=2.5, zorder=3)
             self.sample_plots.append(plot[0])
+
+        # labels != prediction, prediction stays inside of circle
+        for c in range(self.class_num):
+            color = self.cmap(c / (self.class_num - 1))
+            plot = self.ax.plot([], [], '.', markeredgecolor=color,
+                                fillstyle='full', ms=2, zorder=4)
+            self.sample_plots.append(plot[0])
+
+        # highlight
+        color = (0.0, 0.0, 0.0, 1.0)
+        plot = self.ax.plot([], [], 'o', markeredgecolor=color,
+                            fillstyle='full', ms=4, mew=4, zorder=1)
+        self.sample_plots.append(plot[0])
 
         # set the mouse-event listeners
         # self.fig.canvas.mpl_connect('pick_event', self.show_sample)
@@ -563,12 +578,16 @@ class MMS:
         proj_encoder = self.get_proj_model(epoch_id)
         embedding = proj_encoder(train_data).cpu().numpy()
         for c in range(self.class_num):
-            data = embedding[train_labels == c]
+            data = embedding[np.logical_and(train_labels == c, train_labels == pred)]
             self.sample_plots[c].set_data(data.transpose())
 
         for c in range(self.class_num):
-            data = embedding[np.logical_and(pred==c, train_labels!=c)]
-            self.sample_plots[self.class_num+c].set_data(data.transpose())
+            data = embedding[np.logical_and(train_labels == c, train_labels != pred)]
+            self.sample_plots[self.class_num + c].set_data(data.transpose())
+        #
+        for c in range(self.class_num):
+            data = embedding[np.logical_and(pred == c, train_labels != pred)]
+            self.sample_plots[2*self.class_num + c].set_data(data.transpose())
 
         if os.name == 'posix':
             self.fig.canvas.manager.window.raise_()
@@ -605,18 +624,73 @@ class MMS:
         proj_encoder = self.get_proj_model(epoch_id)
         embedding = proj_encoder(train_data).cpu().numpy()
         for c in range(self.class_num):
-            data = embedding[train_labels == c]
+            data = embedding[np.logical_and(train_labels == c, train_labels == pred)]
             self.sample_plots[c].set_data(data.transpose())
 
         for c in range(self.class_num):
-            data = embedding[np.logical_and(pred==c, train_labels!=c)]
+            data = embedding[np.logical_and(train_labels == c, train_labels != pred)]
             self.sample_plots[self.class_num+c].set_data(data.transpose())
+        #
+        for c in range(self.class_num):
+            data = embedding[np.logical_and(pred == c, train_labels != pred)]
+            self.sample_plots[2*self.class_num + c].set_data(data.transpose())
 
         if os.name == 'posix':
             self.fig.canvas.manager.window.raise_()
 
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
+
+        # plt.text(-8, 8, "test", fontsize=18, style='oblique', ha='center', va='top', wrap=True)
+        plt.savefig(path)
+
+    def visualize(self, epoch_id, train_data, train_labels, path, highlight_index):
+        '''
+        Shows the current plot.
+        '''
+        # if not hasattr(self, 'fig'):
+        #     self._s()
+        self._s()
+
+        x_min, y_min, x_max, y_max = self.get_epoch_plot_measures(epoch_id)
+
+        grid, decision_view = self.get_epoch_decision_view(epoch_id, self.resolution)
+        self.cls_plot.set_data(decision_view)
+        self.cls_plot.set_extent((x_min, x_max, y_max, y_min))
+        self.ax.set_xlim((x_min, x_max))
+        self.ax.set_ylim((y_min, y_max))
+
+        params_str = 'res: %d'
+        desc = params_str % (self.resolution)
+        self.desc.set_text(desc)
+
+        pred = self.get_pred(epoch_id, train_data)
+        pred = pred.argmax(axis=1)
+
+        proj_encoder = self.get_proj_model(epoch_id)
+        embedding = proj_encoder(train_data).cpu().numpy()
+        for c in range(self.class_num):
+            data = embedding[np.logical_and(train_labels == c, train_labels == pred)]
+            self.sample_plots[c].set_data(data.transpose())
+
+        for c in range(self.class_num):
+            data = embedding[np.logical_and(train_labels == c, train_labels != pred)]
+            self.sample_plots[self.class_num + c].set_data(data.transpose())
+        #
+        for c in range(self.class_num):
+            data = embedding[np.logical_and(pred == c, train_labels != pred)]
+            self.sample_plots[2 * self.class_num + c].set_data(data.transpose())
+
+        data = embedding[highlight_index]
+        self.sample_plots[3 * self.class_num].set_data(data.transpose())
+
+        if os.name == 'posix':
+            self.fig.canvas.manager.window.raise_()
+
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+
+        # plt.text(-8, 8, "test", fontsize=18, style='oblique', ha='center', va='top', wrap=True)
         plt.savefig(path)
 
     def batch_get_embedding(self, data, epoch_id):

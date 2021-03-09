@@ -1,4 +1,5 @@
 from deepvisualinsight.MMS import MMS
+from deepvisualinsight import utils
 import sys
 import os
 import numpy as np
@@ -28,6 +29,7 @@ classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "sh
 mms = MMS(content_path, net, 1, 200, 512, 10, classes, cmap="tab10", resolution=100, boundary_diff=1, neurons=128, verbose=1, temporal=False)
 # mms.data_preprocessing()
 # mms.prepare_visualization_for_all()
+
 
 # mms.nn_pred_accu(1, 15)
 # mms.nn_pred_accu(200, 15)
@@ -69,31 +71,71 @@ mms = MMS(content_path, net, 1, 200, 512, 10, classes, cmap="tab10", resolution=
     # print(mms.inv_dist_test(i))
 
 #
-img_save_location = os.path.join(mms.content_path, "img")
-if not os.path.exists(img_save_location):
-    os.mkdir(img_save_location)
-for i in range(1, 201, 1):
-    train_data = mms.get_epoch_repr_data(i)
-    labels = mms.get_epoch_labels(i)
-    # with open("E:\\DVI_exp_data\\noisy_model\\resnet18\\index.json", 'r') as f:
-    #     index = json.load(f)
-    # with open("E:\\DVI_exp_data\\noisy_model\\resnet18\\new_labels.json", 'r') as f:
-    #     ori_labels = json.load(f)
-    if train_data is None:
-        continue
-    z = mms.batch_project(train_data, i)
+# img_save_location = os.path.join(mms.content_path, "img")
+# if not os.path.exists(img_save_location):
+#     os.mkdir(img_save_location)
+#
+# for i in range(1, 201, 1):
+#     train_data = mms.get_epoch_repr_data(i)
+#     labels = mms.get_epoch_labels(i)
+#     # with open("E:\\DVI_exp_data\\noisy_model\\resnet18\\index.json", 'r') as f:
+#     #     index = json.load(f)
+#     # with open("E:\\DVI_exp_data\\noisy_model\\resnet18\\new_labels.json", 'r') as f:
+#     #     ori_labels = json.load(f)
+#     if train_data is None:
+#         continue
+#     z = mms.batch_project(train_data, i)
+#
+#     fig, ax = plt.subplots(ncols=1, figsize=(10, 8))
+#     sc = ax.scatter(
+#         z[:, 0],
+#         z[:, 1],
+#         c=labels,
+#         cmap="tab10",
+#         s=0.1,
+#         alpha=0.5,
+#         rasterized=True,
+#     )
+#     ax.axis('equal')
+#     ax.set_title("parametric UMAP autoencoder embeddings-training data", fontsize=20)
+#     plt.savefig(os.path.join(img_save_location, "{:d}".format(i)))
+#     mms.savefig(i, os.path.join(img_save_location, "b_{:d}".format(i)))
 
-    fig, ax = plt.subplots(ncols=1, figsize=(10, 8))
-    sc = ax.scatter(
-        z[:, 0],
-        z[:, 1],
-        c=labels,
-        cmap="tab10",
-        s=0.1,
-        alpha=0.5,
-        rasterized=True,
-    )
-    ax.axis('equal')
-    ax.set_title("parametric UMAP autoencoder embeddings-training data", fontsize=20)
-    plt.savefig(os.path.join(img_save_location, "{:d}".format(i)))
-    mms.savefig(i, os.path.join(img_save_location, "b_{:d}".format(i)))
+
+img_save_location = os.path.join(mms.content_path, "img")
+
+for i in range(100, 200, 20):
+    # index_file = os.path.join(mms.model_path, "Epoch_{:d}".format(i), "index.json")
+    # index = utils.load_labelled_data_index(index_file)
+
+    new_index_file = os.path.join(mms.model_path, "Epoch_{:d}".format(i+1), "index.json")
+    new_index = utils.load_labelled_data_index(new_index_file)
+    training_data = mms.training_data[new_index]
+    training_labels = mms.training_labels[new_index].cpu().numpy()
+
+    train_data = mms.get_representation_data(i, training_data)
+    mms.visualize(i, train_data, training_labels, os.path.join(img_save_location, "_{:d}".format(i)), np.arange(-1000, 0, 1))
+
+# ## noisy model highlight points
+# img_save_location = os.path.join(mms.content_path, "img")
+# index_file = os.path.join(mms.content_path, "index.json")
+# index = utils.load_labelled_data_index(index_file)
+# ol_file = os.path.join(mms.content_path, "old_labels.json")
+# old_labels = utils.load_labelled_data_index(ol_file)
+# nl_file = os.path.join(mms.content_path, "new_labels.json")
+# new_labels = utils.load_labelled_data_index(nl_file)
+# data = torch.load("E:\\DVI_exp_data\\noisy_model\\resnet18_cifar10\\Training_data\\training_dataset_data_.pth")
+# labels = torch.load("E:\\DVI_exp_data\\noisy_model\\resnet18_cifar10\\Training_data\\training_dataset_label_.pth").cpu().numpy()
+#
+# fd = data
+# train_data = mms.get_representation_data(200, fd)
+# pred = mms.get_pred(200, train_data).argmax(-1)
+# l = labels
+#
+#
+# for i in range(200, 201, 1):
+#     train_data = mms.get_representation_data(i, data)
+#     # labels = mms.get_pred(i, train_data).argmax(-1)
+#
+#     mms.visualize(i, train_data, labels, os.path.join(img_save_location, "hl_{:d}".format(i)), index)
+
