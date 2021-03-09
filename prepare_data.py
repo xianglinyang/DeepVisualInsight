@@ -5,10 +5,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 
-from Model.model import *
-
 def prepare_data(content_path, data, start_demo_iter, end_demo_iter, resolution, direct_call=True):
     sys.path.append(content_path)
+    from Model.model import ResNet18
     prefix = ''
     if direct_call:
         prefix = 'server/'
