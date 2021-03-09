@@ -358,7 +358,7 @@ class DataPanel extends LegacyElementMixin(PolymerElement) {
     this.projector.dataSet.DVIStartIter = this.startIterationEditorInput;
   }
   private endIterationEditorInputChange(){
-    this.projector.dataSet.DVIEndtIter = this.endIterationEditorInput;
+    this.projector.dataSet.DVIEndIter = this.endIterationEditorInput;
   }
   private colorChannelEditorInputChange(){
     this.projector.dataSet.DVIColorChanel = this.colorChannelEditorInput;
