@@ -149,6 +149,7 @@ export class DataSet {
   tSNEShouldKill = false;
   tSNEJustPause = false;
   tSNETotalIter = 0;
+  DVIsubjectModelPath = "";
   superviseFactor: number;
   superviseLabels: string[];
   superviseInput: string = '';
@@ -350,11 +351,14 @@ export class DataSet {
     this.tSNEShouldPauseAndCheck = false;
     this.tSNEIteration = 0;
     this.tSNETotalIter = 0;
-    let sampledIndices = this.shuffledDataIndices.slice(0, TSNE_SAMPLE_SIZE);
+    //let sampledIndices = this.shuffledDataIndices.slice(0, TSNE_SAMPLE_SIZE);
     let headers = new Headers();
     headers.append('Content-Type', 'application/json');
     headers.append('Accept', 'application/json');
-    const sampledData = sampledIndices.map((i) => this.points[i]);
+    //const sampledData = sampledIndices.map((i) => this.points[i]);
+
+    const rawdata = this.points.map((data) => data.original_vector);
+    const metadata = this.points.map((data) => data.metadata);
     let result = [[[0]]];
     let bg_list = ["0"];
     let model_prediction = [[true]];
@@ -428,7 +432,7 @@ export class DataSet {
     };
     await fetch("http://192.168.10.115:5000/animation", {
       method: 'POST',
-      //body: JSON.stringify({"sampled_data": sampledData}),
+      body: JSON.stringify({"rawdata": rawdata, "metadata": metadata, "path": this.DVIsubjectModelPath}),
       headers: headers,
       mode: 'cors'
     }).then(response => response.json()).then(data => {

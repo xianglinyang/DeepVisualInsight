@@ -138,10 +138,14 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     super.ready();
     this.zDropdown = this.$$('#z-dropdown') as HTMLElement;
     this.runTsneButton = this.$$('.run-tsne') as HTMLButtonElement;
+    this.runTsneButton.innerText = 'Run';
     this.pauseTsneButton = this.$$('.pause-tsne') as HTMLButtonElement;
+    this.pauseTsneButton.disabled = true;
     //this.perturbTsneButton = this.$$('.perturb-tsne') as HTMLButtonElement;
     this.previousDVIButton = this.$$('.previous-dvi') as HTMLButtonElement;
+    this.previousDVIButton.disabled = true;
     this.nextDVIButton = this.$$('.next-dvi') as HTMLButtonElement;
+    this.nextDVIButton.disabled = true;
     //this.perplexitySlider = this.$$('#perplexity-slider') as HTMLInputElement;
     /*
     this.learningRateInput = this.$$(
@@ -538,9 +542,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
       dataSet
     );
     this.projector.setProjection(projection);
-    if (!this.dataSet.hasTSNERun) {
-      this.runTSNE();
-    } else {
+    if (this.dataSet.hasTSNERun) {
       this.projector.notifyProjectionPositionsUpdated();
     }
   }

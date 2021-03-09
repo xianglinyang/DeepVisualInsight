@@ -75,6 +75,8 @@ class DataPanel extends LegacyElementMixin(PolymerElement) {
   showSuperviseSettings: boolean = false;
   @property({type: Boolean})
   showEditSettings: boolean = false;
+  @property({type: String})
+  subjectModelPathEditorInput: string = '';
 
   @property({type: String})
   readonly _wordDelimiter = '[/=_,-]';
@@ -337,6 +339,9 @@ class DataPanel extends LegacyElementMixin(PolymerElement) {
         this.metadataEditorInputLabel = 'Tag selection as';
       }
     }
+  }
+  private subjectModelPathEditorInputChange() {
+    this.projector.dataSet.DVIsubjectModelPath = this.subjectModelPathEditorInput;
   }
   private metadataEditorInputKeydown(e) {
     // Check if 'Enter' was pressed

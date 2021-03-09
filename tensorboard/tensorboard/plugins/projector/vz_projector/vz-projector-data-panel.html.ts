@@ -124,7 +124,8 @@ export const template = html`
 
     .metadata-editor,
     .supervise-settings,
-    .colorlabel-container {
+    .colorlabel-container,
+    .subject-model-path-editor {
       display: flex;
     }
 
@@ -157,6 +158,10 @@ export const template = html`
 
     .metadata-editor paper-input {
       width: calc(100% - 110px);
+    }
+    
+    .subject-model-path-editor paper-input {
+       width: calc(100% - 110px);
     }
 
     .config-checkbox {
@@ -405,6 +410,15 @@ export const template = html`
         >
         </paper-input>
       </div>
+    <!-- Subject Model Path -->
+    <div class="subject-model-path-editor">
+        <paper-input
+          value="{{subjectModelPathEditorInput}}"
+          label="Subject Model Path"
+          on-input="subjectModelPathEditorInputChange"
+        >
+        </paper-input>
+    </div>
     </template>
     <div id="demo-data-buttons-container">
       <span class="button-container">
