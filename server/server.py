@@ -6,8 +6,12 @@ import numpy as np
 import base64
 import json
 import torch
+import math
+
 lib_path = os.path.abspath(os.path.join('..'))
 sys.path.append(lib_path)
+
+from prepare_data import prepare_data
 
 # flask for API server
 app = Flask(__name__)
@@ -17,6 +21,24 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 @app.route('/animation', methods=["POST"])
 @cross_origin()
 def animation():
+    res = request.get_json()
+    if not res['cache']:
+        raw_data = []
+        for data in res['rawdata']:
+            vector = []
+            for dimension in data:
+                vector.append(data[dimension])
+            raw_data.append(vector)
+        data_length = len(raw_data[0])
+        raw_data = torch.FloatTensor(raw_data)
+        color_channel = int(res['color_channel'])
+        width = int(math.sqrt(data_length / color_channel))
+        height = int(data_length / color_channel / width)
+        torch.reshape(raw_data, (raw_data.shape[0], color_channel, height, width))
+
+        content_path = res['path']
+        prepare_data(content_path, raw_data, int(res['start_iter']), int(res['end_iter']), int(res['resolution']), False)
+
     with open('data/2D.npy', 'rb') as f:
         result = np.load(f).tolist()
 
