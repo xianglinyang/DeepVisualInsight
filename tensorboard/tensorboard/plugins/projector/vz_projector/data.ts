@@ -362,7 +362,14 @@ export class DataSet {
     headers.append('Accept', 'application/json');
     //const sampledData = sampledIndices.map((i) => this.points[i]);
 
-    const rawdata = this.points.map((data) => data.original_vector);
+    const rawdata = this.points.map((data) => {
+      let datalist = [];
+      for (let i = 0; i < data.original_vector.length; i++) {
+        let num = data.original_vector[i];
+        num = +num.toFixed(5);
+        datalist.push(num)
+      }
+      return datalist;});
     const metadata = this.points.map((data) => data.metadata);
     let result = [[[0]]];
     let bg_list = ["0"];
