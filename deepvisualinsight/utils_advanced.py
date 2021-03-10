@@ -140,8 +140,10 @@ def get_border_points(model, input_x, gaps, kmeans_result, predictions,
 
         # randomly select two classes
         cls1 = np.random.choice(range(num_cls), 1)[0]
+        while np.sum(predictions == cls1) <= 1: # avoid empty class
+            cls1 = np.random.choice(range(num_cls), 1)[0]
         cls2 = cls1
-        while cls2 == cls1: # choose a different class
+        while cls2 == cls1 or np.sum(predictions == cls2) <= 1: # choose a different class,  avoid empty class
             cls2 = np.random.choice(range(num_cls), 1)[0]
 
         # randomly select one cluster from each class
