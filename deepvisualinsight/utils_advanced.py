@@ -10,10 +10,6 @@ import math
 from tqdm import tqdm
 from torch import optim
 
-####### Those packages are for my own convenience can be removed #######
-from model import resnet18
-########################################################################
-
 def clustering(data, predictions, n_clusters_per_cls, n_class=10, verbose=0):
     """
     clustering function
@@ -45,7 +41,7 @@ def clustering(data, predictions, n_clusters_per_cls, n_class=10, verbose=0):
     return kmeans_result, predictions
 
 def cw_l2_attack(model, image, label, target_cls, target_gap,
-                 c=1e-2, kappa=0, max_iter=1000, learning_rate=0.01, verbose=1) :
+                 c=1e-2, kappa=0, max_iter=50, learning_rate=0.05, verbose=1) :
     '''
     Implementation of C&W L2 targeted attack, Modified from https://github.com/Harry24k/CW-pytorch
     :param model: subject model
@@ -62,7 +58,7 @@ def cw_l2_attack(model, image, label, target_cls, target_gap,
     :return successful: indicating whether the attack is successful or not boolean value
     '''
     
-    # Define f-function
+    # Get loss2
     def f(x) :
         
         output = model(x)
@@ -88,10 +84,12 @@ def cw_l2_attack(model, image, label, target_cls, target_gap,
         loss1 = nn.MSELoss(reduction='sum')(a, image) # L2 norm between original image and perturbed image
         loss2 = torch.sum(c*f(a)) # confidence_diff between original and target class
         
-        # Add a third loss to minimize the distance between gap layers
+        # Add a third loss to minimize the L2-distance between gap layers
         gap_a = gap_model(model)(a)
         gap_a = gap_a.view((gap_a.shape[0], gap_a.shape[1]))
-        loss3 = nn.MSELoss(reduction='sum')(gap_a, target_gap) 
+#         print(gap_a.shape)
+#         print(target_gap.shape)
+        loss3 = nn.MSELoss(reduction='sum')(gap_a, target_gap.to(device)) 
 
         cost = loss1 + loss2 + loss3
         
@@ -168,11 +166,12 @@ def get_border_points(model, input_x, gaps, kmeans_result, predictions,
         gap2 = gaps[data2_index[image2_idx]]
 
         # attack from cluster 1 to cluster 2
-        attack1, successful1 = cw_l2_attack(model, image1.to(device), cls1, cls2, gap2)
+        attack1, successful1 = cw_l2_attack(model=model, image=image1.to(device), label=cls1, target_cls=cls2, target_gap=gap2)
 
         # attack from cluster 2 to cluster 1
-        attack2, successful2 = cw_l2_attack(model, image2.to(device), cls2, cls1, gap1)
-
+        attack2, successful2 = cw_l2_attack(model=model, image=image2.to(device), label=cls2, target_cls=cls1, target_gap=gap1)
+        
+        # only append when successful
         if successful1:
             adv_examples = torch.cat((adv_examples, attack1), dim=0)
             ct += 1
@@ -191,29 +190,32 @@ def get_border_points(model, input_x, gaps, kmeans_result, predictions,
     return adv_examples
 
 
-def batch_run(model, data, output_shape, batch_size=200):
-    '''Get GAP layers and predicted labels for data'''
+def batch_run(model, data, batch_size=200):
+    '''Get GAP layers and predicted labels for data
+    :param model: subject model
+    :param data: images torch.Tensor of shape (N, C, H, W)
+    :param batch_size: batch size
+    :return gaps: GAP torch.Tensor of shape (N, 512)
+    :return preds: class prediction torch.Tensor of shape (N,)
+    '''
     gaps = torch.tensor([])
     preds = torch.tensor([])
     
     n_batches = max(math.ceil(len(data) / batch_size), 1)
-    for b in range(n_batches):
+    for b in tqdm(range(n_batches)):
         r1, r2 = b * batch_size, (b + 1) * batch_size
         inputs = data[r1:r2]
         inputs = inputs.to(device, dtype=torch.float)
         
         with torch.no_grad():
-            pred = torch.argmax(model(inputs), dim=1)
-            gap = gap_model(model)(inputs)
-            gap = gap.view((gap.shape[0], gap.shape[1]))
+            pred = torch.argmax(model(inputs), dim=1) # get logits
+            gap = gap_model(model)(inputs) # get GAP layers
+            gap = gap.view((gap.shape[0], gap.shape[1])) # flatten GAP layers
             
             gaps = torch.cat((gaps, gap.detach().cpu()), dim=0)
             preds = torch.cat((preds, pred.detach().cpu().float()), dim=0)
          
-    return gaps.numpy(), preds.numpy()
-
-
-
+    return gaps, preds
 
 
 ###################################### I didn't change those functions ######################################
@@ -237,7 +239,12 @@ def gap_model(model): # GAP layer
 
 if __name__ == '__main__':
     
+    ####### Those packages are for my own convenience can be removed #######
+    from model import resnet18
+    ########################################################################
+
     ## Load model
+    print('Loading model ... ')
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     model = resnet18()
     checkpoint = torch.load('subject_model.pth')
@@ -245,17 +252,22 @@ if __name__ == '__main__':
     model.to(device)
     
     # Load data
+    print('Loading data ... ')
     input_x = torch.load('Training_data/training_dataset_data.pth')
     y = torch.load('Training_data/training_dataset_label.pth')
     
     # Get GAP and predicted labels
-    gaps, preds = batch_run(model, input_x, output_shape, batch_size=200)
+    print('Get GAP and predictions ... ')
+    gaps, preds = batch_run(model, input_x, batch_size=200)
     
     # Kmeans clustering
-    kmeans_result, predictions = clustering(gaps, preds, n_clusters_per_cls=10)
+    print('Kmeans clustering ... ')
+    kmeans_result, predictions = clustering(gaps.numpy(), preds.numpy(), n_clusters_per_cls=10)
     
     # Adversarial attacks
+    print('Adv attack ... ')
     adv_examples = get_border_points(model, input_x, gaps, kmeans_result, predictions, 
                                      num_adv_eg = 5000, num_cls = 10, n_clusters_per_cls = 10, verbose=1)
     
-    
+    # Save??
+    torch.save(adv_examples, 'BPs.pt')
