@@ -366,7 +366,7 @@ export class DataSet {
       let headers = new Headers();
       headers.append('Content-Type', 'application/json');
       headers.append('Accept', 'application/json');
-      await fetch("http://192.168.10.115:5000/animation", {
+      await fetch("http://192.168.254.128:5000/animation", {
         method: 'POST',
         body: JSON.stringify({"cache": this.DVIUseCache, "path": this.DVIsubjectModelPath,  "iteration":iteration,
               "resolution":this.DVIResolution, "data_path":this.DVIVisualizeDataPath}),
