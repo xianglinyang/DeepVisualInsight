@@ -628,8 +628,8 @@ class Projector
     }
     this.notifyProjectionChanged(projection);
   }
-  notifyProjectionPositionsUpdated(bg?: string, ds?: DataSet) {
-    this.projectorScatterPlotAdapter.notifyProjectionPositionsUpdated(bg);
+  notifyProjectionPositionsUpdated(ds?: DataSet) {
+    this.projectorScatterPlotAdapter.notifyProjectionPositionsUpdated();
     if(ds !== undefined) {
       this.dataSet = ds;
       this.projectorScatterPlotAdapter.setDataSet(ds);

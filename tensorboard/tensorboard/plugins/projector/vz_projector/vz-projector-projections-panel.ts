@@ -86,6 +86,12 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   customSelectedSearchByMetadataOption: string;
   @property({type: Boolean})
   DVINotCache: boolean = false;
+  @property({type: String})
+  subjectModelPathEditorInput: string = '';
+  @property({type: String})
+  visualizeDataPathEditorInput: string = '';
+  @property({type: String})
+  resolutionEditorInput: number;
 
   private projector: any; // Projector; type omitted b/c LegacyElement
 
@@ -139,15 +145,15 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   ready() {
     super.ready();
     this.zDropdown = this.$$('#z-dropdown') as HTMLElement;
-    this.runTsneButton = this.$$('.run-tsne') as HTMLButtonElement;
-    this.runTsneButton.innerText = 'Run';
-    this.pauseTsneButton = this.$$('.pause-tsne') as HTMLButtonElement;
-    this.pauseTsneButton.disabled = true;
+    //this.runTsneButton = this.$$('.run-tsne') as HTMLButtonElement;
+    //this.runTsneButton.innerText = 'Run';
+   // this.pauseTsneButton = this.$$('.pause-tsne') as HTMLButtonElement;
+    //this.pauseTsneButton.disabled = true;
     //this.perturbTsneButton = this.$$('.perturb-tsne') as HTMLButtonElement;
     this.previousDVIButton = this.$$('.previous-dvi') as HTMLButtonElement;
     this.previousDVIButton.disabled = true;
     this.nextDVIButton = this.$$('.next-dvi') as HTMLButtonElement;
-    this.nextDVIButton.disabled = true;
+    //this.nextDVIButton.disabled = true;
     //this.perplexitySlider = this.$$('#perplexity-slider') as HTMLInputElement;
     /*
     this.learningRateInput = this.$$(
@@ -189,6 +195,15 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
       this.dataSet.setSuperviseFactor(this.superviseFactor);
     }
   }*/
+   private subjectModelPathEditorInputChange() {
+    this.dataSet.DVIsubjectModelPath = this.subjectModelPathEditorInput;
+  }
+  private visualizeDataPathEditorInputChange(){
+    this.dataSet.DVIVisualizeDataPath = this.visualizeDataPathEditorInput;
+  }
+  private resolutionEditorInputChange(){
+    this.dataSet.DVIResolution = this.resolutionEditorInput;
+  }
 
   private setupUIControls() {
     {
@@ -201,6 +216,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
         });
       }
     }
+    /*
     this.runTsneButton.addEventListener('click', () => {
       if (this.dataSet.hasTSNERun) {
         this.dataSet.stopTSNE();
@@ -216,7 +232,8 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
         };
         act();
       }
-    });
+    });*/
+    /*
     this.pauseTsneButton.addEventListener('click', () => {
       if (this.dataSet.tSNEShouldPause) {
         this.dataSet.tSNEShouldPause = false;
@@ -235,30 +252,47 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
           this.nextDVIButton.disabled = false;
         }
       }
-    });
+    });*/
     this.previousDVIButton.addEventListener('click', () => {
-      if (this.dataSet.tSNEJustPause) {
-        this.dataSet.tSNEIteration -= 2;
-        this.dataSet.tSNEJustPause = false;
-      } else {
-        this.dataSet.tSNEIteration --;
-      }
-      this.dataSet.tSNEShouldPauseAndCheck = true;
-      if(this.dataSet.tSNEIteration == 0) {
+      if(this.dataSet.tSNEIteration <= 2) {
         this.previousDVIButton.disabled = true;
       }
-      if(!this.dataSet.hasTSNERun) {
-        this.runTsneButton.innerText = 'Stop';
-        this.runTsneButton.disabled = false;
-        this.pauseTsneButton.innerText = 'Resume';
-        this.pauseTsneButton.disabled = false;
-        this.dataSet.tSNEShouldStop = false;
-        this.dataSet.tSNEShouldPause = true;
-        this.dataSet.hasTSNERun = true;
-      }
+      this.dataSet.projectDVI(this.dataSet.tSNEIteration - 1,
+          (iteration: number, dataset?: DataSet, totalIter?: number) => {
+        if (iteration != null) {
+          this.iterationLabelTsne.innerText = '' + iteration;
+          this.totalIterationLabelDVI.innerText = '' + totalIter;
+          this.projector.notifyProjectionPositionsUpdated(dataset);
+          this.projector.onProjectionChanged();
+        } else {
+          this.projector.onProjectionChanged();
+        }
+      });
       this.nextDVIButton.disabled = false;
     });
+    this.nextDVIButton.addEventListener('click', ()=> {
+      this.nextDVIButton.disabled = true;
+      this.previousDVIButton.disabled = true;
+      this.dataSet.projectDVI(this.dataSet.tSNEIteration + 1,
+          (iteration: number, dataset?: DataSet, totalIter?: number) => {
+        if (iteration != null) {
+          this.iterationLabelTsne.innerText = '' + iteration;
+          this.totalIterationLabelDVI.innerText = '' + totalIter;
+          this.projector.notifyProjectionPositionsUpdated(dataset);
+          this.projector.onProjectionChanged();
+          if(this.dataSet.tSNEIteration > 1) {
+            this.previousDVIButton.disabled = false;
+          }
+          if(this.dataSet.tSNETotalIter != this.dataSet.tSNEIteration) {
+            this.nextDVIButton.disabled = false;
+          }
+        } else {
+          this.projector.onProjectionChanged();
+        }
+      });
+    });
 
+    /*
     this.nextDVIButton.addEventListener('click', () => {
       if (this.dataSet.tSNEJustPause) {
         this.dataSet.tSNEJustPause = false;
@@ -279,7 +313,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
         this.dataSet.hasTSNERun = true;
       }
       this.previousDVIButton.disabled = false;
-    });
+    });*/
     /*
     this.perturbTsneButton.addEventListener('mousedown', () => {
       if (this.dataSet && this.projector) {
@@ -565,13 +599,13 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
       this.perplexity,
       this.learningRate,
       this.tSNEis3d ? 3 : 2,
-      (iteration: number, bg?: string, dataset?: DataSet, totalIter?: number) => {
+      (iteration: number, dataset?: DataSet, totalIter?: number) => {
         if (iteration != null) {
           this.runTsneButton.disabled = false;
           this.pauseTsneButton.disabled = false;
           this.iterationLabelTsne.innerText = '' + iteration;
           this.totalIterationLabelDVI.innerText = '' + totalIter;
-          this.projector.notifyProjectionPositionsUpdated(bg, dataset);
+          this.projector.notifyProjectionPositionsUpdated(dataset);
           if (!projectionChangeNotified && this.dataSet.projections['tsne']) {
             this.projector.onProjectionChanged();
             projectionChangeNotified = true;

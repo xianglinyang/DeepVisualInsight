@@ -425,45 +425,6 @@ export const template = html`
         >
         </paper-input>
       </div>
-    <!-- Subject Model Path -->
-    <div hidden$="[[!showDVISettings]]" class="subject-model-path-editor">
-        <paper-input
-          value="{{subjectModelPathEditorInput}}"
-          label="Subject Model Path"
-          on-input="subjectModelPathEditorInputChange"
-        >
-        </paper-input>
-    </div>
-    <!-- Iteration Setting -->
-    <div hidden$="[[!showDVISettings]]" class="iteration-setting-editor">
-        <paper-input
-          value="{{startIterationEditorInput}}"
-          label="Start Iteration"
-          on-input="startIterationEditorInputChange"
-        >
-        </paper-input>
-        <paper-input
-          value="{{endIterationEditorInput}}"
-          label="End Iteration"
-          on-input="endIterationEditorInputChange"
-        >
-        </paper-input>
-    </div>
-    <!-- Misc Setting -->
-    <div hidden$="[[!showDVISettings]]" class="misc-setting-editor">
-        <paper-input
-          value="{{colorChannelEditorInput}}"
-          label="Color Channel"
-          on-input="colorChannelEditorInputChange"
-        >
-        </paper-input>
-        <paper-input
-          value="{{resolutionEditorInput}}"
-          label="Resolution"
-          on-input="resolutionEditorInputChange"
-        >
-        </paper-input>
-    </div>
     </template>
     <div id="demo-data-buttons-container">
       <span class="button-container">

@@ -77,16 +77,6 @@ class DataPanel extends LegacyElementMixin(PolymerElement) {
   showEditSettings: boolean = false;
   @property({type: Boolean})
   showDVISettings: boolean = false;
-  @property({type: String})
-  subjectModelPathEditorInput: string = '';
-  @property({type: String})
-  startIterationEditorInput: string;
-  @property({type: String})
-  endIterationEditorInput: string;
-  @property({type: String})
-  colorChannelEditorInput: string;
-  @property({type: String})
-  resolutionEditorInput: string;
 
   @property({type: String})
   readonly _wordDelimiter = '[/=_,-]';
@@ -350,21 +340,6 @@ class DataPanel extends LegacyElementMixin(PolymerElement) {
         this.metadataEditorInputLabel = 'Tag selection as';
       }
     }
-  }
-  private subjectModelPathEditorInputChange() {
-    this.projector.dataSet.DVIsubjectModelPath = this.subjectModelPathEditorInput;
-  }
-  private startIterationEditorInputChange(){
-    this.projector.dataSet.DVIStartIter = this.startIterationEditorInput;
-  }
-  private endIterationEditorInputChange(){
-    this.projector.dataSet.DVIEndIter = this.endIterationEditorInput;
-  }
-  private colorChannelEditorInputChange(){
-    this.projector.dataSet.DVIColorChanel = this.colorChannelEditorInput;
-  }
-  private resolutionEditorInputChange(){
-    this.projector.dataSet.DVIResolution = this.resolutionEditorInput;
   }
   private metadataEditorInputKeydown(e) {
     // Check if 'Enter' was pressed

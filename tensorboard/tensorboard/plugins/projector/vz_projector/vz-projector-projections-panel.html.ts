@@ -87,8 +87,7 @@ export const template = html`
       
       .row {
         display: flex;
-        margin-bottom: 15px;
-        justify-content: space-around;
+        justify-content: space-between;
       }
 
       .dropdown-item {
@@ -256,6 +255,31 @@ export const template = html`
               >
             </div>
           </div>
+          <!-- Subject Model Path -->
+    <div class="subject-model-path-editor">
+        <paper-input
+          value="{{subjectModelPathEditorInput}}"
+          label="Subject Model Path"
+          on-input="subjectModelPathEditorInputChange"
+        >
+        </paper-input>
+    </div>
+    <!-- Misc Setting -->
+    <div class="misc-setting-editor">
+        <paper-input
+          value="{{visualizeDataPathEditorInput}}"
+          label="Visualization Data Path"
+          on-input="visualizeDataPathEditorInputChange"
+        >
+        </paper-input>
+        <paper-input
+          value="{{resolutionEditorInput}}"
+          label="Resolution"
+          on-input="resolutionEditorInputChange"
+        >
+        </paper-input>
+    </div>
+          <!--
            <div class="two-rows">
               <div class="row">
                 <button class="run-tsne ink-button" title="Re-run DVI">
@@ -273,6 +297,14 @@ export const template = html`
                    Next
                  </button>
               </div>
+          </div> -->
+          <div class="row">
+            <button class="previous-dvi ink-button" title="Previous DVI">
+              Previous
+            </button>
+            <button class="next-dvi ink-button" title="Next DVI">
+              Next
+            </button>
           </div>
           <p>Iteration: <span class="run-tsne-iter">0</span></p>
           <p>Total iteration number: <span class="dvi-total-iter">0</span></p>

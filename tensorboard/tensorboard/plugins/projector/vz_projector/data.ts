@@ -89,6 +89,12 @@ export interface DataPoint {
   projections: {
     [key: string]: number;
   };
+  DVI_projections?: {
+    [iteration: number]: [any, any];
+  };
+  DVI_color?: {
+    [iteration: number]: string;
+  }
 }
 const IS_FIREFOX = navigator.userAgent.toLowerCase().indexOf('firefox') >= 0;
 /** Controls whether nearest neighbors computation is done on the GPU or CPU. */
@@ -148,13 +154,15 @@ export class DataSet {
   tSNEShouldStop = true;
   tSNEShouldKill = false;
   tSNEJustPause = false;
-  tSNETotalIter = 0;
+  tSNETotalIter: number = 0;
   DVIsubjectModelPath = "";
   DVIUseCache = true;
-  DVIStartIter = 1;
-  DVIEndIter = 2;
-  DVIColorChanel = 1;
   DVIResolution = 400;
+  DVIValidPointNumber: {
+    [iteration: number]: number;
+  } = [];
+  DVIAvailableIteration: Array<number> = [];
+  DVIVisualizeDataPath = "";
   superviseFactor: number;
   superviseLabels: string[];
   superviseInput: string = '';
@@ -341,12 +349,115 @@ export class DataSet {
     });
   }
   /** Runs tsne on the data. */
+  async projectDVI (
+      iteration: number,
+      stepCallback: (iter: number, dataset?:DataSet, totalIter?: number) => void
+  ) {
+    this.projections['tsne'] = true;
+    function componentToHex(c: number) {
+      const hex = c.toString(16);
+      return hex.length == 1 ? "0" + hex : hex;
+    }
+
+    function rgbToHex(r:number, g:number, b:number) {
+      return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+    }
+    if(this.DVIAvailableIteration.indexOf(iteration) == -1) {
+      let headers = new Headers();
+      headers.append('Content-Type', 'application/json');
+      headers.append('Accept', 'application/json');
+      await fetch("http://192.168.10.115:5000/animation", {
+        method: 'POST',
+        body: JSON.stringify({"cache": this.DVIUseCache, "path": this.DVIsubjectModelPath,  "iteration":iteration,
+              "resolution":this.DVIResolution, "data_path":this.DVIVisualizeDataPath}),
+        headers: headers,
+        mode: 'cors'
+      }).then(response => response.json()).then(data => {
+        const result = data.result;
+        const grid_index = data.grid_index;
+        const grid_color = data.grid_color;
+
+        const label_color_list = data.label_color_list;
+
+        const background_point_number = grid_index.length;
+        const real_data_number = label_color_list.length;
+        this.tSNETotalIter = data.maximum_iteration;
+
+        this.tSNEIteration = iteration;
+        this.DVIValidPointNumber[iteration] = real_data_number + background_point_number;
+        this.DVIAvailableIteration.push(iteration);
+        const current_length = this.points.length;
+        for (let i = 0; i < real_data_number + background_point_number - current_length; i++) {
+          const newDataPoint : DataPoint = {
+            metadata: {label: "background"},
+            index: current_length + i,
+            vector: new Float32Array(),
+            projections: {
+              'tsne-0': 0,
+              'tsne-1': 0,
+              'tsne-2': 0
+            },
+          };
+          this.points.push(newDataPoint);
+        }
+        for (let i = 0; i < this.points.length; i++) {
+          let dataPoint = this.points[i];
+          if(dataPoint.DVI_projections == undefined || dataPoint.DVI_color == undefined) {
+            dataPoint.DVI_projections = {};
+            dataPoint.DVI_color = {};
+          }
+        }
+        for (let i = 0; i < real_data_number; i++) {
+          let dataPoint = this.points[i];
+          dataPoint.projections['tsne-0'] = result[i][0];
+          dataPoint.projections['tsne-1'] = result[i][1];
+          dataPoint.projections['tsne-2'] = 0;
+          dataPoint.color = rgbToHex(label_color_list[i][0], label_color_list[i][1], label_color_list[i][2]);
+          dataPoint.DVI_projections[iteration] = [result[i][0], result[i][1]];
+          dataPoint.DVI_color[iteration] = dataPoint.color;
+        }
+
+        for (let i = 0; i < background_point_number; i++) {
+          let dataPoint = this.points[i + real_data_number];
+          dataPoint.projections['tsne-0'] = grid_index[i][0];
+          dataPoint.projections['tsne-1'] = grid_index[i][1];
+          dataPoint.projections['tsne-2'] = 0;
+          dataPoint.color = rgbToHex(grid_color[i][0],   grid_color[i][1], grid_color[i][2]);
+          dataPoint.DVI_projections[iteration] = [grid_index[i][0], grid_index[i][1]];
+          dataPoint.DVI_color[iteration] = dataPoint.color;
+        }
+
+        for (let i = real_data_number + background_point_number; i < this.points.length; i++) {
+          let dataPoint = this.points[i];
+          dataPoint.projections = {};
+        }
+
+        stepCallback(this.tSNEIteration, new DataSet(this.points, this.spriteAndMetadataInfo), this.tSNETotalIter);
+    });
+    } else {
+      const validDataNumber = this.DVIValidPointNumber[iteration];
+      this.tSNEIteration = iteration;
+      for (let i = 0; i < validDataNumber; i++) {
+        let dataPoint = this.points[i];
+        dataPoint.projections['tsne-0'] = dataPoint.DVI_projections[iteration][0];
+        dataPoint.projections['tsne-1'] = dataPoint.DVI_projections[iteration][1];
+        dataPoint.projections['tsne-2'] = 0;
+        dataPoint.color = dataPoint.DVI_color[iteration];
+      }
+      for (let i = validDataNumber; i < this.points.length; i++) {
+        let dataPoint = this.points[i];
+          dataPoint.projections = {};
+      }
+      stepCallback(this.tSNEIteration, new DataSet(this.points, this.spriteAndMetadataInfo), this.tSNETotalIter);
+    }
+  }
+
   async projectTSNE(
     perplexity: number,
     learningRate: number,
     tsneDim: number,
-    stepCallback: (iter: number, bg?:string, dataset?:DataSet, totalIter?: number) => void
-  ) {
+    stepCallback: (iter: number, dataset?:DataSet, totalIter?: number) => void
+  ) {/*
     //console.log('here3');
     this.hasTSNERun = true;
     this.tSNEShouldKill = false;
@@ -444,10 +555,8 @@ export class DataSet {
     };
     await fetch("http://192.168.10.115:5000/animation", {
       method: 'POST',
-      body: this.DVIUseCache ? JSON.stringify({"cache": this.DVIUseCache})
-          :JSON.stringify({"cache": this.DVIUseCache, "rawdata": rawdata, "metadata": metadata,
-            "path": this.DVIsubjectModelPath, "start_iter":this.DVIStartIter, "end_iter":this.DVIEndIter,
-          "color_channel":this.DVIColorChanel, "resolution":this.DVIResolution}),
+      body: JSON.stringify({"cache": this.DVIUseCache, "rawdata": rawdata, "metadata": metadata,
+            "path": this.DVIsubjectModelPath,  "resolution":this.DVIResolution}),
       headers: headers,
       mode: 'cors'
     }).then(response => response.json()).then(data => {
@@ -460,7 +569,7 @@ export class DataSet {
       total_epoch_number = result.length;
       this.tSNETotalIter = total_epoch_number;
       step();
-    });
+    });*/
     /*
     let step = async () => {
       if (this.tSNEShouldStop || epoch >= 5) {
