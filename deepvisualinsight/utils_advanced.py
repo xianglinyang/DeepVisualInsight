@@ -172,11 +172,11 @@ def get_border_points(model, input_x, gaps, confs, kmeans_result, predictions,
         data1_index = np.argwhere((predictions == cls1) & (kmeans_result == cluster1)).squeeze()
         data2_index = np.argwhere((predictions == cls2) & (kmeans_result == cluster2)).squeeze()
         
-        # probability to be sampled is inversely proportinal to the distance to decision boundary
+        # probability to be sampled is inversely proportinal to the distance to "targeted" decision boundary
         sort1, _ = torch.sort(confs[data1_index], dim=1, descending=True)
-        pvec1 = (1/(sort1[:,0]-sort1[:,1]+1e-4)) / torch.sum(1/(sort1[:,0]-sort1[:,1]+1e-4)) # smaller top1-top2 is preferred
+        pvec1 = (1/torch.abs(sort1[:,cls1]-sort1[:,cls2]+1e-4)) / torch.sum(1/torch.abs(sort1[:,cls1]-sort1[:,cls2]+1e-4)) # smaller class1-class2 is preferred
         sort2, _ = torch.sort(confs[data2_index], dim=1, descending=True)
-        pvec2 = (1/(sort2[:,0]-sort2[:,1]+1e-4)) / torch.sum((1/(sort2[:,0]-sort2[:,1]+1e-4)))
+        pvec2 = (1/torch.abs(sort2[:,cls2]-sort2[:,cls1]+1e-4)) / torch.sum((1/torch.abs(sort2[:,cls2]-sort2[:,cls1]+1e-4)))
     
         image1_idx = np.random.choice(range(len(data1_index)), size=1, p=pvec1.numpy()) 
         image2_idx = np.random.choice(range(len(data2_index)), size=1, p=pvec2.numpy()) 
