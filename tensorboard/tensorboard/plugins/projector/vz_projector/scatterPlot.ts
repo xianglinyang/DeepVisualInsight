@@ -102,6 +102,7 @@ export class ScatterPlot {
   private mouseIsDown = false;
   private isDragSequence = false;
   private rectangleSelector: ScatterPlotRectangleSelector;
+  private realDataNumber = 0;
   constructor(
     private container: HTMLElement,
     private projectorEventContext: ProjectorEventContext
@@ -300,7 +301,10 @@ export class ScatterPlot {
     }
     // Only call event handlers if the click originated from the scatter plot.
     if (!this.isDragSequence && notify) {
-      const selection = this.nearestPoint != null ? [this.nearestPoint] : [];
+      let selection = this.nearestPoint != null ? [this.nearestPoint] : [];
+      if(this.nearestPoint >= this.realDataNumber) {
+        selection = [];
+      }
       this.projectorEventContext.notifySelectionChanged(selection);
     }
     this.isDragSequence = false;
@@ -447,11 +451,17 @@ export class ScatterPlot {
     const boundingBox: ScatterBoundingBox = {
       x: e.offsetX,
       y: e.offsetY,
-      width: 1,
-      height: 1,
+      width: 4,
+      height: 4,
     };
     const pointIndices = this.getPointIndicesFromPickingTexture(boundingBox);
-    this.nearestPoint = pointIndices != null ? pointIndices[0] : null;
+    const realPointIndices = pointIndices.filter(point => point < this.realDataNumber);
+    if (realPointIndices.length == 0) {
+      this.nearestPoint = pointIndices != null ? pointIndices[0] : null;
+    } else {
+      this.nearestPoint = realPointIndices[0];
+    }
+
   }
   private getLayoutValues(): vector.Point2D {
     this.width = this.container.offsetWidth;
@@ -565,11 +575,12 @@ export class ScatterPlot {
     this.visualizers = [];
   }
   /** Update scatter plot with a new array of packed xyz point positions. */
-  setPointPositions(worldSpacePointPositions: Float32Array) {
+  setPointPositions(worldSpacePointPositions: Float32Array, realDataNumber: number) {
     this.worldSpacePointPositions = worldSpacePointPositions;
     this.visualizers.forEach((v) =>
       v.onPointPositionsChanged(worldSpacePointPositions)
     );
+    this.realDataNumber = realDataNumber;
   }
   render() {
     {

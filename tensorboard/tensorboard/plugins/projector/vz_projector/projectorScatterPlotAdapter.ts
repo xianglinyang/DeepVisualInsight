@@ -211,7 +211,7 @@ export class ProjectorScatterPlotAdapter {
       ds,
       projectionComponents
     );
-    this.scatterPlot.setPointPositions(newPositions);
+    this.scatterPlot.setPointPositions(newPositions, this.projection == null? 0 : this.projection.dataSet.DVICurrentRealDataNumber);
   }
   updateScatterPlotAttributes() {
     if (this.projection == null) {

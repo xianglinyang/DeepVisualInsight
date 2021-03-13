@@ -373,7 +373,7 @@ class Projector
     } else {
       // normal selection mode
       this.selectedPointIndices = newSelectedPointIndices;
-      if (newSelectedPointIndices.length === 1) {
+      if (newSelectedPointIndices.length === 1 && this.dataSet.points[newSelectedPointIndices[0]].metadata.label != "background") {
         /*
         neighbors = this.dataSet.findNeighbors(
           newSelectedPointIndices[0],
@@ -628,13 +628,8 @@ class Projector
     }
     this.notifyProjectionChanged(projection);
   }
-  notifyProjectionPositionsUpdated(ds?: DataSet) {
+  notifyProjectionPositionsUpdated() {
     this.projectorScatterPlotAdapter.notifyProjectionPositionsUpdated();
-    if(ds !== undefined) {
-      this.dataSet = ds;
-      this.projectorScatterPlotAdapter.setDataSet(ds);
-      this.projectorScatterPlotAdapter.updateScatterPlotAttributes();
-    }
   }
   /**
    * Gets the current view of the embedding and saves it as a State object.

@@ -161,6 +161,10 @@ export class DataSet {
   DVIValidPointNumber: {
     [iteration: number]: number;
   } = [];
+  DVICurrentRealDataNumber = 0;
+  DVIRealDataNumber: {
+    [iteration: number]: number;
+  } = [];
   DVIAvailableIteration: Array<number> = [];
   DVIVisualizeDataPath = "";
   superviseFactor: number;
@@ -351,7 +355,7 @@ export class DataSet {
   /** Runs tsne on the data. */
   async projectDVI (
       iteration: number,
-      stepCallback: (iter: number, dataset?:DataSet, totalIter?: number) => void
+      stepCallback: (iter: number, totalIter?: number) => void
   ) {
     this.projections['tsne'] = true;
     function componentToHex(c: number) {
@@ -366,7 +370,7 @@ export class DataSet {
       let headers = new Headers();
       headers.append('Content-Type', 'application/json');
       headers.append('Accept', 'application/json');
-      await fetch("http://192.168.254.128:5000/animation", {
+      await fetch("http://192.168.10.115:5000/animation", {
         method: 'POST',
         body: JSON.stringify({"cache": this.DVIUseCache, "path": this.DVIsubjectModelPath,  "iteration":iteration,
               "resolution":this.DVIResolution, "data_path":this.DVIVisualizeDataPath}),
@@ -431,8 +435,9 @@ export class DataSet {
           let dataPoint = this.points[i];
           dataPoint.projections = {};
         }
-
-        stepCallback(this.tSNEIteration, new DataSet(this.points, this.spriteAndMetadataInfo), this.tSNETotalIter);
+        this.DVICurrentRealDataNumber = real_data_number;
+        this.DVIRealDataNumber[iteration] = real_data_number;
+        stepCallback(this.tSNEIteration, this.tSNETotalIter);
     });
     } else {
       const validDataNumber = this.DVIValidPointNumber[iteration];
@@ -448,7 +453,8 @@ export class DataSet {
         let dataPoint = this.points[i];
           dataPoint.projections = {};
       }
-      stepCallback(this.tSNEIteration, new DataSet(this.points, this.spriteAndMetadataInfo), this.tSNETotalIter);
+      this.DVICurrentRealDataNumber = this.DVIRealDataNumber[iteration];
+      stepCallback(this.tSNEIteration, this.tSNETotalIter);
     }
   }
 

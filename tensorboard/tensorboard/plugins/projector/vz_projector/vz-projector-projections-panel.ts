@@ -258,11 +258,11 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
         this.previousDVIButton.disabled = true;
       }
       this.dataSet.projectDVI(this.dataSet.tSNEIteration - 1,
-          (iteration: number, dataset?: DataSet, totalIter?: number) => {
+          (iteration: number, totalIter?: number) => {
         if (iteration != null) {
           this.iterationLabelTsne.innerText = '' + iteration;
           this.totalIterationLabelDVI.innerText = '' + totalIter;
-          this.projector.notifyProjectionPositionsUpdated(dataset);
+          this.projector.notifyProjectionPositionsUpdated();
           this.projector.onProjectionChanged();
         } else {
           this.projector.onProjectionChanged();
@@ -274,11 +274,11 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
       this.nextDVIButton.disabled = true;
       this.previousDVIButton.disabled = true;
       this.dataSet.projectDVI(this.dataSet.tSNEIteration + 1,
-          (iteration: number, dataset?: DataSet, totalIter?: number) => {
+          (iteration: number, totalIter?: number) => {
         if (iteration != null) {
           this.iterationLabelTsne.innerText = '' + iteration;
           this.totalIterationLabelDVI.innerText = '' + totalIter;
-          this.projector.notifyProjectionPositionsUpdated(dataset);
+          this.projector.notifyProjectionPositionsUpdated();
           this.projector.onProjectionChanged();
           if(this.dataSet.tSNEIteration > 1) {
             this.previousDVIButton.disabled = false;
@@ -605,7 +605,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
           this.pauseTsneButton.disabled = false;
           this.iterationLabelTsne.innerText = '' + iteration;
           this.totalIterationLabelDVI.innerText = '' + totalIter;
-          this.projector.notifyProjectionPositionsUpdated(dataset);
+          this.projector.notifyProjectionPositionsUpdated();
           if (!projectionChangeNotified && this.dataSet.projections['tsne']) {
             this.projector.onProjectionChanged();
             projectionChangeNotified = true;
@@ -654,7 +654,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     this.dataSet.projectUmap(nComponents, nNeighbors, (iteration: number, bg: string) => {
       if (iteration != null) {
         this.runUmapButton.disabled = false;
-        this.projector.notifyProjectionPositionsUpdated(bg);
+        this.projector.notifyProjectionPositionsUpdated();
         if (!projectionChangeNotified && this.dataSet.projections['umap']) {
           this.projector.onProjectionChanged();
           projectionChangeNotified = true;
