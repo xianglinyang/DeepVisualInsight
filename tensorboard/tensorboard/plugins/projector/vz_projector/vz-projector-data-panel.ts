@@ -73,6 +73,10 @@ class DataPanel extends LegacyElementMixin(PolymerElement) {
   superviseColumn: string;
   @property({type: Boolean})
   showSuperviseSettings: boolean = false;
+  @property({type: Boolean})
+  showEditSettings: boolean = false;
+  @property({type: Boolean})
+  showDVISettings: boolean = false;
 
   @property({type: String})
   readonly _wordDelimiter = '[/=_,-]';
@@ -196,7 +200,8 @@ class DataPanel extends LegacyElementMixin(PolymerElement) {
     if (projection) {
       switch (projection.projectionType) {
         case 'tsne':
-          this.set('showSuperviseSettings', true);
+          this.set('showSuperviseSettings', false);
+          this.set('showDVISettings', true);
           break;
         default:
           this.set('showSuperviseSettings', false);

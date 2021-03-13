@@ -60,7 +60,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   @property({type: Boolean})
   pcaIs3d: boolean = true;
   @property({type: Boolean})
-  tSNEis3d: boolean = true;
+  tSNEis3d: boolean = false;
   @property({type: Number})
   superviseFactor: number = 0;
   // UMAP parameters
@@ -84,6 +84,14 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   // Custom projection.
   @property({type: String})
   customSelectedSearchByMetadataOption: string;
+  @property({type: Boolean})
+  DVINotCache: boolean = false;
+  @property({type: String})
+  subjectModelPathEditorInput: string = '';
+  @property({type: String})
+  visualizeDataPathEditorInput: string = '';
+  @property({type: String})
+  resolutionEditorInput: number;
 
   private projector: any; // Projector; type omitted b/c LegacyElement
 
@@ -107,12 +115,15 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   /** Polymer elements. */
   private runTsneButton: HTMLButtonElement;
   private pauseTsneButton: HTMLButtonElement;
-  private perturbTsneButton: HTMLButtonElement;
-  private perplexitySlider: HTMLInputElement;
-  private learningRateInput: HTMLInputElement;
-  private superviseFactorInput: HTMLInputElement;
+  //private perturbTsneButton: HTMLButtonElement;
+  private previousDVIButton: HTMLButtonElement;
+  private nextDVIButton: HTMLButtonElement;
+  //private perplexitySlider: HTMLInputElement;
+  //private learningRateInput: HTMLInputElement;
+  //private superviseFactorInput: HTMLInputElement;
   private zDropdown: HTMLElement;
   private iterationLabelTsne: HTMLElement;
+  private totalIterationLabelDVI: HTMLElement;
   private runUmapButton: HTMLButtonElement;
   private customProjectionXLeftInput: any; // ProjectorInput; type ommited
   private customProjectionXRightInput: any; // ProjectorInput; type ommited
@@ -134,17 +145,25 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   ready() {
     super.ready();
     this.zDropdown = this.$$('#z-dropdown') as HTMLElement;
-    this.runTsneButton = this.$$('.run-tsne') as HTMLButtonElement;
-    this.pauseTsneButton = this.$$('.pause-tsne') as HTMLButtonElement;
-    this.perturbTsneButton = this.$$('.perturb-tsne') as HTMLButtonElement;
-    this.perplexitySlider = this.$$('#perplexity-slider') as HTMLInputElement;
+    //this.runTsneButton = this.$$('.run-tsne') as HTMLButtonElement;
+    //this.runTsneButton.innerText = 'Run';
+   // this.pauseTsneButton = this.$$('.pause-tsne') as HTMLButtonElement;
+    //this.pauseTsneButton.disabled = true;
+    //this.perturbTsneButton = this.$$('.perturb-tsne') as HTMLButtonElement;
+    this.previousDVIButton = this.$$('.previous-dvi') as HTMLButtonElement;
+    this.previousDVIButton.disabled = true;
+    this.nextDVIButton = this.$$('.next-dvi') as HTMLButtonElement;
+    //this.nextDVIButton.disabled = true;
+    //this.perplexitySlider = this.$$('#perplexity-slider') as HTMLInputElement;
+    /*
     this.learningRateInput = this.$$(
       '#learning-rate-slider'
     ) as HTMLInputElement;
     this.superviseFactorInput = this.$$(
       '#supervise-factor-slider'
-    ) as HTMLInputElement;
+    ) as HTMLInputElement;*/
     this.iterationLabelTsne = this.$$('.run-tsne-iter') as HTMLElement;
+    this.totalIterationLabelDVI = this.$$('.dvi-total-iter') as HTMLElement;
     this.runUmapButton = this.$$('#run-umap') as HTMLButtonElement;
   }
   disablePolymerChangesTriggerReprojection() {
@@ -153,13 +172,15 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   enablePolymerChangesTriggerReprojection() {
     this.polymerChangesTriggerReprojection = true;
   }
+  /*
   private updateTSNEPerplexityFromSliderChange() {
     if (this.perplexitySlider) {
       this.perplexity = +this.perplexitySlider.value;
     }
     (this.$$('.tsne-perplexity span') as HTMLSpanElement).innerText =
       '' + this.perplexity;
-  }
+  }*/
+  /*
   private updateTSNELearningRateFromUIChange() {
     if (this.learningRateInput) {
       this.learningRate = Math.pow(10, +this.learningRateInput.value);
@@ -173,7 +194,17 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     if (this.dataSet) {
       this.dataSet.setSuperviseFactor(this.superviseFactor);
     }
+  }*/
+   private subjectModelPathEditorInputChange() {
+    this.dataSet.DVIsubjectModelPath = this.subjectModelPathEditorInput;
   }
+  private visualizeDataPathEditorInputChange(){
+    this.dataSet.DVIVisualizeDataPath = this.visualizeDataPathEditorInput;
+  }
+  private resolutionEditorInputChange(){
+    this.dataSet.DVIResolution = this.resolutionEditorInput;
+  }
+
   private setupUIControls() {
     {
       const self = this;
@@ -185,22 +216,105 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
         });
       }
     }
+    /*
     this.runTsneButton.addEventListener('click', () => {
       if (this.dataSet.hasTSNERun) {
         this.dataSet.stopTSNE();
       } else {
-        this.runTSNE();
+        const delay = ms => new Promise(res => setTimeout(res, ms));
+
+        //console.log(this.dataSet.hasTSNERun);
+        this.dataSet.tSNEShouldKill = true;
+        //console.log('here1');
+        let act = async () => {
+           await delay(500);
+           this.runTSNE();
+        };
+        act();
       }
-    });
+    });*/
+    /*
     this.pauseTsneButton.addEventListener('click', () => {
       if (this.dataSet.tSNEShouldPause) {
         this.dataSet.tSNEShouldPause = false;
         this.pauseTsneButton.innerText = 'Pause';
+        this.previousDVIButton.disabled = true;
+        this.nextDVIButton.disabled = true;
+        this.dataSet.tSNEShouldPauseAndCheck = false;
       } else {
         this.dataSet.tSNEShouldPause = true;
         this.pauseTsneButton.innerText = 'Resume';
+        this.dataSet.tSNEJustPause = true;
+        if (this.dataSet.tSNEIteration != 1) {
+           this.previousDVIButton.disabled = false;
+        }
+        if (this.dataSet.tSNEIteration != this.dataSet.tSNETotalIter) {
+          this.nextDVIButton.disabled = false;
+        }
       }
+    });*/
+    this.previousDVIButton.addEventListener('click', () => {
+      if(this.dataSet.tSNEIteration <= 2) {
+        this.previousDVIButton.disabled = true;
+      }
+      this.dataSet.projectDVI(this.dataSet.tSNEIteration - 1,
+          (iteration: number, totalIter?: number) => {
+        if (iteration != null) {
+          this.iterationLabelTsne.innerText = '' + iteration;
+          this.totalIterationLabelDVI.innerText = '' + totalIter;
+          this.projector.notifyProjectionPositionsUpdated();
+          this.projector.onProjectionChanged();
+        } else {
+          this.projector.onProjectionChanged();
+        }
+      });
+      this.nextDVIButton.disabled = false;
     });
+    this.nextDVIButton.addEventListener('click', ()=> {
+      this.nextDVIButton.disabled = true;
+      this.previousDVIButton.disabled = true;
+      this.dataSet.projectDVI(this.dataSet.tSNEIteration + 1,
+          (iteration: number, totalIter?: number) => {
+        if (iteration != null) {
+          this.iterationLabelTsne.innerText = '' + iteration;
+          this.totalIterationLabelDVI.innerText = '' + totalIter;
+          this.projector.notifyProjectionPositionsUpdated();
+          this.projector.onProjectionChanged();
+          if(this.dataSet.tSNEIteration > 1) {
+            this.previousDVIButton.disabled = false;
+          }
+          if(this.dataSet.tSNETotalIter != this.dataSet.tSNEIteration) {
+            this.nextDVIButton.disabled = false;
+          }
+        } else {
+          this.projector.onProjectionChanged();
+        }
+      });
+    });
+
+    /*
+    this.nextDVIButton.addEventListener('click', () => {
+      if (this.dataSet.tSNEJustPause) {
+        this.dataSet.tSNEJustPause = false;
+      } else {
+        this.dataSet.tSNEIteration ++;
+      }
+      this.dataSet.tSNEShouldPauseAndCheck = true;
+      if(this.dataSet.tSNEIteration == this.dataSet.tSNETotalIter) {
+        this.nextDVIButton.disabled = true;
+      }
+      if(!this.dataSet.hasTSNERun) {
+        this.runTsneButton.innerText = 'Stop';
+        this.runTsneButton.disabled = false;
+        this.pauseTsneButton.innerText = 'Resume';
+        this.pauseTsneButton.disabled = false;
+        this.dataSet.tSNEShouldStop = false;
+        this.dataSet.tSNEShouldPause = true;
+        this.dataSet.hasTSNERun = true;
+      }
+      this.previousDVIButton.disabled = false;
+    });*/
+    /*
     this.perturbTsneButton.addEventListener('mousedown', () => {
       if (this.dataSet && this.projector) {
         this.dataSet.perturbTsne();
@@ -213,7 +327,8 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     });
     this.perturbTsneButton.addEventListener('mouseup', () => {
       clearInterval(this.perturbInterval);
-    });
+    });*/
+    /*
     this.perplexitySlider.value = this.perplexity.toString();
     this.perplexitySlider.addEventListener('change', () =>
       this.updateTSNEPerplexityFromSliderChange()
@@ -226,7 +341,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     this.superviseFactorInput.addEventListener('change', () =>
       this.updateTSNESuperviseFactorFromUIChange()
     );
-    this.updateTSNESuperviseFactorFromUIChange();
+    this.updateTSNESuperviseFactorFromUIChange();*/
     this.setupCustomProjectionInputFields();
     // TODO: figure out why `--paper-input-container-input` css mixin didn't
     // work.
@@ -247,13 +362,14 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     }
     this.pcaIs3d = bookmark.pcaComponentDimensions.length === 3;
     // t-SNE
+    /*
     if (this.perplexitySlider) {
       this.perplexitySlider.value = bookmark.tSNEPerplexity.toString();
     }
     if (this.learningRateInput) {
       this.learningRateInput.value = bookmark.tSNELearningRate.toString();
-    }
-    this.tSNEis3d = bookmark.tSNEis3d;
+    }*/
+    //this.tSNEis3d = bookmark.tSNEis3d;
     // UMAP
     this.umapIs3d = bookmark.umapIs3d;
     this.umapNeighbors = bookmark.umapNeighbors;
@@ -286,8 +402,8 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     }
     this.computeAllCentroids();
     this.setZDropdownEnabled(this.pcaIs3d);
-    this.updateTSNEPerplexityFromSliderChange();
-    this.updateTSNELearningRateFromUIChange();
+    //this.updateTSNEPerplexityFromSliderChange();
+    //this.updateTSNELearningRateFromUIChange();
     if (this.iterationLabelTsne) {
       this.iterationLabelTsne.innerText = bookmark.tSNEIteration.toString();
     }
@@ -304,13 +420,14 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
       bookmark.pcaComponentDimensions.push(this.pcaZ);
     }
     // t-SNE
+    /*
     if (this.perplexitySlider != null) {
       bookmark.tSNEPerplexity = +this.perplexitySlider.value;
     }
     if (this.learningRateInput != null) {
       bookmark.tSNELearningRate = +this.learningRateInput.value;
-    }
-    bookmark.tSNEis3d = this.tSNEis3d;
+    }*/
+    //bookmark.tSNEis3d = this.tSNEis3d;
     // UMAP
     bookmark.umapIs3d = this.umapIs3d;
     // custom
@@ -351,9 +468,9 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     this.originalDataSet = originalDataSet;
     this.dim = dim;
     const pointCount = dataSet == null ? 0 : dataSet.points.length;
-    const perplexity = Math.max(5, Math.ceil(Math.sqrt(pointCount) / 4));
-    this.perplexitySlider.value = perplexity.toString();
-    this.updateTSNEPerplexityFromSliderChange();
+    //const perplexity = Math.max(5, Math.ceil(Math.sqrt(pointCount) / 4));
+    //this.perplexitySlider.value = perplexity.toString();
+    //this.updateTSNEPerplexityFromSliderChange();
     this.clearCentroids();
     (this.$$('#tsne-sampling') as HTMLElement).style.display =
       pointCount > TSNE_SAMPLE_SIZE ? null : 'none';
@@ -371,10 +488,14 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     this.setZDropdownEnabled(this.pcaIs3d);
     this.beginProjection(this.currentProjection);
   }
-  @observe('tSNEis3d')
-  _tsneDimensionToggleObserver() {
-    this.beginProjection(this.currentProjection);
+
+  @observe('DVINotCache')
+  _DVICacheToggleObserver() {
+    if(this.dataSet != null) {
+      this.dataSet.DVIUseCache = !this.DVINotCache;
+    }
   }
+
   @observe('umapIs3d')
   _umapDimensionToggleObserver() {
     this.beginProjection(this.currentProjection);
@@ -447,6 +568,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     if (dataSet == null) {
       return;
     }
+    this.dataSet.DVIUseCache = !this.DVINotCache;
     const accessors = getProjectionComponents('tsne', [
       0,
       1,
@@ -460,9 +582,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
       dataSet
     );
     this.projector.setProjection(projection);
-    if (!this.dataSet.hasTSNERun) {
-      this.runTSNE();
-    } else {
+    if (this.dataSet.hasTSNERun) {
       this.projector.notifyProjectionPositionsUpdated();
     }
   }
@@ -472,17 +592,20 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     this.runTsneButton.disabled = true;
     this.pauseTsneButton.innerText = 'Pause';
     this.pauseTsneButton.disabled = true;
-    this.perturbTsneButton.disabled = false;
+    this.previousDVIButton.disabled = true;
+    this.nextDVIButton.disabled = true;
+    //this.perturbTsneButton.disabled = false;
     this.dataSet.projectTSNE(
       this.perplexity,
       this.learningRate,
       this.tSNEis3d ? 3 : 2,
-      (iteration: number, bg?: string, dataset?: DataSet) => {
+      (iteration: number, dataset?: DataSet, totalIter?: number) => {
         if (iteration != null) {
           this.runTsneButton.disabled = false;
           this.pauseTsneButton.disabled = false;
           this.iterationLabelTsne.innerText = '' + iteration;
-          this.projector.notifyProjectionPositionsUpdated(bg, dataset);
+          this.totalIterationLabelDVI.innerText = '' + totalIter;
+          this.projector.notifyProjectionPositionsUpdated();
           if (!projectionChangeNotified && this.dataSet.projections['tsne']) {
             this.projector.onProjectionChanged();
             projectionChangeNotified = true;
@@ -492,7 +615,8 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
           this.runTsneButton.disabled = false;
           this.pauseTsneButton.innerText = 'Pause';
           this.pauseTsneButton.disabled = true;
-          this.perturbTsneButton.disabled = true;
+          //this.perturbTsneButton.disabled = true;
+          this.previousDVIButton.disabled = false;
           this.projector.onProjectionChanged();
         }
       }
@@ -530,7 +654,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     this.dataSet.projectUmap(nComponents, nNeighbors, (iteration: number, bg: string) => {
       if (iteration != null) {
         this.runUmapButton.disabled = false;
-        this.projector.notifyProjectionPositionsUpdated(bg);
+        this.projector.notifyProjectionPositionsUpdated();
         if (!projectionChangeNotified && this.dataSet.projections['umap']) {
           this.projector.onProjectionChanged();
           projectionChangeNotified = true;

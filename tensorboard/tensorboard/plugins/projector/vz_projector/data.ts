@@ -89,6 +89,12 @@ export interface DataPoint {
   projections: {
     [key: string]: number;
   };
+  DVI_projections?: {
+    [iteration: number]: [any, any];
+  };
+  DVI_color?: {
+    [iteration: number]: string;
+  }
 }
 const IS_FIREFOX = navigator.userAgent.toLowerCase().indexOf('firefox') >= 0;
 /** Controls whether nearest neighbors computation is done on the GPU or CPU. */
@@ -143,8 +149,25 @@ export class DataSet {
   spriteAndMetadataInfo: SpriteAndMetadataInfo;
   fracVariancesExplained: number[];
   tSNEIteration: number = 0;
+  tSNEShouldPauseAndCheck = false;
   tSNEShouldPause = false;
   tSNEShouldStop = true;
+  tSNEShouldKill = false;
+  tSNEJustPause = false;
+  tSNETotalIter: number = 0;
+  DVIsubjectModelPath = "";
+  DVIUseCache = true;
+  DVIResolution = 400;
+  DVIValidPointNumber: {
+    [iteration: number]: number;
+  } = [];
+  DVICurrentRealDataNumber = 0;
+  DVIRealDataNumber: {
+    [iteration: number]: number;
+  } = [];
+  DVIAvailableIteration: Array<number> = [];
+  DVIVisualizeDataPath = "";
+  DVIFilteredData: Array<number> = [];
   superviseFactor: number;
   superviseLabels: string[];
   superviseInput: string = '';
@@ -330,27 +353,169 @@ export class DataSet {
       }
     });
   }
+  setDVIFilteredData(pointIndices: number[]) {
+    this.DVIFilteredData = pointIndices;
+    if(pointIndices.length > 0) {
+      for (let i = 0; i < this.points.length; i++) {
+        if (pointIndices.indexOf(i) == -1 && i < this.DVICurrentRealDataNumber) {
+          let dataPoint = this.points[i];
+          dataPoint.projections = {};
+        }
+      }
+    } else {
+      for (let i = 0; i < this.points.length; i++) {
+        let dataPoint = this.points[i];
+        dataPoint.projections['tsne-0'] = dataPoint.DVI_projections[this.tSNEIteration][0];
+        dataPoint.projections['tsne-1'] = dataPoint.DVI_projections[this.tSNEIteration][1];
+        dataPoint.projections['tsne-2'] = 0;
+      }
+    }
+  }
+
   /** Runs tsne on the data. */
+  async projectDVI (
+      iteration: number,
+      stepCallback: (iter: number, totalIter?: number) => void
+  ) {
+    this.projections['tsne'] = true;
+    function componentToHex(c: number) {
+      const hex = c.toString(16);
+      return hex.length == 1 ? "0" + hex : hex;
+    }
+
+    function rgbToHex(r:number, g:number, b:number) {
+      return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+    }
+    if(this.DVIAvailableIteration.indexOf(iteration) == -1) {
+      let headers = new Headers();
+      headers.append('Content-Type', 'application/json');
+      headers.append('Accept', 'application/json');
+      await fetch("http://192.168.10.115:5000/animation", {
+        method: 'POST',
+        body: JSON.stringify({"cache": this.DVIUseCache, "path": this.DVIsubjectModelPath,  "iteration":iteration,
+              "resolution":this.DVIResolution, "data_path":this.DVIVisualizeDataPath}),
+        headers: headers,
+        mode: 'cors'
+      }).then(response => response.json()).then(data => {
+        const result = data.result;
+        const grid_index = data.grid_index;
+        const grid_color = data.grid_color;
+
+        const label_color_list = data.label_color_list;
+
+        const background_point_number = grid_index.length;
+        const real_data_number = label_color_list.length;
+        this.tSNETotalIter = data.maximum_iteration;
+
+        this.tSNEIteration = iteration;
+        this.DVIValidPointNumber[iteration] = real_data_number + background_point_number;
+        this.DVIAvailableIteration.push(iteration);
+        const current_length = this.points.length;
+        for (let i = 0; i < real_data_number + background_point_number - current_length; i++) {
+          const newDataPoint : DataPoint = {
+            metadata: {label: "background"},
+            index: current_length + i,
+            vector: new Float32Array(),
+            projections: {
+              'tsne-0': 0,
+              'tsne-1': 0,
+              'tsne-2': 0
+            },
+          };
+          this.points.push(newDataPoint);
+        }
+        for (let i = 0; i < this.points.length; i++) {
+          let dataPoint = this.points[i];
+          if(dataPoint.DVI_projections == undefined || dataPoint.DVI_color == undefined) {
+            dataPoint.DVI_projections = {};
+            dataPoint.DVI_color = {};
+          }
+        }
+        for (let i = 0; i < real_data_number; i++) {
+          let dataPoint = this.points[i];
+          dataPoint.projections['tsne-0'] = result[i][0];
+          dataPoint.projections['tsne-1'] = result[i][1];
+          dataPoint.projections['tsne-2'] = 0;
+          dataPoint.color = rgbToHex(label_color_list[i][0], label_color_list[i][1], label_color_list[i][2]);
+          dataPoint.DVI_projections[iteration] = [result[i][0], result[i][1]];
+          dataPoint.DVI_color[iteration] = dataPoint.color;
+          if (this.DVIFilteredData.length != 0 && this.DVIFilteredData.indexOf(i) == -1
+              && i < this.DVICurrentRealDataNumber) {
+            dataPoint.projections = {}
+          }
+        }
+
+        for (let i = 0; i < background_point_number; i++) {
+          let dataPoint = this.points[i + real_data_number];
+          dataPoint.projections['tsne-0'] = grid_index[i][0];
+          dataPoint.projections['tsne-1'] = grid_index[i][1];
+          dataPoint.projections['tsne-2'] = 0;
+          dataPoint.color = rgbToHex(grid_color[i][0],   grid_color[i][1], grid_color[i][2]);
+          dataPoint.DVI_projections[iteration] = [grid_index[i][0], grid_index[i][1]];
+          dataPoint.DVI_color[iteration] = dataPoint.color;
+        }
+
+        for (let i = real_data_number + background_point_number; i < this.points.length; i++) {
+          let dataPoint = this.points[i];
+          dataPoint.projections = {};
+        }
+        this.DVICurrentRealDataNumber = real_data_number;
+        this.DVIRealDataNumber[iteration] = real_data_number;
+        stepCallback(this.tSNEIteration, this.tSNETotalIter);
+    });
+    } else {
+      const validDataNumber = this.DVIValidPointNumber[iteration];
+      this.tSNEIteration = iteration;
+      for (let i = 0; i < validDataNumber; i++) {
+        let dataPoint = this.points[i];
+        dataPoint.projections['tsne-0'] = dataPoint.DVI_projections[iteration][0];
+        dataPoint.projections['tsne-1'] = dataPoint.DVI_projections[iteration][1];
+        dataPoint.projections['tsne-2'] = 0;
+        dataPoint.color = dataPoint.DVI_color[iteration];
+         if (this.DVIFilteredData.length != 0 && this.DVIFilteredData.indexOf(i) == -1
+              && i < this.DVICurrentRealDataNumber) {
+            dataPoint.projections = {}
+          }
+      }
+      for (let i = validDataNumber; i < this.points.length; i++) {
+        let dataPoint = this.points[i];
+          dataPoint.projections = {};
+      }
+      this.DVICurrentRealDataNumber = this.DVIRealDataNumber[iteration];
+      stepCallback(this.tSNEIteration, this.tSNETotalIter);
+    }
+  }
+
   async projectTSNE(
     perplexity: number,
     learningRate: number,
     tsneDim: number,
-    stepCallback: (iter: number, bg?:string, dataset?:DataSet) => void
-  ) {
+    stepCallback: (iter: number, dataset?:DataSet, totalIter?: number) => void
+  ) {/*
+    //console.log('here3');
     this.hasTSNERun = true;
-    let k = Math.floor(3 * perplexity);
-    let opt = {epsilon: learningRate, perplexity: perplexity, dim: tsneDim};
-    this.tsne = new TSNE(opt);
-    this.tsne.setSupervision(this.superviseLabels, this.superviseInput);
-    this.tsne.setSuperviseFactor(this.superviseFactor);
+    this.tSNEShouldKill = false;
     this.tSNEShouldPause = false;
     this.tSNEShouldStop = false;
+    this.tSNEJustPause = false;
+    this.tSNEShouldPauseAndCheck = false;
     this.tSNEIteration = 0;
-    let sampledIndices = this.shuffledDataIndices.slice(0, TSNE_SAMPLE_SIZE);
+    this.tSNETotalIter = 0;
+    //let sampledIndices = this.shuffledDataIndices.slice(0, TSNE_SAMPLE_SIZE);
     let headers = new Headers();
     headers.append('Content-Type', 'application/json');
     headers.append('Accept', 'application/json');
-    const sampledData = sampledIndices.map((i) => this.points[i]);
+    //const sampledData = sampledIndices.map((i) => this.points[i]);
+
+    const rawdata = this.points.map((data) => {
+      let datalist = [];
+      for (let i = 0; i < data.original_vector.length; i++) {
+        let num = data.original_vector[i];
+        num = +num.toFixed(5);
+        datalist.push(num)
+      }
+      return datalist;});
+    const metadata = this.points.map((data) => data.metadata);
     let result = [[[0]]];
     let bg_list = ["0"];
     let model_prediction = [[true]];
@@ -363,66 +528,69 @@ export class DataSet {
       const hex = c.toString(16);
       return hex.length == 1 ? "0" + hex : hex;
     }
+
     function rgbToHex(r:number, g:number, b:number) {
       return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
     }
-    let epoch = 0;
+
+    let total_epoch_number = 0;
     let real_data_number = this.points.length;
     let background_point_number = 0;
     //console.log(this.points);
     let step = async () => {
-      if (this.tSNEShouldStop || epoch >= 20) {
-        this.projections['tsne'] = false;
-        stepCallback(null, null);
-        this.tsne = null;
-        this.hasTSNERun = false;
+      if (this.tSNEShouldKill) {
+        //console.log('here2');
         return;
       }
-      if (!this.tSNEShouldPause) {
+      if (this.tSNEShouldStop || this.tSNEIteration >= total_epoch_number) {
+        this.projections['tsne'] = false;
+        this.tSNEJustPause = true;
+        stepCallback(null);
+        this.hasTSNERun = false;
+        //return;
+      }
+
+      if (!(this.tSNEShouldStop || this.tSNEIteration >= total_epoch_number)
+          && (!this.tSNEShouldPause || this.tSNEShouldPauseAndCheck)) {
         this.points = this.points.slice(0, real_data_number);
-        //console.log("older points");
         //console.log(this.points);
         for (let i = 0; i < real_data_number; i++) {
           let dataPoint = this.points[i];
-          dataPoint.projections['tsne-0'] = result[epoch][i][0];
-          dataPoint.projections['tsne-1'] = result[epoch][i][1];
+          dataPoint.projections['tsne-0'] = result[this.tSNEIteration][i][0];
+          dataPoint.projections['tsne-1'] = result[this.tSNEIteration][i][1];
           dataPoint.projections['tsne-2'] = 0;
           dataPoint.color = rgbToHex(label_color_list[i][0], label_color_list[i][1], label_color_list[i][2])
-          //console.log(classes.indexOf(dataPoint.metadata.label));
-          /*
-          console.log(classes_color_map[label]);
-          dataPoint.color = rgbToHex(classes_color_map[label][0],
-              classes_color_map[label][1], classes_color_map[label][2]);*/
         }
-        console.log(this.points);
         for (let i = 0; i < background_point_number; i++) {
           const newDataPoint : DataPoint = {
             metadata: {label: "background"},
             index: real_data_number + i,
             vector: new Float32Array(),
             projections: {
-              'tsne-0': grid_index[epoch][i][0],
-              'tsne-1': grid_index[epoch][i][1],
+              'tsne-0': grid_index[this.tSNEIteration][i][0],
+              'tsne-1': grid_index[this.tSNEIteration][i][1],
               'tsne-2': 0
             },
-        color: rgbToHex(grid_color[epoch][i][0],   grid_color[epoch][i][1], grid_color[epoch][i][2]),
+        color: rgbToHex(grid_color[this.tSNEIteration][i][0],   grid_color[this.tSNEIteration][i][1], grid_color[this.tSNEIteration][i][2]),
         };
         this.points.push(newDataPoint);
         }
-        //console.log("newer points");
-        //console.log(this.points);
         this.projections['tsne'] = true;
-        this.tSNEIteration++;
-        //const bg = 'data:image/png;base64,'+ bg_list[epoch];
-        epoch++;
-        stepCallback(this.tSNEIteration, undefined, new DataSet(this.points, this.spriteAndMetadataInfo));
-        await delay(1000);
+
+        stepCallback(this.tSNEIteration + 1, undefined, new DataSet(this.points, this.spriteAndMetadataInfo),
+            total_epoch_number);
+        if(!this.tSNEShouldPauseAndCheck)  {
+           this.tSNEIteration++;
+           await delay(1000);
+        }
+
       }
       requestAnimationFrame(step);
     };
     await fetch("http://192.168.10.115:5000/animation", {
       method: 'POST',
-      //body: JSON.stringify({"sampled_data": sampledData}),
+      body: JSON.stringify({"cache": this.DVIUseCache, "rawdata": rawdata, "metadata": metadata,
+            "path": this.DVIsubjectModelPath,  "resolution":this.DVIResolution}),
       headers: headers,
       mode: 'cors'
     }).then(response => response.json()).then(data => {
@@ -431,8 +599,11 @@ export class DataSet {
       grid_color = data.grid_color;
       background_point_number = grid_index[0].length;
       label_color_list = data.label_color_list;
+      real_data_number = label_color_list.length;
+      total_epoch_number = result.length;
+      this.tSNETotalIter = total_epoch_number;
       step();
-    });
+    });*/
     /*
     let step = async () => {
       if (this.tSNEShouldStop || epoch >= 5) {

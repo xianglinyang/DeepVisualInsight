@@ -130,8 +130,8 @@ export class ProjectorScatterPlotAdapter {
     );
     this.createVisualizers(false);
   }
-  notifyProjectionPositionsUpdated(bg?: string) {
-    this.updateScatterPlotPositions(bg);
+  notifyProjectionPositionsUpdated() {
+    this.updateScatterPlotPositions();
     this.scatterPlot.render();
   }
   setDataSet(dataSet: DataSet) {
@@ -203,17 +203,7 @@ export class ProjectorScatterPlotAdapter {
       false
     );
   }
-  updateScatterPlotPositions(bg?: string) {
-    if(bg !== undefined) {
-      let image = new Image();
-      image.src = bg;
-      let texture = new THREE.Texture();
-      texture.image = image;
-      image.onload = function () {
-        texture.needsUpdate = true;
-      };
-      this.scatterPlot.scene.background = texture;
-    }
+  updateScatterPlotPositions() {
     const ds = this.projection == null ? null : this.projection.dataSet;
     const projectionComponents =
       this.projection == null ? null : this.projection.projectionComponents;
@@ -221,7 +211,7 @@ export class ProjectorScatterPlotAdapter {
       ds,
       projectionComponents
     );
-    this.scatterPlot.setPointPositions(newPositions);
+    this.scatterPlot.setPointPositions(newPositions, this.projection == null? 0 : this.projection.dataSet.DVICurrentRealDataNumber);
   }
   updateScatterPlotAttributes() {
     if (this.projection == null) {
