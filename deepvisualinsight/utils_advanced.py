@@ -122,9 +122,9 @@ def cw_l2_attack(model, image, label, target_cls, target_gap, diff=0.1,
     # w is the noise added to the original image, restricted to be [-1, 1]
     attack_images = image + torch.tanh(w) 
     
-    ratio_truncate_w = (torch.sum(torch.abs(torch.tanh(w) - 1)<=0.001).item() + torch.sum(torch.abs(torch.tanh(w) + 1)<=0.001).item()) / (torch.sum(torch.ones_like(image)).item())
+#     ratio_truncate_w = (torch.sum(torch.abs(torch.tanh(w) - 1)<=0.001).item() + torch.sum(torch.abs(torch.tanh(w) + 1)<=0.001).item()) / (torch.sum(torch.ones_like(image)).item())
     
-    return attack_images.detach().cpu(), successful, step, ratio_truncate_w 
+    return attack_images.detach().cpu(), successful, step
 
 
 
@@ -146,7 +146,6 @@ def get_border_points(model, input_x, gaps, confs, kmeans_result, predictions,
     ct = 0
     adv_examples = torch.tensor([])
     attack_steps_ct = []
-    ratio_truncate_w_ct = []
 
     t0 = time.time()
     while ct < num_adv_eg:
@@ -195,22 +194,20 @@ def get_border_points(model, input_x, gaps, confs, kmeans_result, predictions,
         gap2 = gaps[data2_index[image2_idx]]
 
         # attack from cluster 1 to cluster 2
-        attack1, successful1, attack_step1, ratio_truncate_w1 = cw_l2_attack(model, image1.to(device), cls1, cls2, gap2)
+        attack1, successful1, attack_step1 = cw_l2_attack(model, image1.to(device), cls1, cls2, gap2)
 
         # attack from cluster 2 to cluster 1
-        attack2, successful2, attack_step2, ratio_truncate_w2 = cw_l2_attack(model, image2.to(device), cls2, cls1, gap1)
+        attack2, successful2, attack_step2 = cw_l2_attack(model, image2.to(device), cls2, cls1, gap1)
 
         if successful1:
             adv_examples = torch.cat((adv_examples, attack1), dim=0)
             ct += 1
             attack_steps_ct.append(attack_step1)
-            ratio_truncate_w_ct.append(ratio_truncate_w1)
             
         if successful2:
             adv_examples = torch.cat((adv_examples, attack2), dim=0)
             ct += 1
             attack_steps_ct.append(attack_step2)
-            ratio_truncate_w_ct.append(ratio_truncate_w2)
         
         if verbose:
             if ct % 1000 == 0:
@@ -220,7 +217,7 @@ def get_border_points(model, input_x, gaps, confs, kmeans_result, predictions,
     if verbose:
         print('Total time {:2f}'.format(t1-t0))
         
-    return adv_examples, attack_steps_ct, ratio_truncate_w_ct
+    return adv_examples, attack_steps_ct
 
 
 def batch_run(model, data, batch_size=200):
@@ -303,7 +300,7 @@ if __name__ == '__main__':
     
     # Adversarial attacks
     print('Adv attack ... ')
-    adv_examples, attack_steps_ct, ratio_truncate_w_ct = get_border_points(model=model, input_x=input_x, gaps=gaps, confs=confs, kmeans_result=kmeans_result, predictions=predictions, num_adv_eg = 5000, num_cls = 10, n_clusters_per_cls = 10, verbose=1)
+    adv_examples, attack_steps_ct = get_border_points(model = model, input_x = input_x, gaps = gaps, confs = confs, kmeans_result = kmeans_result, predictions = predictions, num_adv_eg = 5000, num_cls = 10, n_clusters_per_cls = 10, verbose = 1)
     
     # Save??
     torch.save(adv_examples, 'BPs.pt')
