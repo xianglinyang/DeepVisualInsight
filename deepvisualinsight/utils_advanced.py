@@ -173,10 +173,17 @@ def get_border_points(model, input_x, gaps, confs, kmeans_result, predictions,
         data2_index = np.argwhere((predictions == cls2) & (kmeans_result == cluster2)).squeeze()
         
         # probability to be sampled is inversely proportinal to the distance to "targeted" decision boundary
+        # smaller class1-class2 is preferred
+        conf1 = confs[data1_index]
+        pvec1 = (1/(conf1[:,cls1]-conf1[:,cls2]+1e-4)) / torch.sum((1/(conf1[:,cls1]-conf1[:,cls2]+1e-4))) 
+        conf2 = confs[data2_index]         
+        pvec2 = (1/(conf2[:,cls2]-conf2[:,cls1]+1e-4)) / torch.sum((1/(conf2[:,cls2]-conf2[:,cls1]+1e-4)))
         
-        pvec1 = (1/(confs[data1_index][:,cls1]-confs[data1_index][:,cls2]+1e-4) / torch.sum(1/(confs[data1_index][:,cls1]-confs[data1_index][:,cls2]+1e-4)) # smaller class1-class2 is preferred
-                 
-        pvec2 = (1/(confs[data2_index][:,cls2]-confs[data2_index][:,cls1]+1e-4)) / torch.sum((1/(confs[data2_index][:,cls2]-confs[data2_index][:,cls1]+1e-4)))
+        # probability to be sampled is inversely proportinal to the distance to decision boundary
+#         sort1, _ = torch.sort(confs[data1_index], dim=1, descending=True)
+#         pvec1 = (1/(sort1[:,0]-sort1[:,1]+1e-4)) / torch.sum(1/(sort1[:,0]-sort1[:,1]+1e-4)) # smaller top1-top2 is preferred
+#         sort2, _ = torch.sort(confs[data2_index], dim=1, descending=True)
+#         pvec2 = (1/(sort2[:,0]-sort2[:,1]+1e-4)) / torch.sum((1/(sort2[:,0]-sort2[:,1]+1e-4)))
     
         image1_idx = np.random.choice(range(len(data1_index)), size=1, p=pvec1.numpy()) 
         image2_idx = np.random.choice(range(len(data2_index)), size=1, p=pvec2.numpy()) 
@@ -275,9 +282,9 @@ if __name__ == '__main__':
 
     ## Load model
     print('Loading model ... ')
-    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    device = 'cuda:1' if torch.cuda.is_available() else 'cpu'
     model = resnet18()
-    checkpoint = torch.load('models/subject_model100.pth')
+    checkpoint = torch.load('models/subject_model200.pth')
     model.load_state_dict(checkpoint)
     model.to(device)
     
@@ -296,7 +303,8 @@ if __name__ == '__main__':
     
     # Adversarial attacks
     print('Adv attack ... ')
-    adv_examples, attack_steps_ct, ratio_truncate_w_ct = get_border_points(model, input_x, gaps, confs, kmeans_result, predictions)
+    adv_examples, attack_steps_ct, ratio_truncate_w_ct = get_border_points(model=model, input_x=input_x, gaps=gaps, confs=confs, kmeans_result=kmeans_result, predictions=predictions, num_adv_eg = 5000, num_cls = 10, n_clusters_per_cls = 10, verbose=1)
     
     # Save??
     torch.save(adv_examples, 'BPs.pt')
+    
