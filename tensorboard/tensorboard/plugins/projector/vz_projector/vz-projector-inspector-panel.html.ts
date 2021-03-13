@@ -219,7 +219,7 @@ export const template = html`
   <div class="container">
     <div class="buttons">
       <button class="button reset-filter">Show All Data</button>
-      <button class="button set-filter">Isolate selection</button>
+      <button class="button set-filter">Filter selection</button>
       <button class="button clear-selection">Clear selection</button>
     </div>
     <div class="search-by">

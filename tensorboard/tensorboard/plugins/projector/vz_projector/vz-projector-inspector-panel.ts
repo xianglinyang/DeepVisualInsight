@@ -382,7 +382,7 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
   }
   private updateFilterButtons(numPoints: number) {
     if (numPoints > 1) {
-      this.setFilterButton.innerText = `Isolate ${numPoints} points`;
+      this.setFilterButton.innerText = `Filter ${numPoints} points`;
       this.setFilterButton.disabled = null;
       this.clearSelectionButton.disabled = null;
     } else {

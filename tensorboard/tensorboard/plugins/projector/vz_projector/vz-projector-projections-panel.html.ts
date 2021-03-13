@@ -259,7 +259,7 @@ export const template = html`
     <div class="subject-model-path-editor">
         <paper-input
           value="{{subjectModelPathEditorInput}}"
-          label="Subject Model Path"
+          label="Model Path"
           on-input="subjectModelPathEditorInputChange"
         >
         </paper-input>

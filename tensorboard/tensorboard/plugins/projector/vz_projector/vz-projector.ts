@@ -284,10 +284,12 @@ class Projector
   }
   filterDataset(pointIndices: number[]) {
     const selectionSize = this.selectedPointIndices.length;
+    /*
     if (this.dataSetBeforeFilter == null) {
       this.dataSetBeforeFilter = this.dataSet;
-    }
-    this.setCurrentDataSet(this.dataSet.getSubset(pointIndices));
+    }*/
+    this.dataSet.setDVIFilteredData(pointIndices);
+    //this.setCurrentDataSet(this.dataSet.getSubset(pointIndices));
     this.dataSetFilterIndices = pointIndices;
     this.projectorScatterPlotAdapter.updateScatterPlotPositions();
     this.projectorScatterPlotAdapter.updateScatterPlotAttributes();
@@ -297,11 +299,13 @@ class Projector
     const originalPointIndices = this.selectedPointIndices.map(
       (filteredIndex) => this.dataSet.points[filteredIndex].index
     );
+    /*
     this.setCurrentDataSet(this.dataSetBeforeFilter);
     if (this.projection != null) {
       this.projection.dataSet = this.dataSetBeforeFilter;
     }
-    this.dataSetBeforeFilter = null;
+    this.dataSetBeforeFilter = null;*/
+    this.dataSet.setDVIFilteredData([]);
     this.projectorScatterPlotAdapter.updateScatterPlotPositions();
     this.projectorScatterPlotAdapter.updateScatterPlotAttributes();
     this.dataSetFilterIndices = [];

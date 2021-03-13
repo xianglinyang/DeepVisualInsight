@@ -167,6 +167,7 @@ export class DataSet {
   } = [];
   DVIAvailableIteration: Array<number> = [];
   DVIVisualizeDataPath = "";
+  DVIFilteredData: Array<number> = [];
   superviseFactor: number;
   superviseLabels: string[];
   superviseInput: string = '';
@@ -352,6 +353,25 @@ export class DataSet {
       }
     });
   }
+  setDVIFilteredData(pointIndices: number[]) {
+    this.DVIFilteredData = pointIndices;
+    if(pointIndices.length > 0) {
+      for (let i = 0; i < this.points.length; i++) {
+        if (pointIndices.indexOf(i) == -1 && i < this.DVICurrentRealDataNumber) {
+          let dataPoint = this.points[i];
+          dataPoint.projections = {};
+        }
+      }
+    } else {
+      for (let i = 0; i < this.points.length; i++) {
+        let dataPoint = this.points[i];
+        dataPoint.projections['tsne-0'] = dataPoint.DVI_projections[this.tSNEIteration][0];
+        dataPoint.projections['tsne-1'] = dataPoint.DVI_projections[this.tSNEIteration][1];
+        dataPoint.projections['tsne-2'] = 0;
+      }
+    }
+  }
+
   /** Runs tsne on the data. */
   async projectDVI (
       iteration: number,
@@ -419,6 +439,10 @@ export class DataSet {
           dataPoint.color = rgbToHex(label_color_list[i][0], label_color_list[i][1], label_color_list[i][2]);
           dataPoint.DVI_projections[iteration] = [result[i][0], result[i][1]];
           dataPoint.DVI_color[iteration] = dataPoint.color;
+          if (this.DVIFilteredData.length != 0 && this.DVIFilteredData.indexOf(i) == -1
+              && i < this.DVICurrentRealDataNumber) {
+            dataPoint.projections = {}
+          }
         }
 
         for (let i = 0; i < background_point_number; i++) {
@@ -448,6 +472,10 @@ export class DataSet {
         dataPoint.projections['tsne-1'] = dataPoint.DVI_projections[iteration][1];
         dataPoint.projections['tsne-2'] = 0;
         dataPoint.color = dataPoint.DVI_color[iteration];
+         if (this.DVIFilteredData.length != 0 && this.DVIFilteredData.indexOf(i) == -1
+              && i < this.DVICurrentRealDataNumber) {
+            dataPoint.projections = {}
+          }
       }
       for (let i = validDataNumber; i < this.points.length; i++) {
         let dataPoint = this.points[i];
