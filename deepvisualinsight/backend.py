@@ -402,7 +402,7 @@ def boundary_wise_complex(centers, border_centers, n_neighbors):
         knn_indices=knn_indices,
         knn_dists=knn_dists,
     )
-    return bw_complex
+    return bw_complex, sigmas, rhos
 
 
 def fuzzy_complex(train_data, n_neighbors):
@@ -437,7 +437,7 @@ def fuzzy_complex(train_data, n_neighbors):
         knn_indices=knn_indices,
         knn_dists=knn_dists,
     )
-    return complex
+    return complex, sigmas, rhos
 
 
 def define_autoencoder(dims, n_components, units, encoder=None, decoder=None):
@@ -574,9 +574,9 @@ def define_lr_schedule(epoch):
         lr (float32): learning rate
     """
     lr = 1e-3
-    if epoch > 10:
+    if epoch > 5:
         lr *= 1e-1
-    elif epoch > 20:
+    elif epoch > 10:
         lr *= 1e-1
     print('Learning rate: ', lr)
     return lr
@@ -746,4 +746,18 @@ def find_alpha(prev_data, train_data, n_neighbors):
         pres = np.intersect1d(train_indices[i], prev_indices[i])
         temporal_pres[i] = len(pres) / float(n_neighbors)
     return temporal_pres
+
+
+def find_update_dist(prev_data, train_data, sigmas, rhos):
+    if prev_data is None:
+        return np.zeros(len(train_data))
+    dists = np.linalg.norm(prev_data-train_data, axis=1)
+    # weights = dists - rhos
+    weights = dists
+    index = np.bitwise_or(weights < 0, sigmas==0)
+    weights = np.exp(-weights / sigmas)
+    weights[index==True] = 1.0
+    return weights
+
+
 

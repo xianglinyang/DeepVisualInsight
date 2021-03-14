@@ -66,7 +66,8 @@ def adv_attack(image, epsilon, data_grad):
     return perturbed_image
 
 
-def get_border_points(data_, target_, model, diff, device, epsilon=.01, limit=5,):
+
+def get_border_points(data_, target_, model, device, epsilon=.01, limit=5,):
     """get border points by fgsm adversarial attack"""
 
     num = len(data_)
@@ -98,7 +99,10 @@ def get_border_points(data_, target_, model, diff, device, epsilon=.01, limit=5,
 
             output = model(perturbed_data)
             sort, _ = torch.sort(output, dim=-1, descending=True)
-            abs_dis = sort[0, 0] - sort[0, 1]
+
+            normalized = (sort - sort[:,0])/(sort[:,0]-sort[:,-1]) # min-max rescaling
+
+            abs_dis = normalized[0, 0] - normalized[0, 1]
 
             final_pred = output.max(1, keepdim=True)[1]
 
@@ -107,12 +111,12 @@ def get_border_points(data_, target_, model, diff, device, epsilon=.01, limit=5,
             data.requires_grad = True
             j = j + 1
             if final_pred.item() != target:
-                if abs_dis < diff:
+                if abs_dis < 0.1:
                     adv_data[r] = adv_ex
                     adv_pred_labels[r] = final_pred.item()
                     r = r + 1
                 break
-            if abs_dis < diff:
+            if abs_dis < 0.1:
                 adv_data[r] = adv_ex
                 adv_pred_labels[r] = final_pred.item()
                 r = r + 1
@@ -149,5 +153,5 @@ def batch_run(model, data, output_shape, batch_size=200):
         inputs = data[r1:r2]
         with torch.no_grad():
             pred = model(inputs).cpu().numpy()
-            input_X[r1:r2] = pred.squeeze()
+            input_X[r1:r2] = pred.reshape(pred.shape[0], -1)
     return input_X
