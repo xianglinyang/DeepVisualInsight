@@ -8,20 +8,21 @@ import matplotlib.pyplot as plt
 import torch
 import json
 
-# content_path = "E:\\DVI_exp_data\\resnet18_cifar10"
+content_path = "E:\\DVI_exp_data\\resnet18_cifar10"
 # content_path = "E:\\DVI_exp_data\\resnet18_fashionmnist"
 # content_path = "E:\\DVI_exp_data\\resnet18_mnist"
 # content_path = "E:\\DVI_exp_data\\active_learning\\random_tl_cifar10"
 # content_path = "E:\\DVI_exp_data\\active_learning\\entropy_tl_cifar10"
 # content_path = "E:\\DVI_exp_data\\noisy_model\\resnet18_cifar10"
-content_path = "E:\\DVI_exp_data\\inexpressive_model"
+# content_path = "E:\\DVI_exp_data\\inexpressive_model"
+# content_path = "../../DVI_EXP/normal_training/resnet18_cifar10"
 
 sys.path.append(content_path)
 
 from Model.model import *
-# net = resnet18()
+net = resnet18()
 # net = ResNet18()
-net = CIFAR_17()
+# net = CIFAR_17()
 
 classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
 # classes = ("0", "1", "2", "3", "4", "5", "6", "7", "8", "9")
@@ -29,9 +30,10 @@ classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "sh
 
 
 # TODO temporal loss dynamically change weight?
-mms = MMS(content_path, net, 1, 3, 128, 10, classes, cmap="tab10", resolution=100, neurons=64, verbose=1, temporal=False, split=-2)
+mms = MMS(content_path, net, 40, 200, 80, 512, 10, classes, cmap="tab10", resolution=100, neurons=256, verbose=1, temporal=False, split=-1, advance_border_gen=True, attack_device="cuda:0")
+
 mms.data_preprocessing()
-mms.prepare_visualization_for_all()
+# mms.prepare_visualization_for_all()
 
 # mms.proj_temporal_perseverance_train(15)
 # mms.nn_pred_accu(200, 15)
@@ -130,26 +132,26 @@ mms.prepare_visualization_for_all()
 #     mms.visualize(i, train_data, labels, os.path.join(img_save_location, "hl_{:d}".format(i)), index)
 
 # active learning
-img_save_location = os.path.join(mms.content_path, "img")
-
-for i in range(100, 200, 20):
-    # index_file = os.path.join(mms.model_path, "Epoch_{:d}".format(i), "index.json")
-    # index = utils.load_labelled_data_index(index_file)
-
-    new_index_file = os.path.join(mms.model_path, "Epoch_{:d}".format(i+1), "index.json")
-    new_index = utils.load_labelled_data_index(new_index_file)
-    training_data = mms.training_data[new_index]
-    training_labels = mms.training_labels[new_index].cpu().numpy()
-
-    testing_data = mms.testing_data
-    testing_labels = mms.testing_labels.cpu().numpy()
-
-    train_data = mms.get_representation_data(i, training_data)
-    test_data = mms.get_representation_data(i, testing_data)
-
-    pred = mms.get_epoch_test_pred(i).argmax(-1)
-    index = (pred != testing_labels)
-    test_data = test_data[index]
-    testing_labels = testing_labels[index]
-    mms.visualize(i, train_data, training_labels, test_data, testing_labels, os.path.join(img_save_location, "alb_{:d}".format(i)), np.arange(-1000, 0, 1))
+# img_save_location = os.path.join(mms.content_path, "img")
+#
+# for i in range(100, 200, 20):
+#     # index_file = os.path.join(mms.model_path, "Epoch_{:d}".format(i), "index.json")
+#     # index = utils.load_labelled_data_index(index_file)
+#
+#     new_index_file = os.path.join(mms.model_path, "Epoch_{:d}".format(i+1), "index.json")
+#     new_index = utils.load_labelled_data_index(new_index_file)
+#     training_data = mms.training_data[new_index]
+#     training_labels = mms.training_labels[new_index].cpu().numpy()
+#
+#     testing_data = mms.testing_data
+#     testing_labels = mms.testing_labels.cpu().numpy()
+#
+#     train_data = mms.get_representation_data(i, training_data)
+#     test_data = mms.get_representation_data(i, testing_data)
+#
+#     pred = mms.get_epoch_test_pred(i).argmax(-1)
+#     index = (pred != testing_labels)
+#     test_data = test_data[index]
+#     testing_labels = testing_labels[index]
+#     mms.visualize(i, train_data, training_labels, test_data, testing_labels, os.path.join(img_save_location, "alb_{:d}".format(i)), np.arange(-1000, 0, 1))
 
