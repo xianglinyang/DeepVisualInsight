@@ -66,6 +66,7 @@ def adv_attack(image, epsilon, data_grad):
     return perturbed_image
 
 
+
 def get_border_points(data_, target_, model, device, epsilon=.01, limit=5,):
     """get border points by fgsm adversarial attack"""
 
@@ -98,7 +99,10 @@ def get_border_points(data_, target_, model, device, epsilon=.01, limit=5,):
 
             output = model(perturbed_data)
             sort, _ = torch.sort(output, dim=-1, descending=True)
-            abs_dis = (sort[0, 0] - sort[0, 1])/(sort[0, 0] - sort[0, -1])
+
+            normalized = (sort - sort[:,0])/(sort[:,0]-sort[:,-1]) # min-max rescaling
+
+            abs_dis = normalized[0, 0] - normalized[0, 1]
 
             final_pred = output.max(1, keepdim=True)[1]
 
