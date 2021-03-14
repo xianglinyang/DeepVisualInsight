@@ -543,7 +543,7 @@ def define_losses(batch_size, n_epoch, tot_epochs, temporal):
     if temporal:
         temporal_loss_fn = temporal_loss()
         losses["temporal"] = temporal_loss_fn
-        loss_weights["temporal"] = 0.01
+        loss_weights["temporal"] = 0.0001
 
     # if temporal:
     #     ratio = n_epoch / float(tot_epochs)

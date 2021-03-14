@@ -183,7 +183,7 @@ class MMS:
                 np.save(location, ori_border_points)
 
             # training data clustering
-            train_data = training_data.to(device)
+            train_data = training_data.to(self.device)
             train_data_representation = batch_run(repr_model, train_data, self.repr_num)
             location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "train_data.npy")
             np.save(location, train_data_representation)
