@@ -162,10 +162,16 @@ export function getSearchPredicate(
         return (p.mislabel_vector == true && query == 'mislabel_true') || (p.mislabel_vector == false && query == 'mislabel_false')
       };
     } else {
-      predicate = (p) => {
-      let label = p.metadata[fieldName].toString().toLowerCase();
-      return label.indexOf(query) >= 0;
-      };
+      if (query == 'training' || query == 'testing') {
+        predicate = (p) => {
+          return (p.current_testing == true && query == 'testing') || (p.current_training == true && query == 'training')
+        };
+      } else {
+        predicate = (p) => {
+          let label = p.metadata[fieldName].toString().toLowerCase();
+          return label.indexOf(query) >= 0;
+        };
+      }
     }
 
   }

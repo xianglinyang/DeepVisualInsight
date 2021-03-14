@@ -95,6 +95,14 @@ export interface DataPoint {
   DVI_color?: {
     [iteration: number]: string;
   }
+  training_data?: {
+    [iteration: number]: boolean;
+  }
+  testing_data?: {
+    [iteration: number]: boolean;
+  }
+  current_training?: boolean;
+  current_testing?: boolean;
 }
 const IS_FIREFOX = navigator.userAgent.toLowerCase().indexOf('firefox') >= 0;
 /** Controls whether nearest neighbors computation is done on the GPU or CPU. */
@@ -402,6 +410,7 @@ export class DataSet {
         const grid_color = data.grid_color;
 
         const label_color_list = data.label_color_list;
+        const label_list = data.label_list;
 
         const background_point_number = grid_index.length;
         const real_data_number = label_color_list.length;
@@ -411,6 +420,10 @@ export class DataSet {
         this.DVIValidPointNumber[iteration] = real_data_number + background_point_number;
         this.DVIAvailableIteration.push(iteration);
         const current_length = this.points.length;
+
+        const training_data = data.training_data;
+        const testing_data = data.testing_data;
+
         for (let i = 0; i < real_data_number + background_point_number - current_length; i++) {
           const newDataPoint : DataPoint = {
             metadata: {label: "background"},
@@ -430,6 +443,10 @@ export class DataSet {
             dataPoint.DVI_projections = {};
             dataPoint.DVI_color = {};
           }
+          if(dataPoint.training_data == undefined || dataPoint.testing_data == undefined) {
+            dataPoint.training_data = {};
+            dataPoint.testing_data = {};
+          }
         }
         for (let i = 0; i < real_data_number; i++) {
           let dataPoint = this.points[i];
@@ -443,6 +460,11 @@ export class DataSet {
               && i < this.DVICurrentRealDataNumber) {
             dataPoint.projections = {}
           }
+          dataPoint.training_data[iteration] = false;
+          dataPoint.testing_data[iteration] = false;
+          dataPoint.current_training = false;
+          dataPoint.current_testing = false;
+          dataPoint.metadata['label'] = label_list[i];
         }
 
         for (let i = 0; i < background_point_number; i++) {
@@ -453,12 +475,31 @@ export class DataSet {
           dataPoint.color = rgbToHex(grid_color[i][0],   grid_color[i][1], grid_color[i][2]);
           dataPoint.DVI_projections[iteration] = [grid_index[i][0], grid_index[i][1]];
           dataPoint.DVI_color[iteration] = dataPoint.color;
+          dataPoint.training_data[iteration] = false;
+          dataPoint.testing_data[iteration] = false;
+          dataPoint.current_training = false;
+          dataPoint.current_testing = false;
         }
 
         for (let i = real_data_number + background_point_number; i < this.points.length; i++) {
           let dataPoint = this.points[i];
           dataPoint.projections = {};
         }
+
+        for (let i = 0; i < training_data.length; i++) {
+          const dataIndex = training_data[i];
+          let dataPoint = this.points[dataIndex];
+          dataPoint.training_data[iteration] = true;
+          dataPoint.current_training = true;
+        }
+
+        for (let i = 0; i < testing_data.length; i++) {
+          const dataIndex = testing_data[i];
+          let dataPoint = this.points[dataIndex];
+          dataPoint.testing_data[iteration] = true;
+          dataPoint.current_testing = true;
+        }
+
         this.DVICurrentRealDataNumber = real_data_number;
         this.DVIRealDataNumber[iteration] = real_data_number;
         stepCallback(this.tSNEIteration, this.tSNETotalIter);
@@ -476,10 +517,14 @@ export class DataSet {
               && i < this.DVICurrentRealDataNumber) {
             dataPoint.projections = {}
           }
+         dataPoint.current_training = dataPoint.training_data[iteration];
+        dataPoint.current_testing = dataPoint.testing_data[iteration];
       }
       for (let i = validDataNumber; i < this.points.length; i++) {
         let dataPoint = this.points[i];
           dataPoint.projections = {};
+          dataPoint.current_testing = false;
+          dataPoint.current_training = false;
       }
       this.DVICurrentRealDataNumber = this.DVIRealDataNumber[iteration];
       stepCallback(this.tSNEIteration, this.tSNETotalIter);
