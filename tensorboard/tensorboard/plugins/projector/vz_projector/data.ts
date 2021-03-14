@@ -410,6 +410,7 @@ export class DataSet {
         const grid_color = data.grid_color;
 
         const label_color_list = data.label_color_list;
+        const label_list = data.label_list;
 
         const background_point_number = grid_index.length;
         const real_data_number = label_color_list.length;
@@ -463,6 +464,7 @@ export class DataSet {
           dataPoint.testing_data[iteration] = false;
           dataPoint.current_training = false;
           dataPoint.current_testing = false;
+          dataPoint.metadata['label'] = label_list[i];
         }
 
         for (let i = 0; i < background_point_number; i++) {
