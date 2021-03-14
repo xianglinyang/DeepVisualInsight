@@ -20,7 +20,7 @@ def clustering(data, n_clusters, verbose=0):
     data_shape = data.shape
     center_shape = (n_clusters,) + data_shape[1:]
 
-    if data_shape[0] <= 10000:
+    if data_shape[0] <= 5000:
         t0 = time.time()
         kmeans = KMeans(n_clusters=n_clusters, random_state=0).fit(data)
         t1 = time.time()
@@ -66,7 +66,7 @@ def adv_attack(image, epsilon, data_grad):
     return perturbed_image
 
 
-def get_border_points(data_, target_, model, device, epsilon=.01, limit=5,):
+def get_border_points(data_, target_, model, device, epsilon=.01, limit=7,):
     """get border points by fgsm adversarial attack"""
 
     num = len(data_)
