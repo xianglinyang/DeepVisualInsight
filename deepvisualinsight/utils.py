@@ -66,7 +66,6 @@ def adv_attack(image, epsilon, data_grad):
     return perturbed_image
 
 
-
 def get_border_points(data_, target_, model, device, epsilon=.01, limit=5,):
     """get border points by fgsm adversarial attack"""
 
