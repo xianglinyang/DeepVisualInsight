@@ -32,8 +32,39 @@ classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "sh
 # TODO temporal loss dynamically change weight?
 mms = MMS(content_path, net, 40, 200, 80, 512, 10, classes, cmap="tab10", resolution=100, neurons=256, verbose=1, temporal=False, split=-1, advance_border_gen=True, attack_device="cuda:0")
 
-mms.data_preprocessing()
-# mms.prepare_visualization_for_all()
+# mms.data_preprocessing()
+mms.prepare_visualization_for_all()
+#
+# for i in [40, 120, 200]:
+#     print(mms.proj_nn_perseverance_knn_train(i, 10))
+#     print(mms.proj_nn_perseverance_knn_train(i, 15))
+#     print(mms.proj_nn_perseverance_knn_train(i, 30))
+#
+#     print(mms.proj_nn_perseverance_knn_test(i, 10))
+#     print(mms.proj_nn_perseverance_knn_test(i, 15))
+#     print(mms.proj_nn_perseverance_knn_test(i, 30))
+#
+#     print(mms.proj_boundary_perseverance_knn_train(i, 10))
+#     print(mms.proj_boundary_perseverance_knn_train(i, 15))
+#     print(mms.proj_boundary_perseverance_knn_train(i, 30))
+#
+#     print(mms.proj_boundary_perseverance_knn_test(i, 10))
+#     print(mms.proj_boundary_perseverance_knn_test(i, 15))
+#     print(mms.proj_boundary_perseverance_knn_test(i, 30))
+#
+#     print(mms.inv_nn_preserve_train(i, 10))
+#     print(mms.inv_nn_preserve_train(i, 15))
+#     print(mms.inv_nn_preserve_train(i, 30))
+#
+#     print(mms.inv_nn_preserve_test(i, 10))
+#     print(mms.inv_nn_preserve_test(i, 15))
+#     print(mms.inv_nn_preserve_test(i, 30))
+#
+#     print(mms.inv_accu_train(i))
+#     print(mms.inv_accu_test(i))
+#     print(mms.inv_conf_diff_train(i))
+#     print(mms.inv_conf_diff_test(i))
+
 
 # mms.proj_temporal_perseverance_train(15)
 # mms.nn_pred_accu(200, 15)

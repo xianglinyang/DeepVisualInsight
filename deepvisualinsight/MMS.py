@@ -162,13 +162,13 @@ class MMS:
             else:
                 # border points gen
                 t0 = time.time()
-                border_points = get_border_points(training_data, training_labels, self.model, device)
+                border_points = get_border_points(training_data, training_labels, self.model, self.device)
                 t1 = time.time()
                 time_borders_gen.append(round(t1 - t0, 4))
 
                 # border clustering
                 border_points = torch.from_numpy(border_points)
-                border_points = border_points.to(device)
+                border_points = border_points.to(self.device)
                 border_representation = batch_run(repr_model, border_points, self.repr_num)
                 t2 = time.time()
                 border_centers = clustering(border_representation, n_clusters, verbose=0)
@@ -326,16 +326,19 @@ class MMS:
                 callbacks=callbacks,
                 max_queue_size=100,
             )
+            flag = ""
+            if self.advance_border_gen:
+                flag = "_advance"
 
             if self.temporal:
-                encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder_temporal"))
-                decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "decoder_temporal"))
+                encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder_temporal"+flag))
+                decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "decoder_temporal"+flag))
             elif self.transfer_learning:
-                encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder"))
-                decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "decoder"))
+                encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder"+flag))
+                decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "decoder"+flag))
             else:
-                encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder_independent"))
-                decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "decoder_independent"))
+                encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder_independent"+flag))
+                decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "decoder_independent"+flag))
 
             if self.verbose > 0:
                 print("save visualized model for Epoch {:d}".format(n_epoch))
@@ -350,12 +353,15 @@ class MMS:
         :param epoch_id: int
         :return: encoder of epoch epoch_id
         '''
+        flag = ""
+        if self.advance_border_gen:
+            flag = "_advance"
         if self.temporal:
-            encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "encoder_temporal")
+            encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "encoder_temporal"+flag)
         elif self.transfer_learning:
-            encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "encoder")
+            encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "encoder"+flag)
         else:
-            encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "encoder_independent")
+            encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "encoder_independent"+flag)
         if os.path.exists(encoder_location):
             encoder = tf.keras.models.load_model(encoder_location)
             if self.verbose > 0:
@@ -371,12 +377,15 @@ class MMS:
         :param epoch_id: int
         :return: decoder model of epoch_id
         '''
+        flag = ""
+        if self.advance_border_gen:
+            flag = "_advance"
         if self.temporal:
-            decoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "decoder_temporal")
+            decoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "decoder_temporal"+flag)
         elif self.transfer_learning:
-            decoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "decoder")
+            decoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "decoder"+flag)
         else:
-            decoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "decoder_independent")
+            decoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "decoder_independent"+flag)
         if os.path.exists(decoder_location):
             decoder = tf.keras.models.load_model(decoder_location)
             if self.verbose > 0:
@@ -1224,5 +1233,39 @@ class MMS:
         pred = self.get_pred(epoch_id, repr_data).argmax(-1)
         val = evaluate_inv_accu(labels, pred)
         return val
+
+    def inv_nn_preserve_train(self, epoch_id, n_neighbors=15):
+        data = self.get_epoch_repr_data(epoch_id)
+        encoder = self.get_proj_model(epoch_id)
+        embedding = encoder(data).cpu().numpy()
+        del encoder
+        gc.collect()
+
+        decoder = self.get_inv_model(epoch_id)
+        inv_data = decoder(embedding).cpu().numpy()
+        del decoder
+        gc.collect()
+
+        val = evaluate_inv_nn(data, inv_data, n_neighbors)
+        return val
+
+    def inv_nn_preserve_test(self, epoch_id, n_neighbors=15):
+        test_data = self.get_representation_data(epoch_id, self.testing_data)
+        train_data = self.get_epoch_repr_data(epoch_id)
+
+        fitting_data = np.concatenate((train_data, test_data), axis=0)
+        encoder = self.get_proj_model(epoch_id)
+        embedding = encoder(fitting_data).cpu().numpy()
+        del encoder
+        gc.collect()
+
+        decoder = self.get_inv_model(epoch_id)
+        recon = decoder(embedding).cpu().numpy()
+        del decoder
+        gc.collect()
+
+        val = evaluate_inv_nn(fitting_data, recon, n_neighbors)
+        return val
+
 
 
