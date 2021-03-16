@@ -67,6 +67,7 @@ tf_ts_library(
         "@npm//numeric",
         "@npm//three",
         "@npm//umap-js",
+        "@npm//search-query-parser",
     ],
 )
 

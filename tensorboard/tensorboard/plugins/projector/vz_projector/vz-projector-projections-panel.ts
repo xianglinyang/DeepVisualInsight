@@ -130,6 +130,30 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   private customProjectionYUpInput: any; // ProjectorInput; type ommited
   private customProjectionYDownInput: any; // ProjectorInput; type ommited
 
+  /*Evaluation Information*/
+  private nnTrain10: HTMLElement;
+  private nnTrain15: HTMLElement;
+  private nnTrain30: HTMLElement;
+  private nnTest10: HTMLElement;
+  private nnTest15: HTMLElement;
+  private nnTest30: HTMLElement;
+  private boundTrain10: HTMLElement;
+  private boundTrain15: HTMLElement;
+  private boundTrain30: HTMLElement;
+  private boundTest10: HTMLElement;
+  private boundTest15: HTMLElement;
+  private boundTest30: HTMLElement;
+  private invNnTrain10: HTMLElement;
+  private invNnTrain15: HTMLElement;
+  private invNnTrain30: HTMLElement;
+  private invNnTest10: HTMLElement;
+  private invNnTest15: HTMLElement;
+  private invNnTest30: HTMLElement;
+  private invAccTrain: HTMLElement;
+  private invAccTest: HTMLElement;
+  private invConfTrain: HTMLElement;
+  private invConfTest: HTMLElement;
+
   initialize(projector: any) {
     this.polymerChangesTriggerReprojection = true;
     this.projector = projector;
@@ -165,6 +189,30 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     this.iterationLabelTsne = this.$$('.run-tsne-iter') as HTMLElement;
     this.totalIterationLabelDVI = this.$$('.dvi-total-iter') as HTMLElement;
     this.runUmapButton = this.$$('#run-umap') as HTMLButtonElement;
+
+    /*evaluation information*/
+    this.nnTrain10 = this.$$('.nn_train_10') as HTMLElement;
+    this.nnTrain15 = this.$$('.nn_train_15') as HTMLElement;
+    this.nnTrain30 = this.$$('.nn_train_30') as HTMLElement;
+    this.nnTest10 = this.$$('.nn_test_10') as HTMLElement;
+    this.nnTest15 = this.$$('.nn_test_15') as HTMLElement;
+    this.nnTest30 = this.$$('.nn_test_30') as HTMLElement;
+    this.boundTrain10 = this.$$('.bound_train_10') as HTMLElement;
+    this.boundTrain15 = this.$$('.bound_train_15') as HTMLElement;
+    this.boundTrain30 = this.$$('.bound_train_30') as HTMLElement;
+    this.boundTest10 = this.$$('.bound_test_10') as HTMLElement;
+    this.boundTest15 = this.$$('.bound_test_15') as HTMLElement;
+    this.boundTest30 = this.$$('.bound_test_30') as HTMLElement;
+    this.invNnTrain10 = this.$$('.inv_nn_train_10') as HTMLElement;
+    this.invNnTrain15 = this.$$('.inv_nn_train_15') as HTMLElement;
+    this.invNnTrain30 = this.$$('.inv_nn_train_30') as HTMLElement;
+    this.invNnTest10 = this.$$('.inv_nn_test_10') as HTMLElement;
+    this.invNnTest15 = this.$$('.inv_nn_test_15') as HTMLElement;
+    this.invNnTest30 = this.$$('.inv_nn_test_30') as HTMLElement;
+    this.invAccTrain = this.$$('.inv_acc_train') as HTMLElement;
+    this.invAccTest = this.$$('.inv_acc_test') as HTMLElement;
+    this.invConfTrain = this.$$('.inv_conf_train') as HTMLElement;
+    this.invConfTest = this.$$('.inv_conf_test') as HTMLElement;
   }
   disablePolymerChangesTriggerReprojection() {
     this.polymerChangesTriggerReprojection = false;
@@ -204,7 +252,30 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   private resolutionEditorInputChange(){
     this.dataSet.DVIResolution = this.resolutionEditorInput;
   }
-
+  private updateEvaluationInformation(evaluation: any) {
+     this.nnTrain10.innerText = ''+evaluation.nn_train_10;
+     this.nnTrain15.innerText = ''+evaluation.nn_train_15;
+     this.nnTrain30.innerText = ''+evaluation.nn_train_30;
+     this.nnTest10.innerText = ''+evaluation.nn_test_10;
+     this.nnTest15.innerText = ''+evaluation.nn_test_15;
+     this.nnTest30.innerText = ''+evaluation.nn_test_30;
+     this.boundTrain10.innerText = ''+evaluation.bound_train_10;
+     this.boundTrain15.innerText = ''+evaluation.bound_train_15;
+     this.boundTrain30.innerText = ''+evaluation.bound_train_30;
+     this.boundTest10.innerText = ''+evaluation.bound_test_10;
+     this.boundTest15.innerText = ''+evaluation.bound_test_15;
+     this.boundTest30.innerText = ''+evaluation.bound_test_30;
+     this.invNnTrain10.innerText = ''+evaluation.inv_nn_train_10;
+     this.invNnTrain15.innerText = ''+evaluation.inv_nn_train_15;
+     this.invNnTrain30.innerText = ''+evaluation.inv_nn_train_30;
+     this.invNnTest10.innerText = ''+evaluation.inv_nn_test_10;
+     this.invNnTest15.innerText = ''+evaluation.inv_nn_test_15;
+     this.invNnTest30.innerText = ''+evaluation.inv_nn_test_30;
+     this.invAccTrain.innerText = ''+evaluation.inv_acc_train;
+     this.invAccTest.innerText = ''+evaluation.inv_acc_test;
+     this.invConfTrain.innerText = ''+evaluation.inv_conf_train;
+     this.invConfTest.innerText = ''+evaluation.inv_conf_test;
+  }
   private setupUIControls() {
     {
       const self = this;
@@ -258,10 +329,11 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
         this.previousDVIButton.disabled = true;
       }
       this.dataSet.projectDVI(this.dataSet.tSNEIteration - 1,
-          (iteration: number, totalIter?: number) => {
+          (iteration: number, evaluation:any, totalIter?: number) => {
         if (iteration != null) {
           this.iterationLabelTsne.innerText = '' + iteration;
           this.totalIterationLabelDVI.innerText = '' + totalIter;
+          this.updateEvaluationInformation(evaluation);
           this.projector.notifyProjectionPositionsUpdated();
           this.projector.onProjectionChanged();
         } else {
@@ -274,10 +346,11 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
       this.nextDVIButton.disabled = true;
       this.previousDVIButton.disabled = true;
       this.dataSet.projectDVI(this.dataSet.tSNEIteration + 1,
-          (iteration: number, totalIter?: number) => {
+          (iteration: number, evaluation:any, totalIter?: number) => {
         if (iteration != null) {
           this.iterationLabelTsne.innerText = '' + iteration;
           this.totalIterationLabelDVI.innerText = '' + totalIter;
+          this.updateEvaluationInformation(evaluation);
           this.projector.notifyProjectionPositionsUpdated();
           this.projector.onProjectionChanged();
           if(this.dataSet.tSNEIteration > 1) {
