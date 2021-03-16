@@ -23,6 +23,8 @@ import * as vector from './vector';
 import * as logging from './logging';
 import * as util from './util';
 
+import * as searchQuery from 'search-query-parser';
+
 export type DistanceFunction = (a: vector.Vector, b: vector.Vector) => number;
 export type ProjectionComponents3D = [string, string, string];
 
@@ -172,6 +174,9 @@ export class DataSet {
   DVICurrentRealDataNumber = 0;
   DVIRealDataNumber: {
     [iteration: number]: number;
+  } = [];
+  DVIEvaluation: {
+    [iteration: number]: any;
   } = [];
   DVIAvailableIteration: Array<number> = [];
   DVIVisualizeDataPath = "";
@@ -383,8 +388,12 @@ export class DataSet {
   /** Runs tsne on the data. */
   async projectDVI (
       iteration: number,
-      stepCallback: (iter: number, totalIter?: number) => void
+      stepCallback: (iter: number, evaluation:any, totalIter?: number) => void
   ) {
+    const query = 'from:hi@retrace.io,foo@gmail.com to:me subject:vacations date:1/10/2013-15/04/2014 photos:100';
+    const options = {keywords: ['from', 'to', 'subject', 'Photos'], ranges: ['date']};
+    const searchQueryObj = searchQuery.parse(query, options);
+    console.log(searchQueryObj);
     this.projections['tsne'] = true;
     function componentToHex(c: number) {
       const hex = c.toString(16);
@@ -423,6 +432,9 @@ export class DataSet {
 
         const training_data = data.training_data;
         const testing_data = data.testing_data;
+
+        const evaluation = data.evaluation;
+        this.DVIEvaluation[iteration] = evaluation;
 
         for (let i = 0; i < real_data_number + background_point_number - current_length; i++) {
           const newDataPoint : DataPoint = {
@@ -502,10 +514,11 @@ export class DataSet {
 
         this.DVICurrentRealDataNumber = real_data_number;
         this.DVIRealDataNumber[iteration] = real_data_number;
-        stepCallback(this.tSNEIteration, this.tSNETotalIter);
+        stepCallback(this.tSNEIteration, evaluation, this.tSNETotalIter);
     });
     } else {
       const validDataNumber = this.DVIValidPointNumber[iteration];
+      const evaluation = this.DVIEvaluation[iteration];
       this.tSNEIteration = iteration;
       for (let i = 0; i < validDataNumber; i++) {
         let dataPoint = this.points[i];
@@ -527,7 +540,7 @@ export class DataSet {
           dataPoint.current_training = false;
       }
       this.DVICurrentRealDataNumber = this.DVIRealDataNumber[iteration];
-      stepCallback(this.tSNEIteration, this.tSNETotalIter);
+      stepCallback(this.tSNEIteration, evaluation, this.tSNETotalIter);
     }
   }
 

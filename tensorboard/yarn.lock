@@ -4994,6 +4994,11 @@ safe-buffer@~5.1.0, safe-buffer@~5.1.1:
   resolved "https://registry.yarnpkg.com/safer-buffer/-/safer-buffer-2.1.2.tgz#44fa161b0187b9549dd84bb91802f9bd8385cd6a"
   integrity sha512-YZo3K82SD7Riyi0E1EQPojLz7kpepnSQI9IyPbHHg1XXXevb5dJI7tpyN2ADxGcQbHG7vcyRHk0cbwqcQriUtg==
 
+search-query-parser@^1.5.5:
+  version "1.5.5"
+  resolved "https://registry.yarnpkg.com/search-query-parser/-/search-query-parser-1.5.5.tgz#dfd829f4fb567a9a3a5b70327576dff4d5be071d"
+  integrity sha512-8hKmRbHShAc+LJtUu7mu4L/oWVgICG1GCzWZtlR11Vl3T/v4aTGv+Ie2bPg+8ueJn+l8zMHCQhzrBNMoV/t2qw==
+
 seedrandom@2.4.3:
   version "2.4.3"
   resolved "https://registry.yarnpkg.com/seedrandom/-/seedrandom-2.4.3.tgz#2438504dad33917314bff18ac4d794f16d6aaecc"
