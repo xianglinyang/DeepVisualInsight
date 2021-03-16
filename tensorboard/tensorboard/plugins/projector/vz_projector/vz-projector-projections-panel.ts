@@ -92,8 +92,6 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   visualizeDataPathEditorInput: string = '';
   @property({type: String})
   resolutionEditorInput: number;
-  @property({type: Boolean})
-  evaluationInformationReady: boolean = false;
 
   private projector: any; // Projector; type omitted b/c LegacyElement
 
@@ -255,7 +253,6 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     this.dataSet.DVIResolution = this.resolutionEditorInput;
   }
   private updateEvaluationInformation(evaluation: any) {
-     this.evaluationInformationReady = true;
      this.nnTrain10.innerText = ''+evaluation.nn_train_10;
      this.nnTrain15.innerText = ''+evaluation.nn_train_15;
      this.nnTrain30.innerText = ''+evaluation.nn_train_30;
