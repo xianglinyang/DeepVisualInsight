@@ -62,6 +62,9 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
   @property({type: Boolean})
   spriteImagesAvailable: Boolean = true;
 
+  @property({type: Boolean})
+  noShow: Boolean = false;
+
   distFunc: DistanceFunction;
   private projectorEventContext: ProjectorEventContext;
   private displayContexts: string[];

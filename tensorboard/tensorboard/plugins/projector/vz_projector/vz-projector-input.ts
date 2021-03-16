@@ -49,12 +49,16 @@ class ProjectorInput extends LegacyElementMixin(PolymerElement) {
         background-color: #880e4f;
         color: white;
       }
+      
+      [hidden] {
+         display: none;
+      }
     </style>
 
     <paper-input label="[[label]]">
       <div class="slash" prefix slot="prefix">/</div>
       <div class="slash" suffix slot="suffix">/</div>
-      <div suffix slot="suffix">
+      <div hidden$="[[!noShowRegex]]" suffix slot="suffix">
         <paper-button id="regex" toggles class="toggle">.*</paper-button>
       </div>
     </paper-input>
@@ -70,6 +74,9 @@ class ProjectorInput extends LegacyElementMixin(PolymerElement) {
   `;
   @property({type: String})
   label: string;
+
+  @property({type: Boolean})
+  noShowRegex: boolean;
 
   /** Message that will be displayed at the bottom of the input control. */
   @property({type: String})
@@ -87,6 +94,7 @@ class ProjectorInput extends LegacyElementMixin(PolymerElement) {
   ready() {
     super.ready();
     this.inRegexMode = false;
+    this.noShowRegex = false;
     this.textChangedListeners = [];
     this.paperInput = this.$$('paper-input') as HTMLInputElement;
     this.inRegexModeButton = this.$$('paper-button') as HTMLButtonElement;

@@ -215,6 +215,10 @@ export const template = html`
     .nn-list {
       flex: 1 0 100px;
     }
+    
+    [hidden] {
+         display: none;
+      }
   </style>
   <div class="container">
     <div class="buttons">
@@ -224,7 +228,7 @@ export const template = html`
     </div>
     <div class="search-by">
       <vz-projector-input id="search-box" label="Search"></vz-projector-input>
-      <paper-dropdown-menu no-animations label="by">
+      <paper-dropdown-menu hidden$="[[!noShow]]" no-animations label="by">
         <paper-listbox
           attr-for-selected="value"
           class="dropdown-content"

@@ -14,6 +14,7 @@ limitations under the License.
 ==============================================================================*/
 import * as THREE from 'three';
 import * as tf from '../../../webapp/third_party/tfjs';
+import * as searchQuery from 'search-query-parser';
 
 import {DataPoint} from './data';
 import * as vector from './vector';
@@ -157,22 +158,85 @@ export function getSearchPredicate(
   } else {
     // Doing a case insensitive substring match.
     query = query.toLowerCase();
-    if(query == 'mislabel_true' || query == 'mislabel_false') {
-      predicate = (p) => {
-        return (p.mislabel_vector == true && query == 'mislabel_true') || (p.mislabel_vector == false && query == 'mislabel_false')
-      };
-    } else {
-      if (query == 'training' || query == 'testing') {
-        predicate = (p) => {
-          return (p.current_testing == true && query == 'testing') || (p.current_training == true && query == 'training')
-        };
-      } else {
-        predicate = (p) => {
-          let label = p.metadata[fieldName].toString().toLowerCase();
-          return label.indexOf(query) >= 0;
-        };
+    console.log(query);
+    const options = {keywords: ['label', 'prediction', 'is_training', 'is_correct_prediction']};
+    const searchQueryObj = searchQuery.parse(query, options);
+
+    predicate = (p) => {
+      if(searchQueryObj["label"]==null && searchQueryObj["prediction"]==null &&
+          (searchQueryObj["is_training"]==null || Array.isArray(searchQueryObj["is_training"]) ||
+              ((searchQueryObj["is_training"] != "true" && searchQueryObj["is_training"] != "false")))
+          && (searchQueryObj["is_correct_prediction"]==null || Array.isArray(searchQueryObj["is_correct_prediction"]) ||
+              ((searchQueryObj["is_correct_prediction"] != "true" && searchQueryObj["is_correct_prediction"] != "false"))) ) {
+        return false;
       }
-    }
+
+      if(searchQueryObj["label"]!=null) {
+        let queryLabels = searchQueryObj["label"];
+        let labelResult = false;
+        const label = p.metadata["label"].toString().toLowerCase();
+        if(!Array.isArray(queryLabels)) {
+          queryLabels = [queryLabels];
+        }
+        for (let i = 0; i < queryLabels.length; i++) {
+          const queryLabel = queryLabels[i];
+          labelResult = labelResult || label == queryLabel;
+          if(labelResult) {
+            break;
+          }
+        }
+        if(!labelResult) {
+          return false;
+        }
+      }
+      if(searchQueryObj["prediction"]!=null) {
+        let queryPredictions = searchQueryObj["prediction"];
+        let predictionResult = false;
+        const prediction = p.current_prediction;
+        if(!Array.isArray(queryPredictions)) {
+          queryPredictions = [queryPredictions];
+        }
+        for (let i = 0; i < queryPredictions.length; i++) {
+          const queryPrediction = queryPredictions[i];
+          predictionResult = predictionResult || prediction == queryPrediction;
+          if(predictionResult) {
+            break;
+          }
+        }
+        if(!predictionResult) {
+          return false;
+        }
+      }
+      if(searchQueryObj["is_training"]!=null && !Array.isArray(searchQueryObj["is_training"]) &&
+          (searchQueryObj["is_training"] == "true" || searchQueryObj["is_training"] == "false")) {
+        let queryTraining = searchQueryObj["is_training"];
+        let trainingResult = false;
+        if(queryTraining == "true" && p.current_training) {
+          trainingResult = true;
+        }
+        if(queryTraining == "false" && p.current_testing) {
+          trainingResult = true;
+        }
+        if(!trainingResult) {
+          return false;
+        }
+      }
+      if(searchQueryObj["is_correct_prediction"]!=null && !Array.isArray(searchQueryObj["is_correct_prediction"]) &&
+          (searchQueryObj["is_correct_prediction"] == "true" || searchQueryObj["is_correct_prediction"] == "false")) {
+        let queryCorrectPrediction = searchQueryObj["is_correct_prediction"];
+        let correctPredictionResult = false;
+        if(queryCorrectPrediction == "true" && !p.current_wrong_prediction) {
+          correctPredictionResult = true;
+        }
+        if(queryCorrectPrediction == "false" && p.current_wrong_prediction) {
+          correctPredictionResult = true;
+        }
+        if(!correctPredictionResult) {
+          return false;
+        }
+      }
+      return true;
+    };
 
   }
   return predicate;
