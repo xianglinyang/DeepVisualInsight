@@ -452,22 +452,20 @@ def define_autoencoder(dims, n_components, units, encoder=None, decoder=None):
         encoder = tf.keras.Sequential([
             tf.keras.layers.InputLayer(input_shape=dims),
             tf.keras.layers.Flatten(),
-            tf.keras.layers.Dense(units=units, activation="relu"),
-            tf.keras.layers.Dense(units=units, activation="relu"),
-            tf.keras.layers.Dense(units=units, activation="relu"),
-            tf.keras.layers.Dense(units=units, activation="relu"),
-            #     tf.keras.layers.Dense(units=1024, activation="relu"),
-            #     tf.keras.layers.Dense(units=512, activation="relu"),
-            tf.keras.layers.Dense(units=n_components),
+            tf.keras.layers.Dense(units=units, activation="relu", name="e_1"),
+            tf.keras.layers.Dense(units=units, activation="relu", name="e_2"),
+            tf.keras.layers.Dense(units=units, activation="relu", name="e_3"),
+            tf.keras.layers.Dense(units=units, activation="relu", name="e_4"),
+            tf.keras.layers.Dense(units=n_components, name="e_5"),
         ])
     # define the decoder
     if decoder is None:
         decoder = tf.keras.Sequential([
-            tf.keras.layers.InputLayer(input_shape=(n_components)),
-            tf.keras.layers.Dense(units=units, activation="relu"),
-            tf.keras.layers.Dense(units=units, activation="relu"),
-            tf.keras.layers.Dense(units=units, activation="relu"),
-            tf.keras.layers.Dense(units=units, activation="relu"),
+            tf.keras.layers.InputLayer(input_shape=(n_components, )),
+            tf.keras.layers.Dense(units=units, activation="relu", name="d_1"),
+            tf.keras.layers.Dense(units=units, activation="relu", name="d_2"),
+            tf.keras.layers.Dense(units=units, activation="relu", name="d_3"),
+            tf.keras.layers.Dense(units=units, activation="relu", name="d_4"),
             tf.keras.layers.Dense(units=np.product(dims), name="recon", activation=None),
             tf.keras.layers.Reshape(dims),
 
@@ -550,6 +548,14 @@ def define_losses(batch_size, temporal):
         regularize_loss_fn = regularize_loss()
         losses["regularization"] = regularize_loss_fn
         loss_weights["regularization"] = 0.5  # TODO: change this weight
+
+        embedding_to_loss_fn = embedding_loss()
+        losses["embedding_to"] = embedding_to_loss_fn
+        loss_weights["embedding_to"] = 1.0
+
+        embedding_to_recon_loss_fn = embedding_loss()
+        losses["embedding_to_recon"] = embedding_to_recon_loss_fn
+        loss_weights["embedding_to_recon"] = 1.0
 
     # if temporal:
     #     temporal_loss_fn = temporal_loss()
@@ -713,17 +719,29 @@ def regularize_loss():
     '''
 
     @tf.function
-    def loss(w_prev, w_current, to_alpha):
+    def loss(w_prev, w_current, to_alpha, final_grad_result_list):
         assert len(w_prev) == len(w_current)
+        assert len(w_prev) == len(final_grad_result_list)
         # multiple layers of weights, need to add them up
         for j in range(len(w_prev)):
-            diff = tf.reduce_sum(tf.math.square(w_current[j] - w_prev[j]))
+            diff = tf.reduce_sum(tf.math.multiply(final_grad_result_list[j], tf.math.square(w_current[j] - w_prev[j])))
             diff = tf.math.multiply(to_alpha, diff)
             if j == 0:
                 alldiff = tf.reduce_mean(diff)
             else:
                 alldiff += tf.reduce_mean(diff)
         return alldiff
+
+    return loss
+
+def embedding_loss():
+    '''
+    Wrap embedding into loss
+    '''
+
+    @tf.function
+    def loss(placeholder_y, embedding):
+        return embedding
 
     return loss
 
@@ -793,17 +811,24 @@ class ParametricModel(keras.Model):
         self.loss_weights = loss_weights  # weights for each loss (in total 3 losses)
 
         self.prev_trainable_variables = prev_trainable_variables  # weights for previous iteration
+        self.e_var = None
+        self.d_var = None
 
     def train_step(self, x):
 
         if self.temporal:
         #     # get one batch
             to_x, from_x, to_alpha, _, weight = x[0]
+
+            if self.e_var is None:
+                self.e_var = [var for var in self.trainable_variables if "e_" in var.name]
+            if self.d_var is None:
+                self.d_var = [var for var in self.trainable_variables if "d_" in var.name or "recon" in var.name]
         else:
             to_x, from_x, weight = x[0]
 
         # Forward pass
-        with tf.GradientTape() as tape:
+        with tf.GradientTape(persistent=True) as tape:
 
             # parametric embedding
             embedding_to = self.encoder(to_x)  # embedding for instance 1
@@ -825,18 +850,33 @@ class ParametricModel(keras.Model):
                 alpha_mean = tf.cast(tf.reduce_mean(tf.stop_gradient(to_alpha)), dtype=tf.float32)
                 prev_trainable_variables = self.prev_trainable_variables
 
+                # embedding loss
+                embed_loss_to = self.loss["embedding_to"](_, embedding_to)
+                embed_loss_to_recon = self.loss["embedding_to_recon"](_, embedding_to_recon)
+
+                final_grad_result_list = list()
+
+                grad_e_var = tape.gradient(tf.reduce_mean(embed_loss_to, axis=0), self.e_var)
+                for i in range(len(self.e_var)):
+                    final_grad_result_list.append(tf.math.abs(tf.stop_gradient(grad_e_var[i])))
+                grad_d_var = tape.gradient(tf.reduce_mean(embed_loss_to_recon, axis=0), self.d_var)
+                for i in range(len(self.d_var)):
+                    final_grad_result_list.append(tf.math.abs(tf.stop_gradient(grad_d_var[i])))
+
                 # L2 norm of w current - w for last epoch (subject model's epoch)
                 if self.prev_trainable_variables is not None:
                 # if len(weights_dict) != 0:
                     regularization_loss = self.loss["regularization"](w_prev=prev_trainable_variables,
                                                                       w_current=self.trainable_variables,
-                                                                      to_alpha=alpha_mean)
+                                                                      to_alpha=alpha_mean,
+                                                                      final_grad_result_list=final_grad_result_list)
                 # dummy zero-loss if no previous epoch
                 else:
                     prev_trainable_variables = [tf.stop_gradient(x) for x in self.trainable_variables]
                     regularization_loss = self.loss["regularization"](w_prev=prev_trainable_variables,
                                                                       w_current=self.trainable_variables,
-                                                                      to_alpha=alpha_mean)
+                                                                      to_alpha=alpha_mean,
+                                                                      final_grad_result_list=final_grad_result_list)
                     # aggregate loss, weighted average
                 loss = tf.add(tf.add(tf.math.multiply(tf.constant(self.loss_weights["reconstruction"]), reconstruct_loss),
                                      tf.math.multiply(tf.constant(self.loss_weights["umap"]), umap_loss)),
