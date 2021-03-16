@@ -161,12 +161,6 @@ export function getSearchPredicate(
     console.log(query);
     const options = {keywords: ['label', 'prediction', 'is_training', 'is_correct_prediction']};
     const searchQueryObj = searchQuery.parse(query, options);
-    console.log(searchQueryObj==null);
-    console.log(searchQueryObj);
-    if(searchQueryObj!=null) {
-      console.log(searchQueryObj["label"]==null);
-      console.log(searchQueryObj["label"]);
-    }
 
     predicate = (p) => {
       if(searchQueryObj["label"]==null && searchQueryObj["prediction"]==null &&
