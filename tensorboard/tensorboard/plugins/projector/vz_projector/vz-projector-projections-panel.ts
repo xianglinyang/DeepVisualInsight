@@ -209,10 +209,10 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     this.invNnTest10 = this.$$('.inv_nn_test_10') as HTMLElement;
     this.invNnTest15 = this.$$('.inv_nn_test_15') as HTMLElement;
     this.invNnTest30 = this.$$('.inv_nn_test_30') as HTMLElement;
-    this.invAccTrain = this.$$('inv_acc_train') as HTMLElement;
-    this.invAccTest = this.$$('inv_acc_test') as HTMLElement;
-    this.invConfTrain = this.$$('inv_conf_train') as HTMLElement;
-    this.invConfTest = this.$$('inv_conf_test') as HTMLElement;
+    this.invAccTrain = this.$$('.inv_acc_train') as HTMLElement;
+    this.invAccTest = this.$$('.inv_acc_test') as HTMLElement;
+    this.invConfTrain = this.$$('.inv_conf_train') as HTMLElement;
+    this.invConfTest = this.$$('.inv_conf_test') as HTMLElement;
   }
   disablePolymerChangesTriggerReprojection() {
     this.polymerChangesTriggerReprojection = false;
