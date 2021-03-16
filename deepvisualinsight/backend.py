@@ -11,6 +11,12 @@ import tensorflow as tf
 from sklearn.cluster import KMeans
 
 
+from deepvisualinsight.utils import *
+from scipy.special import softmax
+import numpy as np
+from tensorflow import keras
+
+
 def get_graph_elements(graph_, n_epochs):
     """
     gets elements of graphs, weights, and number of epochs per edge
@@ -322,6 +328,7 @@ def umap_loss(
 
     return loss
 
+
 def compute_cross_entropy(
     probabilities_graph, probabilities_distance, EPS=1e-4, repulsion_strength=1.0
 ):
@@ -490,7 +497,6 @@ def define_model(dims, low_dims, encoder, decoder, temporal, stop_grad=False):
         # parametric reconstruction
         embedding_to_recon = decoder(embedding_to)
 
-
     embedding_to_recon = tf.keras.layers.Lambda(
         lambda x: x, name="reconstruction"
     )(embedding_to_recon)
@@ -516,7 +522,7 @@ def define_model(dims, low_dims, encoder, decoder, temporal, stop_grad=False):
     return parametric_model
 
 
-def define_losses(batch_size, n_epoch, tot_epochs, temporal):
+def define_losses(batch_size, temporal):
     # compile models
     losses = {}
     loss_weights = {}
@@ -541,22 +547,14 @@ def define_losses(batch_size, n_epoch, tot_epochs, temporal):
     loss_weights["reconstruction"] = 1.0
 
     if temporal:
-        temporal_loss_fn = temporal_loss()
-        losses["temporal"] = temporal_loss_fn
-        loss_weights["temporal"] = 0.0001
+        regularize_loss_fn = regularize_loss()
+        losses["regularization"] = regularize_loss_fn
+        loss_weights["regularization"] = 0.5  # TODO: change this weight
 
     # if temporal:
-    #     ratio = n_epoch / float(tot_epochs)
-    #     C = 1.0
-    #     if ratio <= 0.3:
-    #         C = 0
-    #     elif ratio <= 0.5:
-    #         C = 0.3
-    #     elif ratio <= 0.8:
-    #         C = 0.5
     #     temporal_loss_fn = temporal_loss()
     #     losses["temporal"] = temporal_loss_fn
-    #     loss_weights["temporal"] = C
+    #     loss_weights["temporal"] = 0.0001
 
     return losses, loss_weights
 
@@ -709,6 +707,27 @@ def temporal_loss():
     return loss
 
 
+def regularize_loss():
+    '''
+    Add temporal regularization L2 loss on weights
+    '''
+
+    @tf.function
+    def loss(w_prev, w_current, to_alpha):
+        assert len(w_prev) == len(w_current)
+        # multiple layers of weights, need to add them up
+        for j in range(len(w_prev)):
+            diff = tf.reduce_sum(tf.math.square(w_current[j] - w_prev[j]))
+            diff = tf.math.multiply(to_alpha, diff)
+            if j == 0:
+                alldiff = tf.reduce_mean(diff)
+            else:
+                alldiff += tf.reduce_mean(diff)
+        return alldiff
+
+    return loss
+
+
 def find_alpha(prev_data, train_data, n_neighbors):
     if prev_data is None:
         return np.zeros(len(train_data))
@@ -758,6 +777,87 @@ def find_update_dist(prev_data, train_data, sigmas, rhos):
     weights = np.exp(-weights / sigmas)
     weights[index==True] = 1.0
     return weights
+
+
+class ParametricModel(keras.Model):
+    def __init__(self, encoder, decoder, optimizer, loss, loss_weights, temporal,
+                 prev_trainable_variables=None):
+
+        super(ParametricModel, self).__init__()
+        self.encoder = encoder  # encoder part
+        self.decoder = decoder  # decoder part
+        self.optimizer = optimizer  # optimizer
+        self.temporal = temporal
+
+        self.loss = loss  # dict of 3 losses {"total", "umap", "reconstrunction", "regularization"}
+        self.loss_weights = loss_weights  # weights for each loss (in total 3 losses)
+
+        self.prev_trainable_variables = prev_trainable_variables  # weights for previous iteration
+
+    def train_step(self, x):
+
+        if self.temporal:
+        #     # get one batch
+            to_x, from_x, to_alpha, _, weight = x[0]
+        else:
+            to_x, from_x, weight = x[0]
+
+        # Forward pass
+        with tf.GradientTape() as tape:
+
+            # parametric embedding
+            embedding_to = self.encoder(to_x)  # embedding for instance 1
+            embedding_from = self.encoder(from_x)  # embedding for instance 1
+            embedding_to_recon = self.decoder(embedding_to)  # reconstruct instance 1
+
+            # concatenate embedding1 and embedding2 to prepare for umap loss
+            embedding_to_from = tf.concat((embedding_to, embedding_from, tf.cast(weight, dtype=tf.float32, name=None)),
+                                          axis=1)
+
+            # reconstruction loss
+            reconstruct_loss = self.loss["reconstruction"](y_true=to_x, y_pred=embedding_to_recon)
+
+            # umap loss
+            umap_loss = self.loss["umap"](_, embed_to_from=embedding_to_from)  # w_(t-1), no gradient
+
+            if self.temporal:
+                # compute alpha bar
+                alpha_mean = tf.cast(tf.reduce_mean(tf.stop_gradient(to_alpha)), dtype=tf.float32)
+                prev_trainable_variables = self.prev_trainable_variables
+
+                # L2 norm of w current - w for last epoch (subject model's epoch)
+                if self.prev_trainable_variables is not None:
+                # if len(weights_dict) != 0:
+                    regularization_loss = self.loss["regularization"](w_prev=prev_trainable_variables,
+                                                                      w_current=self.trainable_variables,
+                                                                      to_alpha=alpha_mean)
+                # dummy zero-loss if no previous epoch
+                else:
+                    prev_trainable_variables = [tf.stop_gradient(x) for x in self.trainable_variables]
+                    regularization_loss = self.loss["regularization"](w_prev=prev_trainable_variables,
+                                                                      w_current=self.trainable_variables,
+                                                                      to_alpha=alpha_mean)
+                    # aggregate loss, weighted average
+                loss = tf.add(tf.add(tf.math.multiply(tf.constant(self.loss_weights["reconstruction"]), reconstruct_loss),
+                                     tf.math.multiply(tf.constant(self.loss_weights["umap"]), umap_loss)),
+                              tf.math.multiply(tf.constant(self.loss_weights["regularization"]), regularization_loss))
+            else:
+                loss = tf.add(
+                    tf.add(tf.math.multiply(tf.constant(self.loss_weights["reconstruction"]), reconstruct_loss),
+                           tf.math.multiply(tf.constant(self.loss_weights["umap"]), umap_loss)))
+
+        # Compute gradients
+        trainable_vars = self.trainable_variables
+        grads = tape.gradient(loss, trainable_vars)
+
+        # Update weights
+        self.optimizer.apply_gradients(zip(grads, trainable_vars))
+
+        if self.temporal:
+            return {"loss": loss, "umap": umap_loss, "reconstruction": reconstruct_loss,
+                    "regularization": regularization_loss}
+        else:
+            return {"loss": loss, "umap": umap_loss, "reconstruction": reconstruct_loss}
 
 
 
