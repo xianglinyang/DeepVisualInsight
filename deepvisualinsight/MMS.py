@@ -9,6 +9,7 @@ from scipy.special import softmax
 from scipy.spatial.distance import cdist
 import deepvisualinsight.utils_advanced as utils_advanced
 
+
 class MMS:
     def __init__(self, content_path, model_structure, epoch_start, epoch_end, period, repr_num, class_num, classes, low_dims=2,
                  cmap="tab10", resolution=100, neurons=None, temporal=False, transfer_learning=True, verbose=1,
@@ -123,6 +124,7 @@ class MMS:
             index_file = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "index.json")
             index = load_labelled_data_index(index_file)
             training_data = self.training_data[index]
+            testing_data = self.testing_data
             training_labels = self.training_labels[index]
 
             model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
@@ -195,18 +197,29 @@ class MMS:
             location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "train_centers.npy")
             np.save(location, train_centers)
 
+            # test data
+            test_data = testing_data.to(self.device)
+            test_data_representation = batch_run(repr_model, test_data, self.repr_num)
+            location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "test_data.npy")
+            np.save(location, test_data_representation)
+
             if self.verbose > 0:
                 print("Finish data preprocessing for Epoch {:d}...".format(n_epoch))
-        if self.verbose > 0:
-            print(
-                "Average time for generate border points: {:.4f}".format(sum(time_borders_gen) / len(time_borders_gen)))
-            print("Average time for clustering training points: {:.4f}".format(
-                sum(time_train_clustering) / len(time_train_clustering)))
-            if len(time_border_clustering) > 0:
-                print("Average time for clustering border points: {:.4f}".format(
-                    sum(time_border_clustering) / len(time_border_clustering)))
+        time_taken = list()
+        time_taken.append(sum(time_borders_gen) / len(time_borders_gen))
+        time_taken.append(sum(time_train_clustering) / len(time_train_clustering))
+        if len(time_border_clustering) > 0:
+            time_taken.append(sum(time_border_clustering) / len(time_border_clustering))
+        print(
+            "Average time for generate border points: {:.4f}".format(sum(time_borders_gen) / len(time_borders_gen)))
+        print("Average time for clustering training points: {:.4f}".format(
+            sum(time_train_clustering) / len(time_train_clustering)))
+        if len(time_border_clustering) > 0:
+            print("Average time for clustering border points: {:.4f}".format(
+                sum(time_border_clustering) / len(time_border_clustering)))
 
         self.model = self.model.to(self.device)
+        return time_taken
 
     def prepare_visualization_for_all(self, encoder_in=None, decoder_in=None):
         """
@@ -345,7 +358,8 @@ class MMS:
         t1 = time.time()
         if self.verbose > 0:
             print("Average time for training visualzation model: {:.4f}".format(
-                (t1 - t0) / int((self.epoch_end - self.epoch_start + 1) / self.period)))
+                (t1 - t0) / int((self.epoch_end - self.epoch_start) / self.period + 1)))
+        return (t1 - t0) / int((self.epoch_end - self.epoch_start) / self.period + 1)
 
     def get_proj_model(self, epoch_id):
         '''
@@ -521,7 +535,7 @@ class MMS:
 
         fc_model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
 
-        data = self.get_epoch_repr_data(epoch_id)
+        data = self.get_epoch_train_repr_data(epoch_id)
         data = torch.from_numpy(data)
         data = data.to(self.device)
         pred = batch_run(fc_model, data, self.class_num)
@@ -554,7 +568,7 @@ class MMS:
         np.save(location, pred)
         return pred
 
-    def get_epoch_repr_data(self, epoch_id):
+    def get_epoch_train_repr_data(self, epoch_id):
         location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "train_data.npy")
         if os.path.exists(location):
             train_data = np.load(location)
@@ -563,7 +577,7 @@ class MMS:
             print("No data!")
             return None
 
-    def get_epoch_labels(self, epoch_id):
+    def get_epoch_train_labels(self, epoch_id):
         index_file = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "index.json")
         if os.path.exists(index_file):
             index = load_labelled_data_index(index_file)
@@ -573,8 +587,21 @@ class MMS:
             print("No data!")
             return None
 
+    def get_epoch_test_repr_data(self, epoch_id):
+        location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "test_data.npy")
+        if os.path.exists(location):
+            test_data = np.load(location)
+            return test_data
+        else:
+            print("No data!")
+            return None
+
+    def get_epoch_test_labels(self, epoch_id):
+        labels = self.testing_labels.cpu().numpy()
+        return labels
+
     def get_epoch_plot_measures(self, epoch_id):
-        train_data = self.get_epoch_repr_data(epoch_id)
+        train_data = self.get_epoch_train_repr_data(epoch_id)
         encoder = self.get_proj_model(epoch_id)
 
         embedded = encoder(train_data).cpu().numpy()
@@ -797,8 +824,8 @@ class MMS:
         desc = params_str % (self.resolution)
         self.desc.set_text(desc)
 
-        train_data = self.get_epoch_repr_data(epoch_id)
-        train_labels = self.get_epoch_labels(epoch_id)
+        train_data = self.get_epoch_train_repr_data(epoch_id)
+        train_labels = self.get_epoch_train_labels(epoch_id)
         pred = self.get_pred(epoch_id, train_data)
         pred = pred.argmax(axis=1)
 
@@ -843,8 +870,8 @@ class MMS:
         desc = params_str % (self.resolution)
         self.desc.set_text(desc)
 
-        train_data = self.get_epoch_repr_data(epoch_id)
-        train_labels = self.get_epoch_labels(epoch_id)
+        train_data = self.get_epoch_train_repr_data(epoch_id)
+        train_labels = self.get_epoch_train_labels(epoch_id)
         pred = self.get_pred(epoch_id, train_data)
         pred = pred.argmax(axis=1)
 
@@ -955,7 +982,7 @@ class MMS:
             return None
 
     def proj_nn_perseverance_knn_train(self, epoch_id, n_neighbors=15):
-        train_data = self.get_epoch_repr_data(epoch_id)
+        train_data = self.get_epoch_train_repr_data(epoch_id)
         encoder = self.get_proj_model(epoch_id)
         embedding = encoder(train_data).cpu().numpy()
 
@@ -966,8 +993,9 @@ class MMS:
         return val
 
     def proj_nn_perseverance_knn_test(self, epoch_id, n_neighbors=15):
-        test_data = self.get_representation_data(epoch_id, self.testing_data)
-        train_data = self.get_epoch_repr_data(epoch_id)
+        # test_data = self.get_representation_data(epoch_id, self.testing_data)
+        test_data = self.get_epoch_test_repr_data(epoch_id)
+        train_data = self.get_epoch_train_repr_data(epoch_id)
 
         fitting_data = np.concatenate((train_data, test_data), axis=0)
         encoder = self.get_proj_model(epoch_id)
@@ -982,7 +1010,7 @@ class MMS:
     def proj_boundary_perseverance_knn_train(self, epoch_id, n_neighbors=15):
         encoder = self.get_proj_model(epoch_id)
         border_centers = self.get_epoch_border_centers(epoch_id)
-        train_data = self.get_epoch_repr_data(epoch_id)
+        train_data = self.get_epoch_train_repr_data(epoch_id)
 
         low_center = encoder(border_centers).cpu().numpy()
         low_train = encoder(train_data).cpu().numpy()
@@ -997,8 +1025,9 @@ class MMS:
     def proj_boundary_perseverance_knn_test(self, epoch_id, n_neighbors=15):
         encoder = self.get_proj_model(epoch_id)
         border_centers = self.get_epoch_border_centers(epoch_id)
-        train_data = self.get_epoch_repr_data(epoch_id)
-        test_data = self.get_representation_data(epoch_id, self.testing_data)
+        train_data = self.get_epoch_train_repr_data(epoch_id)
+        # test_data = self.get_representation_data(epoch_id, self.testing_data)
+        test_data = self.get_epoch_test_repr_data(epoch_id)
         fitting_data = np.concatenate((train_data, test_data), axis=0)
 
         low_center = encoder(border_centers).cpu().numpy()
@@ -1023,7 +1052,7 @@ class MMS:
             encoder = self.get_proj_model(n_epoch - self.period)
             prev_embedding = encoder(prev_data).cpu().numpy()
 
-            data = self.get_epoch_repr_data(n_epoch)
+            data = self.get_epoch_train_repr_data(n_epoch)
             embedding = encoder(data).cpu().numpy()
 
             del encoder
@@ -1046,11 +1075,13 @@ class MMS:
         delta_x = np.zeros((eval_num, l))
         for n_epoch in range(self.epoch_start + self.period, self.epoch_end + 1, self.period):
 
-            prev_data = self.get_representation_data(n_epoch-self.period, self.testing_data)
+            # prev_data = self.get_representation_data(n_epoch-self.period, self.testing_data)
+            prev_data = self.get_epoch_test_repr_data(n_epoch - self.period)
             encoder = self.get_proj_model(n_epoch - self.period)
             prev_embedding = encoder(prev_data).cpu().numpy()
 
-            data = self.get_representation_data(n_epoch, self.testing_data)
+            # data = self.get_representation_data(n_epoch, self.testing_data)
+            data = self.get_epoch_test_repr_data(n_epoch)
             embedding = encoder(data).cpu().numpy()
 
             del encoder
@@ -1067,7 +1098,7 @@ class MMS:
         return val_corr
 
     def inv_accu_train(self, epoch_id):
-        data = self.get_epoch_repr_data(epoch_id)
+        data = self.get_epoch_train_repr_data(epoch_id)
 
         encoder = self.get_proj_model(epoch_id)
         embedding = encoder(data).cpu().numpy()
@@ -1086,7 +1117,8 @@ class MMS:
         return val
 
     def inv_accu_test(self, epoch_id):
-        data = self.get_representation_data(epoch_id, self.testing_data)
+        # data = self.get_representation_data(epoch_id, self.testing_data)
+        data = self.get_epoch_test_repr_data(epoch_id)
 
         encoder = self.get_proj_model(epoch_id)
         embedding = encoder(data).cpu().numpy()
@@ -1105,7 +1137,7 @@ class MMS:
         return val
 
     def inv_dist_train(self, epoch_id):
-        data = self.get_epoch_repr_data(epoch_id)
+        data = self.get_epoch_train_repr_data(epoch_id)
         encoder = self.get_proj_model(epoch_id)
         embedding = encoder(data).cpu().numpy()
         del encoder
@@ -1120,7 +1152,8 @@ class MMS:
         return val
 
     def inv_dist_test(self, epoch_id):
-        data = self.get_representation_data(epoch_id, self.testing_data)
+        # data = self.get_representation_data(epoch_id, self.testing_data)
+        data = self.get_epoch_test_repr_data(epoch_id)
         encoder = self.get_proj_model(epoch_id)
         embedding = encoder(data).cpu().numpy()
         del encoder
@@ -1135,7 +1168,7 @@ class MMS:
         return val
 
     def inv_conf_diff_train(self, epoch_id):
-        data = self.get_epoch_repr_data(epoch_id)
+        data = self.get_epoch_train_repr_data(epoch_id)
         encoder = self.get_proj_model(epoch_id)
         embedding = encoder(data).cpu().numpy()
         del encoder
@@ -1157,7 +1190,8 @@ class MMS:
         return val
 
     def inv_conf_diff_test(self, epoch_id):
-        data = self.get_representation_data(epoch_id, self.testing_data)
+        # data = self.get_representation_data(epoch_id, self.testing_data)
+        data = self.get_epoch_test_repr_data(epoch_id)
         encoder = self.get_proj_model(epoch_id)
         embedding = encoder(data).cpu().numpy()
         del encoder
@@ -1179,7 +1213,7 @@ class MMS:
         return val
 
     def inv_logits_diff_train(self, epoch_id):
-        data = self.get_epoch_repr_data(epoch_id)
+        data = self.get_epoch_train_repr_data(epoch_id)
         encoder = self.get_proj_model(epoch_id)
         embedding = encoder(data).cpu().numpy()
         del encoder
@@ -1190,7 +1224,7 @@ class MMS:
         del decoder
         gc.collect()
 
-        labels = self.get_epoch_labels(epoch_id)
+        labels = self.get_epoch_train_labels(epoch_id)
         ori_pred = self.get_pred(epoch_id, data)
         new_pred = self.get_pred(epoch_id, inv_data)
 
@@ -1198,7 +1232,7 @@ class MMS:
         return val
 
     def nn_pred_accu(self, epoch_id, n_neighbors=15):
-        data = self.get_epoch_repr_data(epoch_id)
+        data = self.get_epoch_train_repr_data(epoch_id)
         n_trees = min(64, 5 + int(round((data.shape[0]) ** 0.5 / 20.0)))
         n_iters = max(5, int(round(np.log2(data.shape[0]))))
         nnd = NNDescent(
@@ -1220,22 +1254,23 @@ class MMS:
         return res.mean()
 
     def training_accu(self,epoch_id):
-        train_data = self.get_epoch_repr_data(epoch_id)
-        labels = self.get_epoch_labels(epoch_id)
+        train_data = self.get_epoch_train_repr_data(epoch_id)
+        labels = self.get_epoch_train_labels(epoch_id)
         pred = self.get_pred(epoch_id, train_data).argmax(-1)
         val = evaluate_inv_accu(labels, pred)
         return val
 
     def testing_accu(self, epoch_id):
-        test_data = self.testing_data
+        # test_data = self.testing_data
         labels = self.testing_labels.cpu().numpy()
-        repr_data = self.get_representation_data(epoch_id, test_data)
+        # repr_data = self.get_representation_data(epoch_id, test_data)
+        repr_data = self.get_epoch_test_repr_data(epoch_id)
         pred = self.get_pred(epoch_id, repr_data).argmax(-1)
         val = evaluate_inv_accu(labels, pred)
         return val
 
     def inv_nn_preserve_train(self, epoch_id, n_neighbors=15):
-        data = self.get_epoch_repr_data(epoch_id)
+        data = self.get_epoch_train_repr_data(epoch_id)
         encoder = self.get_proj_model(epoch_id)
         embedding = encoder(data).cpu().numpy()
         del encoder
@@ -1250,8 +1285,9 @@ class MMS:
         return val
 
     def inv_nn_preserve_test(self, epoch_id, n_neighbors=15):
-        test_data = self.get_representation_data(epoch_id, self.testing_data)
-        train_data = self.get_epoch_repr_data(epoch_id)
+        # test_data = self.get_representation_data(epoch_id, self.testing_data)
+        test_data = self.get_epoch_test_repr_data(epoch_id)
+        train_data = self.get_epoch_train_repr_data(epoch_id)
 
         fitting_data = np.concatenate((train_data, test_data), axis=0)
         encoder = self.get_proj_model(epoch_id)
@@ -1266,6 +1302,3 @@ class MMS:
 
         val = evaluate_inv_nn(fitting_data, recon, n_neighbors)
         return val
-
-
-
