@@ -8,3 +8,4 @@ pynndescent==0.5.1
 scikit_learn==0.24.1
 tensorflow==2.4.1
 umap==0.1.1
+tqdm==4.50.0

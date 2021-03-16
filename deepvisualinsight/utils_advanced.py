@@ -11,6 +11,7 @@ from tqdm import tqdm
 from torch import optim
 import torch.nn.functional as F
 
+
 def clustering(data, predictions, n_clusters_per_cls, n_class=10, verbose=0):
     """
     clustering function
@@ -41,7 +42,8 @@ def clustering(data, predictions, n_clusters_per_cls, n_class=10, verbose=0):
         
     return kmeans_result, predictions
 
-def cw_l2_attack(model, image, label, target_cls, target_gap, diff=0.1, 
+
+def cw_l2_attack(model, image, label, target_cls, target_gap, device, diff=0.1,
                  c=1, kappa=0, max_iter=25, learning_rate=0.1, verbose=1) :
     '''
     Implementation of C&W L2 targeted attack, Modified from https://github.com/Harry24k/CW-pytorch
@@ -61,7 +63,7 @@ def cw_l2_attack(model, image, label, target_cls, target_gap, diff=0.1,
     '''
     
     # Get loss2
-    def f(x) :
+    def f(x):
         
         output = model(x)
         one_hot_label = torch.eye(len(output[0]))[label].to(device)
@@ -127,9 +129,8 @@ def cw_l2_attack(model, image, label, target_cls, target_gap, diff=0.1,
     return attack_images.detach().cpu(), successful, step
 
 
-
-def get_border_points(model, input_x, gaps, confs, kmeans_result, predictions, 
-                      num_adv_eg = 5000, num_cls = 10, n_clusters_per_cls = 10, verbose=1):
+def get_border_points(model, input_x, gaps, confs, kmeans_result, predictions, device,
+                      num_adv_eg=5000, num_cls=10, n_clusters_per_cls=10, verbose=1):
     '''Get BPs
     :param model: subject model
     :param input_x: images, torch.Tensor of shape (N, C, H, W)
@@ -194,10 +195,10 @@ def get_border_points(model, input_x, gaps, confs, kmeans_result, predictions,
         gap2 = gaps[data2_index[image2_idx]]
 
         # attack from cluster 1 to cluster 2
-        attack1, successful1, attack_step1 = cw_l2_attack(model, image1.to(device), cls1, cls2, gap2)
+        attack1, successful1, attack_step1 = cw_l2_attack(model, image1.to(device), cls1, cls2, gap2, device)
 
         # attack from cluster 2 to cluster 1
-        attack2, successful2, attack_step2 = cw_l2_attack(model, image2.to(device), cls2, cls1, gap1)
+        attack2, successful2, attack_step2 = cw_l2_attack(model, image2.to(device), cls2, cls1, gap1, device)
 
         if successful1:
             adv_examples = torch.cat((adv_examples, attack1), dim=0)
@@ -220,7 +221,7 @@ def get_border_points(model, input_x, gaps, confs, kmeans_result, predictions,
     return adv_examples, attack_steps_ct
 
 
-def batch_run(model, data, batch_size=200):
+def batch_run(model, data, device, batch_size=200):
     '''Get GAP layers and predicted labels for data
     :param model: subject model
     :param data: images torch.Tensor of shape (N, C, H, W)

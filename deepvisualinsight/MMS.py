@@ -7,12 +7,12 @@ from deepvisualinsight.evaluate import *
 import gc
 from scipy.special import softmax
 from scipy.spatial.distance import cdist
-
+import deepvisualinsight.utils_advanced as utils_advanced
 
 class MMS:
-    def __init__(self, content_path, model_structure, epoch_start, epoch_end, repr_num, class_num, classes, low_dims=2,
+    def __init__(self, content_path, model_structure, epoch_start, epoch_end, period, repr_num, class_num, classes, low_dims=2,
                  cmap="tab10", resolution=100, neurons=None, temporal=False, transfer_learning=True, verbose=1,
-                 split=-1, advance_border_gen=False):
+                 split=-1, advance_border_gen=False, attack_device="cpu"):
         '''
         This class contains the model management system (super DB) and provides
         several DVI user interface for dimension reduction and inverse projection function
@@ -28,6 +28,8 @@ class MMS:
             the epoch id that serves as start of visualization
         epoch_end : int
             the epoch id that serves as the end of visualization
+        period : int
+            seletive choose epoch to visualize
         repr_num : int
             the output shape of representation data
         class_num : int
@@ -61,6 +63,7 @@ class MMS:
         self.content_path = content_path
         self.epoch_start = epoch_start
         self.epoch_end = epoch_end
+        self.period = period
         self.training_data = None
         self.data_epoch_index = None
         self.testing_data = None
@@ -76,11 +79,12 @@ class MMS:
         self.verbose = verbose
         self.split = split
         self.advance_border_gen = advance_border_gen
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device(attack_device)
         # self.device = torch.device('cpu')
         if len(tf.config.list_physical_devices('GPU')) > 0:
             self.tf_device = tf.config.list_physical_devices('GPU')[0]
-            tf.config.experimental.set_memory_growth(self.tf_device, True)
+            for d in tf.config.list_physical_devices('GPU'):
+                tf.config.experimental.set_memory_growth(d, True)
         else:
             self.tf_device = tf.config.list_physical_devices('CPU')[0]
         if neurons is None:
@@ -112,11 +116,10 @@ class MMS:
         preprocessing data. This process includes find_train_centers, find_border_points and find_border_centers
         save data for later training
         '''
-        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
         time_border_clustering = list()
         time_train_clustering = list()
         time_borders_gen = list()
-        for n_epoch in range(self.epoch_start, self.epoch_end+1, 1):
+        for n_epoch in range(self.epoch_start, self.epoch_end+1, self.period):
             index_file = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "index.json")
             index = load_labelled_data_index(index_file)
             training_data = self.training_data[index]
@@ -124,26 +127,48 @@ class MMS:
 
             model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
             self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
-            self.model = self.model.to(device)
+            self.model = self.model.to(self.device)
             self.model.eval()
 
             repr_model = torch.nn.Sequential(*(list(self.model.children())[:self.split]))
 
             n_clusters = math.floor(len(index) / 10)
 
-            # border points gen
-            t0 = time.time()
-            border_points = get_border_points(training_data, training_labels, self.model, device)
-            t1 = time.time()
-            time_borders_gen.append(round(t1-t0, 4))
-
             if self.advance_border_gen:
-                # TODO
-                pass
+                t0 = time.time()
+                gaps, preds, confs = utils_advanced.batch_run(self.model, training_data, self.device, batch_size=200)
+                # Kmeans clustering
+                kmeans_result, predictions = utils_advanced.clustering(gaps.numpy(), preds.numpy(),
+                                                                       n_clusters_per_cls=10)
+                # Adversarial attacks
+                border_points, _ = utils_advanced.get_border_points(model=self.model,
+                                                                                 input_x=training_data, gaps=gaps,
+                                                                                 confs=confs,
+                                                                                 kmeans_result=kmeans_result,
+                                                                                 predictions=predictions, device=self.device,
+                                                                                 num_adv_eg=n_clusters, num_cls=10,
+                                                                                 n_clusters_per_cls=10, verbose=0)
+                t1 = time.time()
+                time_borders_gen.append(round(t1 - t0, 4))
+
+                # get gap layer data
+                border_points = border_points.to(self.device)
+                border_centers = batch_run(repr_model, border_points, self.repr_num)
+                location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "advance_border_centers.npy")
+                np.save(location, border_centers)
+
+                location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "ori_advance_border_centers.npy")
+                np.save(location, border_points.cpu().numpy())
             else:
+                # border points gen
+                t0 = time.time()
+                border_points = get_border_points(training_data, training_labels, self.model, self.device)
+                t1 = time.time()
+                time_borders_gen.append(round(t1 - t0, 4))
+
                 # border clustering
                 border_points = torch.from_numpy(border_points)
-                border_points = border_points.to(device)
+                border_points = border_points.to(self.device)
                 border_representation = batch_run(repr_model, border_points, self.repr_num)
                 t2 = time.time()
                 border_centers = clustering(border_representation, n_clusters, verbose=0)
@@ -153,12 +178,12 @@ class MMS:
                 np.save(location, border_centers)
 
                 index = cdist(border_centers, border_representation, 'euclidean').argmax(-1)
-                ori_border_points = border_points[index]
+                ori_border_points = border_points.cpu().numpy()[index]
                 location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "ori_border_centers.npy")
                 np.save(location, ori_border_points)
 
             # training data clustering
-            train_data = training_data.to(device)
+            train_data = training_data.to(self.device)
             train_data_representation = batch_run(repr_model, train_data, self.repr_num)
             location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "train_data.npy")
             np.save(location, train_data_representation)
@@ -209,7 +234,7 @@ class MMS:
 
         # self.data_preprocessing()
         t0 = time.time()
-        for n_epoch in range(self.epoch_start, self.epoch_end+1, 1):
+        for n_epoch in range(self.epoch_start, self.epoch_end+1, self.period):
             losses, loss_weights = define_losses(200, n_epoch, self.epoch_end-self.epoch_start+1, self.temporal)
             if not self.transfer_learning:
                 encoder, decoder = define_autoencoder(dims, n_components, self.neurons)
@@ -223,7 +248,12 @@ class MMS:
             )
 
             train_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "train_centers.npy")
-            border_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "border_centers.npy")
+            if self.advance_border_gen:
+                border_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch),
+                                                  "advance_border_centers.npy")
+            else:
+                border_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch),
+                                                  "border_centers.npy")
             train_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "train_data.npy")
 
             # in case no data save for vis
@@ -253,7 +283,7 @@ class MMS:
                 )
             else:
 
-                prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch-1), "train_data.npy")
+                prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch-self.period), "train_data.npy")
                 if os.path.exists(prev_data_loc) and self.epoch_start != n_epoch:
                     prev_data = np.load(prev_data_loc)
                 else:
@@ -261,7 +291,7 @@ class MMS:
                 if prev_data is None:
                     prev_embedding = np.zeros((len(train_data), self.low_dims))
                 else:
-                    encoder = self.get_proj_model(n_epoch-1)
+                    encoder = self.get_proj_model(n_epoch-self.period)
                     prev_embedding = encoder(prev_data).cpu().numpy()
                 alpha = find_alpha(prev_data, train_data, n_neighbors=15)
                 alpha[alpha < 0.5] = 0.0 # alpha >=0.5 is convincing
@@ -296,21 +326,26 @@ class MMS:
                 callbacks=callbacks,
                 max_queue_size=100,
             )
-            t1 = time.time()
+            flag = ""
+            if self.advance_border_gen:
+                flag = "_advance"
+
             if self.temporal:
-                encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder_temporal"))
-                decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "decoder_temporal"))
+                encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder_temporal"+flag))
+                decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "decoder_temporal"+flag))
             elif self.transfer_learning:
-                encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder"))
-                decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "decoder"))
+                encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder"+flag))
+                decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "decoder"+flag))
             else:
-                encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder_independent"))
-                decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "decoder_independent"))
+                encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder_independent"+flag))
+                decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "decoder_independent"+flag))
 
             if self.verbose > 0:
                 print("save visualized model for Epoch {:d}".format(n_epoch))
-                print("Average time for training visualzation model: {:.4f}".format(
-                    (t1 - t0) / (self.epoch_end - self.epoch_start + 1)))
+        t1 = time.time()
+        if self.verbose > 0:
+            print("Average time for training visualzation model: {:.4f}".format(
+                (t1 - t0) / int((self.epoch_end - self.epoch_start + 1) / self.period)))
 
     def get_proj_model(self, epoch_id):
         '''
@@ -318,12 +353,15 @@ class MMS:
         :param epoch_id: int
         :return: encoder of epoch epoch_id
         '''
+        flag = ""
+        if self.advance_border_gen:
+            flag = "_advance"
         if self.temporal:
-            encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "encoder_temporal")
+            encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "encoder_temporal"+flag)
         elif self.transfer_learning:
-            encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "encoder")
+            encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "encoder"+flag)
         else:
-            encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "encoder_independent")
+            encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "encoder_independent"+flag)
         if os.path.exists(encoder_location):
             encoder = tf.keras.models.load_model(encoder_location)
             if self.verbose > 0:
@@ -339,12 +377,15 @@ class MMS:
         :param epoch_id: int
         :return: decoder model of epoch_id
         '''
+        flag = ""
+        if self.advance_border_gen:
+            flag = "_advance"
         if self.temporal:
-            decoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "decoder_temporal")
+            decoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "decoder_temporal"+flag)
         elif self.transfer_learning:
-            decoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "decoder")
+            decoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "decoder"+flag)
         else:
-            decoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "decoder_independent")
+            decoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "decoder_independent"+flag)
         if os.path.exists(decoder_location):
             decoder = tf.keras.models.load_model(decoder_location)
             if self.verbose > 0:
@@ -902,7 +943,10 @@ class MMS:
     # TODO test those functions
 
     def get_epoch_border_centers(self, epoch_id):
-        location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "border_centers.npy")
+        if self.advance_border_gen:
+            location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "advance_border_centers.npy")
+        else:
+            location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "border_centers.npy")
         if os.path.exists(location):
             data = np.load(location)
             return data
@@ -969,14 +1013,14 @@ class MMS:
 
     def proj_temporal_perseverance_train(self, n_neighbors=15):
         l = len(self.training_labels)
-        eval_num = self.epoch_end - self.epoch_start
+        eval_num = int((self.epoch_end - self.epoch_start) / self.period) + 1
         alpha = np.zeros((eval_num, l))
         delta_x = np.zeros((eval_num, l))
-        for n_epoch in range(self.epoch_start+1, self.epoch_end+1):
+        for n_epoch in range(self.epoch_start+self.period, self.epoch_end+1, self.period):
 
-            prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch - 1), "train_data.npy")
+            prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch - self.period), "train_data.npy")
             prev_data = np.load(prev_data_loc)
-            encoder = self.get_proj_model(n_epoch - 1)
+            encoder = self.get_proj_model(n_epoch - self.period)
             prev_embedding = encoder(prev_data).cpu().numpy()
 
             data = self.get_epoch_repr_data(n_epoch)
@@ -988,8 +1032,8 @@ class MMS:
             alpha_ = backend.find_alpha(prev_data, data, n_neighbors)
             delta_x_ = np.linalg.norm(prev_embedding - embedding, axis=1)
 
-            alpha[n_epoch - 1 - self.epoch_start] = alpha_
-            delta_x[n_epoch - 1 - self.epoch_start] = delta_x_
+            alpha[int((n_epoch - self.epoch_start) / self.period)] = alpha_
+            delta_x[int((n_epoch - self.epoch_start) / self.period)] = delta_x_
 
         # val_entropy = evaluate_proj_temporal_perseverance_entropy(alpha, delta_x)
         val_corr = evaluate_proj_temporal_perseverance_corr(alpha, delta_x)
@@ -997,13 +1041,13 @@ class MMS:
 
     def proj_temporal_perseverance_test(self, n_neighbors=15):
         l = len(self.testing_labels)
-        eval_num = self.epoch_end - self.epoch_start
+        eval_num = int((self.epoch_end - self.epoch_start) / self.period) + 1
         alpha = np.zeros((eval_num, l))
         delta_x = np.zeros((eval_num, l))
-        for n_epoch in range(self.epoch_start + 1, self.epoch_end + 1):
+        for n_epoch in range(self.epoch_start + self.period, self.epoch_end + 1, self.period):
 
-            prev_data = self.get_representation_data(n_epoch-1, self.testing_data)
-            encoder = self.get_proj_model(n_epoch - 1)
+            prev_data = self.get_representation_data(n_epoch-self.period, self.testing_data)
+            encoder = self.get_proj_model(n_epoch - self.period)
             prev_embedding = encoder(prev_data).cpu().numpy()
 
             data = self.get_representation_data(n_epoch, self.testing_data)
@@ -1014,8 +1058,8 @@ class MMS:
 
             alpha_ = backend.find_alpha(prev_data, data, n_neighbors)
             delta_x_ = np.linalg.norm(prev_embedding - embedding, axis=1)
-            alpha[n_epoch - 1 - self.epoch_start] = alpha_
-            delta_x[n_epoch - 1 - self.epoch_start] = delta_x_
+            alpha[int((n_epoch - self.epoch_start) / self.period)] = alpha_
+            delta_x[int((n_epoch - self.epoch_start) / self.period)] = delta_x_
 
         # val_entropy = evaluate_proj_temporal_perseverance_entropy(alpha, delta_x)
         val_corr = evaluate_proj_temporal_perseverance_corr(alpha, delta_x)
@@ -1189,5 +1233,39 @@ class MMS:
         pred = self.get_pred(epoch_id, repr_data).argmax(-1)
         val = evaluate_inv_accu(labels, pred)
         return val
+
+    def inv_nn_preserve_train(self, epoch_id, n_neighbors=15):
+        data = self.get_epoch_repr_data(epoch_id)
+        encoder = self.get_proj_model(epoch_id)
+        embedding = encoder(data).cpu().numpy()
+        del encoder
+        gc.collect()
+
+        decoder = self.get_inv_model(epoch_id)
+        inv_data = decoder(embedding).cpu().numpy()
+        del decoder
+        gc.collect()
+
+        val = evaluate_inv_nn(data, inv_data, n_neighbors)
+        return val
+
+    def inv_nn_preserve_test(self, epoch_id, n_neighbors=15):
+        test_data = self.get_representation_data(epoch_id, self.testing_data)
+        train_data = self.get_epoch_repr_data(epoch_id)
+
+        fitting_data = np.concatenate((train_data, test_data), axis=0)
+        encoder = self.get_proj_model(epoch_id)
+        embedding = encoder(fitting_data).cpu().numpy()
+        del encoder
+        gc.collect()
+
+        decoder = self.get_inv_model(epoch_id)
+        recon = decoder(embedding).cpu().numpy()
+        del decoder
+        gc.collect()
+
+        val = evaluate_inv_nn(fitting_data, recon, n_neighbors)
+        return val
+
 
 
