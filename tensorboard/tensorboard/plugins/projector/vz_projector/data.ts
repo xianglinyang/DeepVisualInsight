@@ -105,6 +105,11 @@ export interface DataPoint {
   }
   current_training?: boolean;
   current_testing?: boolean;
+  prediction?: {
+    [iteration: number]: string;
+  };
+  current_prediction?: string;
+  current_wrong_prediction?: boolean;
 }
 const IS_FIREFOX = navigator.userAgent.toLowerCase().indexOf('firefox') >= 0;
 /** Controls whether nearest neighbors computation is done on the GPU or CPU. */
@@ -420,6 +425,7 @@ export class DataSet {
 
         const label_color_list = data.label_color_list;
         const label_list = data.label_list;
+        const prediction_list = data.prediction_list;
 
         const background_point_number = grid_index.length;
         const real_data_number = label_color_list.length;
@@ -459,6 +465,9 @@ export class DataSet {
             dataPoint.training_data = {};
             dataPoint.testing_data = {};
           }
+          if(dataPoint.prediction == undefined) {
+            dataPoint.prediction = {};
+          }
         }
         for (let i = 0; i < real_data_number; i++) {
           let dataPoint = this.points[i];
@@ -477,6 +486,13 @@ export class DataSet {
           dataPoint.current_training = false;
           dataPoint.current_testing = false;
           dataPoint.metadata['label'] = label_list[i];
+          dataPoint.prediction[iteration] = prediction_list[i];
+          dataPoint.current_prediction = prediction_list[i];
+          if(prediction_list[i] == label_list[i]) {
+            dataPoint.current_wrong_prediction = false;
+          } else {
+            dataPoint.current_wrong_prediction = true;
+          }
         }
 
         for (let i = 0; i < background_point_number; i++) {
@@ -491,6 +507,8 @@ export class DataSet {
           dataPoint.testing_data[iteration] = false;
           dataPoint.current_training = false;
           dataPoint.current_testing = false;
+          dataPoint.prediction[iteration] = "background";
+          dataPoint.current_prediction = "background";
         }
 
         for (let i = real_data_number + background_point_number; i < this.points.length; i++) {
@@ -532,6 +550,12 @@ export class DataSet {
           }
          dataPoint.current_training = dataPoint.training_data[iteration];
         dataPoint.current_testing = dataPoint.testing_data[iteration];
+        dataPoint.current_prediction = dataPoint.current_prediction[iteration];
+        if(dataPoint.current_prediction == dataPoint.metadata['label']) {
+            dataPoint.current_wrong_prediction = false;
+          } else {
+            dataPoint.current_wrong_prediction = true;
+         }
       }
       for (let i = validDataNumber; i < this.points.length; i++) {
         let dataPoint = this.points[i];
