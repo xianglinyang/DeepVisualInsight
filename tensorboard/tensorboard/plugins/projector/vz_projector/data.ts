@@ -23,8 +23,6 @@ import * as vector from './vector';
 import * as logging from './logging';
 import * as util from './util';
 
-import * as searchQuery from 'search-query-parser';
-
 export type DistanceFunction = (a: vector.Vector, b: vector.Vector) => number;
 export type ProjectionComponents3D = [string, string, string];
 
@@ -395,10 +393,6 @@ export class DataSet {
       iteration: number,
       stepCallback: (iter: number, evaluation:any, totalIter?: number) => void
   ) {
-    const query = 'from:hi@retrace.io,foo@gmail.com to:me subject:vacations date:1/10/2013-15/04/2014 photos:100';
-    const options = {keywords: ['from', 'to', 'subject', 'Photos'], ranges: ['date']};
-    const searchQueryObj = searchQuery.parse(query, options);
-    console.log(searchQueryObj);
     this.projections['tsne'] = true;
     function componentToHex(c: number) {
       const hex = c.toString(16);
