@@ -81,7 +81,7 @@ def cw_l2_attack(model, image, label, target_cls, target_gap, device, diff=0.1,
     w = torch.zeros_like(image, requires_grad=True).to(device)
     optimizer = optim.Adam([w], lr=learning_rate) # an optimizer specifically for w
 
-    for step in range(max_iter) :
+    for step in range(max_iter):
         # w is the noise added to the original image, restricted to be [-1, 1]
         a = image + torch.tanh(w) 
 

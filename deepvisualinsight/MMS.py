@@ -10,6 +10,7 @@ from scipy.spatial.distance import cdist
 import deepvisualinsight.utils_advanced as utils_advanced
 
 
+
 class MMS:
     def __init__(self, content_path, model_structure, epoch_start, epoch_end, period, repr_num, class_num, classes, low_dims=2,
                  cmap="tab10", resolution=100, neurons=None, temporal=False, transfer_learning=True, verbose=1,
@@ -144,12 +145,12 @@ class MMS:
                                                                        n_clusters_per_cls=10)
                 # Adversarial attacks
                 border_points, _ = utils_advanced.get_border_points(model=self.model,
-                                                                                 input_x=training_data, gaps=gaps,
-                                                                                 confs=confs,
-                                                                                 kmeans_result=kmeans_result,
-                                                                                 predictions=predictions, device=self.device,
-                                                                                 num_adv_eg=n_clusters, num_cls=10,
-                                                                                 n_clusters_per_cls=10, verbose=0)
+                                                                    input_x=training_data, gaps=gaps,
+                                                                    confs=confs,
+                                                                    kmeans_result=kmeans_result,
+                                                                    predictions=predictions, device=self.device,
+                                                                    num_adv_eg=n_clusters, num_cls=10,
+                                                                    n_clusters_per_cls=10, verbose=0)
                 t1 = time.time()
                 time_borders_gen.append(round(t1 - t0, 4))
 
@@ -234,6 +235,11 @@ class MMS:
         if decoder_in is not None:
             decoder = decoder_in
         optimizer = tf.keras.optimizers.Adam(1e-3)
+
+        weights_dict = {}
+        losses, loss_weights = define_losses(200, self.temporal)
+        parametric_model = ParametricModel(encoder, decoder, optimizer, losses, loss_weights, self.temporal,
+                                           prev_trainable_variables=None)
         callbacks = [
             tf.keras.callbacks.EarlyStopping(
                 monitor='loss',
@@ -242,20 +248,21 @@ class MMS:
                 verbose=1,
             ),
             tf.keras.callbacks.LearningRateScheduler(define_lr_schedule),
+            tf.keras.callbacks.LambdaCallback(on_train_end=lambda logs: weights_dict.update(
+                {'prev': [tf.identity(tf.stop_gradient(x)) for x in parametric_model.trainable_weights]})),
         ]
-        parametric_model = define_model(dims, self.low_dims, encoder, decoder, self.temporal)
-
         # self.data_preprocessing()
         t0 = time.time()
         for n_epoch in range(self.epoch_start, self.epoch_end+1, self.period):
-            losses, loss_weights = define_losses(200, n_epoch, self.epoch_end-self.epoch_start+1, self.temporal)
             if not self.transfer_learning:
                 encoder, decoder = define_autoencoder(dims, n_components, self.neurons)
                 if encoder_in is not None:
                     encoder = encoder_in
                 if decoder_in is not None:
                     decoder = decoder_in
-                parametric_model = define_model(dims, self.low_dims, encoder, decoder, self.temporal)
+                parametric_model = ParametricModel(self, encoder, decoder, optimizer, losses, loss_weights,
+                                                   self.temporal,
+                                                   prev_trainable_variables=None)
             parametric_model.compile(
                 optimizer=optimizer, loss=losses, loss_weights=loss_weights,
             )
@@ -339,6 +346,8 @@ class MMS:
                 callbacks=callbacks,
                 max_queue_size=100,
             )
+            # save for later use
+            parametric_model.prev_trainable_variables = weights_dict["prev"]
             flag = ""
             if self.advance_border_gen:
                 flag = "_advance"
@@ -1302,3 +1311,23 @@ class MMS:
 
         val = evaluate_inv_nn(fitting_data, recon, n_neighbors)
         return val
+
+    def get_new_index(self, epoch_id):
+        prev_epoch = epoch_id - self.period
+        if prev_epoch < self.epoch_start:
+            return list()
+
+        index_file = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "index.json")
+        index = load_labelled_data_index(index_file)
+        prev_index_file = os.path.join(self.model_path, "Epoch_{:d}".format(prev_epoch), "index.json")
+        prev_index = load_labelled_data_index(prev_index_file)
+        new_I = len(index) - len(prev_index)
+
+        return index[new_I:]
+
+    def noisy_data_index(self):
+        index_file = os.path.join(self.model_path, "index.json")
+        if not os.path.exists(index_file):
+            return list()
+        return load_labelled_data_index(index_file)
+
