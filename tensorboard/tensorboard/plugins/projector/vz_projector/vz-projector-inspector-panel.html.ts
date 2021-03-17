@@ -273,7 +273,7 @@ export const template = html`
             ></paper-slider>
           </div>
         </div>
-        <div class="distance">
+        <div hidden$="[[!noShow]]" class="distance">
           <span class="option-label">distance</span>
           <div class="options">
             <a class="selected cosine" href="javascript:void(0);">COSINE</a>
