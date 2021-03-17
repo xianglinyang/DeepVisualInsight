@@ -158,14 +158,16 @@ export function getSearchPredicate(
   } else {
     // Doing a case insensitive substring match.
     query = query.toLowerCase();
-    const options = {keywords: ['label', 'prediction', 'is_training', 'is_correct_prediction', 'new_selection']};
+    const active_learning_query = '(is_training)||(!is_training && !is_correct_prediction)||(new_selection)';
+    const options = {keywords: ['label', 'prediction', 'is_training', 'is_correct_prediction', 'new_selection', active_learning_query]};
     const searchQueryObj = searchQuery.parse(query, options);
-
     const valid_new_selection = (searchQueryObj["new_selection"]!=null && !Array.isArray(searchQueryObj["new_selection"]) &&
           (searchQueryObj["new_selection"] == "true" || searchQueryObj["new_selection"] == "false"));
+    const valid_active_learning = (searchQueryObj[active_learning_query]!=null && !Array.isArray(searchQueryObj[active_learning_query]) &&
+          (searchQueryObj[active_learning_query] == "true"));
     predicate = (p) => {
       if(searchQueryObj["label"]==null && searchQueryObj["prediction"]==null &&
-          !valid_new_selection &&
+          !valid_new_selection && !valid_active_learning &&
           (searchQueryObj["is_training"]==null || Array.isArray(searchQueryObj["is_training"]) ||
               ((searchQueryObj["is_training"] != "true" && searchQueryObj["is_training"] != "false")))
           && (searchQueryObj["is_correct_prediction"]==null || Array.isArray(searchQueryObj["is_correct_prediction"]) ||
@@ -219,6 +221,15 @@ export function getSearchPredicate(
           newSelectionResult = true;
         }
         if(!newSelectionResult) {
+          return false;
+        }
+      }
+      if(valid_active_learning) {
+        let newActiveLearningResult = false;
+        if(p.current_new_selection || p.current_training || (p.current_testing && p.current_wrong_prediction)) {
+          newActiveLearningResult = true;
+        }
+        if(!newActiveLearningResult) {
           return false;
         }
       }
