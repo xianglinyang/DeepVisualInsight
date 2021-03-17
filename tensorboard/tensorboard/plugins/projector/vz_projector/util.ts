@@ -158,7 +158,6 @@ export function getSearchPredicate(
   } else {
     // Doing a case insensitive substring match.
     query = query.toLowerCase();
-    console.log(query);
     const options = {keywords: ['label', 'prediction', 'is_training', 'is_correct_prediction', 'new_selection']};
     const searchQueryObj = searchQuery.parse(query, options);
 
