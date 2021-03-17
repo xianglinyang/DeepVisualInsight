@@ -248,7 +248,7 @@ export const template = html`
     <div class="nn" style="display: none">
       <div class="neighbors">
         <div class="neighbors-options">
-          <div class="slider num-nn">
+          <div hidden$="[[!noShow]]" class="slider num-nn">
             <span class="option-label">neighbors</span>
             <paper-icon-button
               icon="help"
@@ -293,13 +293,12 @@ export const template = html`
                 animation-delay="0"
                 fit-to-visible-bounds
               >
-                Show the images of the nearest neighbors.
+                Show the original images of the point.
               </paper-tooltip>
             </paper-checkbox>
           </template>
         </div>
       </div>
-      <p>Nearest points in the original space:</p>
       <div class="nn-list"></div>
     </div>
     <div class="metadata-info" style="display: none">
