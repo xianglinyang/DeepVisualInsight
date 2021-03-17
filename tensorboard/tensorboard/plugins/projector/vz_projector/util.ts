@@ -159,11 +159,14 @@ export function getSearchPredicate(
     // Doing a case insensitive substring match.
     query = query.toLowerCase();
     console.log(query);
-    const options = {keywords: ['label', 'prediction', 'is_training', 'is_correct_prediction']};
+    const options = {keywords: ['label', 'prediction', 'is_training', 'is_correct_prediction', 'new_selection']};
     const searchQueryObj = searchQuery.parse(query, options);
 
+    const valid_new_selection = (searchQueryObj["new_selection"]!=null && !Array.isArray(searchQueryObj["new_selection"]) &&
+          (searchQueryObj["new_selection"] == "true" || searchQueryObj["new_selection"] == "false"));
     predicate = (p) => {
       if(searchQueryObj["label"]==null && searchQueryObj["prediction"]==null &&
+          !valid_new_selection &&
           (searchQueryObj["is_training"]==null || Array.isArray(searchQueryObj["is_training"]) ||
               ((searchQueryObj["is_training"] != "true" && searchQueryObj["is_training"] != "false")))
           && (searchQueryObj["is_correct_prediction"]==null || Array.isArray(searchQueryObj["is_correct_prediction"]) ||
@@ -204,6 +207,19 @@ export function getSearchPredicate(
           }
         }
         if(!predictionResult) {
+          return false;
+        }
+      }
+      if(valid_new_selection) {
+        let queryNewSelection = searchQueryObj["new_selection"];
+        let newSelectionResult = false;
+        if(queryNewSelection == "true" && p.current_new_selection) {
+          newSelectionResult = true;
+        }
+        if(queryNewSelection == "false" && p.current_new_selection == false) {
+          newSelectionResult = true;
+        }
+        if(!newSelectionResult) {
           return false;
         }
       }

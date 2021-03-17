@@ -96,10 +96,13 @@ export interface DataPoint {
     [iteration: number]: string;
   }
   training_data?: {
-    [iteration: number]: boolean;
+    [iteration: number]: boolean | undefined;
   }
   testing_data?: {
-    [iteration: number]: boolean;
+    [iteration: number]: boolean | undefined;
+  }
+  new_selection?: {
+    [iteration: number]: boolean | undefined;
   }
   current_training?: boolean;
   current_testing?: boolean;
@@ -108,6 +111,7 @@ export interface DataPoint {
   };
   current_prediction?: string;
   current_wrong_prediction?: boolean;
+  current_new_selection?: boolean;
 }
 const IS_FIREFOX = navigator.userAgent.toLowerCase().indexOf('firefox') >= 0;
 /** Controls whether nearest neighbors computation is done on the GPU or CPU. */
@@ -432,6 +436,7 @@ export class DataSet {
 
         const training_data = data.training_data;
         const testing_data = data.testing_data;
+        const new_selection = data.new_selection;
 
         const evaluation = data.evaluation;
         this.DVIEvaluation[iteration] = evaluation;
@@ -462,6 +467,9 @@ export class DataSet {
           if(dataPoint.prediction == undefined) {
             dataPoint.prediction = {};
           }
+          if(dataPoint.new_selection == undefined) {
+            dataPoint.new_selection = {};
+          }
         }
         for (let i = 0; i < real_data_number; i++) {
           let dataPoint = this.points[i];
@@ -487,6 +495,8 @@ export class DataSet {
           } else {
             dataPoint.current_wrong_prediction = true;
           }
+          dataPoint.new_selection[iteration] = false;
+          dataPoint.current_new_selection = false;
         }
 
         for (let i = 0; i < background_point_number; i++) {
@@ -497,12 +507,14 @@ export class DataSet {
           dataPoint.color = rgbToHex(grid_color[i][0],   grid_color[i][1], grid_color[i][2]);
           dataPoint.DVI_projections[iteration] = [grid_index[i][0], grid_index[i][1]];
           dataPoint.DVI_color[iteration] = dataPoint.color;
-          dataPoint.training_data[iteration] = false;
-          dataPoint.testing_data[iteration] = false;
-          dataPoint.current_training = false;
-          dataPoint.current_testing = false;
+          dataPoint.training_data[iteration] = undefined;
+          dataPoint.testing_data[iteration] = undefined;
+          dataPoint.current_training = undefined;
+          dataPoint.current_testing = undefined;
           dataPoint.prediction[iteration] = "background";
           dataPoint.current_prediction = "background";
+          dataPoint.current_new_selection = undefined;
+          dataPoint.new_selection[iteration] = undefined;
         }
 
         for (let i = real_data_number + background_point_number; i < this.points.length; i++) {
@@ -522,6 +534,13 @@ export class DataSet {
           let dataPoint = this.points[dataIndex];
           dataPoint.testing_data[iteration] = true;
           dataPoint.current_testing = true;
+        }
+
+        for (let i = 0; i < new_selection.length; i++) {
+          const dataIndex = new_selection[i];
+          let dataPoint = this.points[dataIndex];
+          dataPoint.new_selection[iteration] = true;
+          dataPoint.current_new_selection = true;
         }
 
         this.DVICurrentRealDataNumber = real_data_number;
@@ -550,6 +569,7 @@ export class DataSet {
           } else {
             dataPoint.current_wrong_prediction = true;
          }
+        dataPoint.current_new_selection = dataPoint.new_selection[iteration];
       }
       for (let i = validDataNumber; i < this.points.length; i++) {
         let dataPoint = this.points[i];
