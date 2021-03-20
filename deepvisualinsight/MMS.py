@@ -1331,7 +1331,7 @@ class MMS:
         prev_index = load_labelled_data_index(prev_index_file)
         new_I = len(index) - len(prev_index)
 
-        return index[new_I:]
+        return index[-new_I:]
 
     def noisy_data_index(self):
         index_file = os.path.join(self.model_path, "index.json")
