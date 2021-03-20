@@ -549,13 +549,13 @@ def define_losses(batch_size, temporal):
         losses["regularization"] = regularize_loss_fn
         loss_weights["regularization"] = 0.5  # TODO: change this weight
 
-        embedding_to_loss_fn = embedding_loss()
-        losses["embedding_to"] = embedding_to_loss_fn
-        loss_weights["embedding_to"] = 1.0
-
-        embedding_to_recon_loss_fn = embedding_loss()
-        losses["embedding_to_recon"] = embedding_to_recon_loss_fn
-        loss_weights["embedding_to_recon"] = 1.0
+        # embedding_to_loss_fn = embedding_loss()
+        # losses["embedding_to"] = embedding_to_loss_fn
+        # loss_weights["embedding_to"] = 1.0
+        #
+        # embedding_to_recon_loss_fn = embedding_loss()
+        # losses["embedding_to_recon"] = embedding_to_recon_loss_fn
+        # loss_weights["embedding_to_recon"] = 1.0
 
     # if temporal:
     #     temporal_loss_fn = temporal_loss()
@@ -712,19 +712,18 @@ def temporal_loss():
         return tf.reduce_mean(diff)
     return loss
 
-
+# step2
 def regularize_loss():
     '''
     Add temporal regularization L2 loss on weights
     '''
 
     @tf.function
-    def loss(w_prev, w_current, to_alpha, final_grad_result_list):
+    def loss(w_prev, w_current, to_alpha):
         assert len(w_prev) == len(w_current)
-        assert len(w_prev) == len(final_grad_result_list)
         # multiple layers of weights, need to add them up
         for j in range(len(w_prev)):
-            diff = tf.reduce_sum(tf.math.multiply(final_grad_result_list[j], tf.math.square(w_current[j] - w_prev[j])))
+            diff = tf.reduce_sum(tf.math.square(w_current[j] - w_prev[j]))
             diff = tf.math.multiply(to_alpha, diff)
             if j == 0:
                 alldiff = tf.reduce_mean(diff)
@@ -733,6 +732,28 @@ def regularize_loss():
         return alldiff
 
     return loss
+
+# step 3
+# def regularize_loss():
+#     '''
+#     Add temporal regularization L2 loss on weights
+#     '''
+#
+#     @tf.function
+#     def loss(w_prev, w_current, to_alpha, final_grad_result_list):
+#         assert len(w_prev) == len(w_current)
+#         assert len(w_prev) == len(final_grad_result_list)
+#         # multiple layers of weights, need to add them up
+#         for j in range(len(w_prev)):
+#             diff = tf.reduce_sum(tf.math.multiply(final_grad_result_list[j], tf.math.square(w_current[j] - w_prev[j])))
+#             diff = tf.math.multiply(to_alpha, diff)
+#             if j == 0:
+#                 alldiff = tf.reduce_mean(diff)
+#             else:
+#                 alldiff += tf.reduce_mean(diff)
+#         return alldiff
+#
+#     return loss
 
 def embedding_loss():
     '''
@@ -820,10 +841,10 @@ class ParametricModel(keras.Model):
         #     # get one batch
             to_x, from_x, to_alpha, _, weight = x[0]
 
-            if self.e_var is None:
-                self.e_var = [var for var in self.trainable_variables if "e_" in var.name]
-            if self.d_var is None:
-                self.d_var = [var for var in self.trainable_variables if "d_" in var.name or "recon" in var.name]
+            # if self.e_var is None:
+            #     self.e_var = [var for var in self.trainable_variables if "e_" in var.name]
+            # if self.d_var is None:
+            #     self.d_var = [var for var in self.trainable_variables if "d_" in var.name or "recon" in var.name]
         else:
             to_x, from_x, weight = x[0]
 
@@ -843,7 +864,7 @@ class ParametricModel(keras.Model):
             reconstruct_loss = self.loss["reconstruction"](y_true=to_x, y_pred=embedding_to_recon)
 
             # umap loss
-            umap_loss = self.loss["umap"](_, embed_to_from=embedding_to_from)  # w_(t-1), no gradient
+            umap_loss = self.loss["umap"](None, embed_to_from=embedding_to_from)  # w_(t-1), no gradient
 
             if self.temporal:
                 # compute alpha bar
@@ -853,38 +874,35 @@ class ParametricModel(keras.Model):
                 # embedding loss
                 embed_loss_to = self.loss["embedding_to"](_, embedding_to)
                 embed_loss_to_recon = self.loss["embedding_to_recon"](_, embedding_to_recon)
-
-                final_grad_result_list = list()
-
-                grad_e_var = tape.gradient(tf.reduce_mean(embed_loss_to, axis=0), self.e_var)
-                for i in range(len(self.e_var)):
-                    final_grad_result_list.append(tf.math.abs(tf.stop_gradient(grad_e_var[i])))
-                grad_d_var = tape.gradient(tf.reduce_mean(embed_loss_to_recon, axis=0), self.d_var)
-                for i in range(len(self.d_var)):
-                    final_grad_result_list.append(tf.math.abs(tf.stop_gradient(grad_d_var[i])))
+                #
+                # final_grad_result_list = list()
+                #
+                # grad_e_var = tape.gradient(tf.reduce_mean(embed_loss_to, axis=0), self.e_var)
+                # for i in range(len(self.e_var)):
+                #     final_grad_result_list.append(tf.math.abs(tf.stop_gradient(grad_e_var[i])))
+                # grad_d_var = tape.gradient(tf.reduce_mean(embed_loss_to_recon, axis=0), self.d_var)
+                # for i in range(len(self.d_var)):
+                #     final_grad_result_list.append(tf.math.abs(tf.stop_gradient(grad_d_var[i])))
 
                 # L2 norm of w current - w for last epoch (subject model's epoch)
                 if self.prev_trainable_variables is not None:
                 # if len(weights_dict) != 0:
                     regularization_loss = self.loss["regularization"](w_prev=prev_trainable_variables,
                                                                       w_current=self.trainable_variables,
-                                                                      to_alpha=alpha_mean,
-                                                                      final_grad_result_list=final_grad_result_list)
+                                                                      to_alpha=alpha_mean)
                 # dummy zero-loss if no previous epoch
                 else:
                     prev_trainable_variables = [tf.stop_gradient(x) for x in self.trainable_variables]
                     regularization_loss = self.loss["regularization"](w_prev=prev_trainable_variables,
                                                                       w_current=self.trainable_variables,
-                                                                      to_alpha=alpha_mean,
-                                                                      final_grad_result_list=final_grad_result_list)
+                                                                      to_alpha=alpha_mean)
                     # aggregate loss, weighted average
                 loss = tf.add(tf.add(tf.math.multiply(tf.constant(self.loss_weights["reconstruction"]), reconstruct_loss),
                                      tf.math.multiply(tf.constant(self.loss_weights["umap"]), umap_loss)),
                               tf.math.multiply(tf.constant(self.loss_weights["regularization"]), regularization_loss))
             else:
-                loss = tf.add(
-                    tf.add(tf.math.multiply(tf.constant(self.loss_weights["reconstruction"]), reconstruct_loss),
-                           tf.math.multiply(tf.constant(self.loss_weights["umap"]), umap_loss)))
+                loss = tf.add(tf.math.multiply(tf.constant(self.loss_weights["reconstruction"]), reconstruct_loss),
+                           tf.math.multiply(tf.constant(self.loss_weights["umap"]), umap_loss))
 
         # Compute gradients
         trainable_vars = self.trainable_variables

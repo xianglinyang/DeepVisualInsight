@@ -28,7 +28,7 @@ def clustering(data, predictions, n_clusters_per_cls, n_class=10, verbose=0):
     t0 = time.time()
     for i in tqdm(range(n_class)):
         c = data[np.argwhere(predictions == i).squeeze()]
-        if len(c) == 0: # no data is predicted as label i
+        if len(c) < n_clusters_per_cls: # no data is predicted as label i
             continue
         else:
             # perform Kmeans clustering
