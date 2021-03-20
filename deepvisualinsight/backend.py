@@ -843,7 +843,7 @@ class ParametricModel(keras.Model):
             reconstruct_loss = self.loss["reconstruction"](y_true=to_x, y_pred=embedding_to_recon)
 
             # umap loss
-            umap_loss = self.loss["umap"](_, embed_to_from=embedding_to_from)  # w_(t-1), no gradient
+            umap_loss = self.loss["umap"](None, embed_to_from=embedding_to_from)  # w_(t-1), no gradient
 
             if self.temporal:
                 # compute alpha bar
@@ -882,9 +882,8 @@ class ParametricModel(keras.Model):
                                      tf.math.multiply(tf.constant(self.loss_weights["umap"]), umap_loss)),
                               tf.math.multiply(tf.constant(self.loss_weights["regularization"]), regularization_loss))
             else:
-                loss = tf.add(
-                    tf.add(tf.math.multiply(tf.constant(self.loss_weights["reconstruction"]), reconstruct_loss),
-                           tf.math.multiply(tf.constant(self.loss_weights["umap"]), umap_loss)))
+                loss = tf.add(tf.math.multiply(tf.constant(self.loss_weights["reconstruction"]), reconstruct_loss),
+                           tf.math.multiply(tf.constant(self.loss_weights["umap"]), umap_loss))
 
         # Compute gradients
         trainable_vars = self.trainable_variables

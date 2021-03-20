@@ -314,10 +314,10 @@ class MMS:
                     encoder = self.get_proj_model(n_epoch-self.period)
                     prev_embedding = encoder(prev_data).cpu().numpy()
                 alpha = find_alpha(prev_data, train_data, n_neighbors=15)
-                alpha[alpha < 0.5] = 0.0 # alpha >=0.5 is convincing
-                update_dists = find_update_dist(prev_data, train_data, sigmas, rhos)
-                update_dists[update_dists < 0.05] = 0.0
-                alpha = alpha*update_dists
+                alpha[alpha < 0.3] = 0.0 # alpha >=0.5 is convincing
+                # update_dists = find_update_dist(prev_data, train_data, sigmas, rhos)
+                # update_dists[update_dists < 0.05] = 0.0
+                # alpha = alpha*update_dists
                 (
                     edge_dataset,
                     batch_size,
@@ -1051,7 +1051,7 @@ class MMS:
 
     def proj_temporal_perseverance_train(self, n_neighbors=15):
         l = len(self.training_labels)
-        eval_num = int((self.epoch_end - self.epoch_start) / self.period) + 1
+        eval_num = int((self.epoch_end - self.epoch_start) / self.period)
         alpha = np.zeros((eval_num, l))
         delta_x = np.zeros((eval_num, l))
         for n_epoch in range(self.epoch_start+self.period, self.epoch_end+1, self.period):
@@ -1070,8 +1070,8 @@ class MMS:
             alpha_ = backend.find_alpha(prev_data, data, n_neighbors)
             delta_x_ = np.linalg.norm(prev_embedding - embedding, axis=1)
 
-            alpha[int((n_epoch - self.epoch_start) / self.period)] = alpha_
-            delta_x[int((n_epoch - self.epoch_start) / self.period)] = delta_x_
+            alpha[int((n_epoch - self.epoch_start) / self.period-1)] = alpha_
+            delta_x[int((n_epoch - self.epoch_start) / self.period-1)] = delta_x_
 
         # val_entropy = evaluate_proj_temporal_perseverance_entropy(alpha, delta_x)
         val_corr = evaluate_proj_temporal_perseverance_corr(alpha, delta_x)
@@ -1079,7 +1079,7 @@ class MMS:
 
     def proj_temporal_perseverance_test(self, n_neighbors=15):
         l = len(self.testing_labels)
-        eval_num = int((self.epoch_end - self.epoch_start) / self.period) + 1
+        eval_num = int((self.epoch_end - self.epoch_start) / self.period)
         alpha = np.zeros((eval_num, l))
         delta_x = np.zeros((eval_num, l))
         for n_epoch in range(self.epoch_start + self.period, self.epoch_end + 1, self.period):
@@ -1098,8 +1098,8 @@ class MMS:
 
             alpha_ = backend.find_alpha(prev_data, data, n_neighbors)
             delta_x_ = np.linalg.norm(prev_embedding - embedding, axis=1)
-            alpha[int((n_epoch - self.epoch_start) / self.period)] = alpha_
-            delta_x[int((n_epoch - self.epoch_start) / self.period)] = delta_x_
+            alpha[int((n_epoch - self.epoch_start) / self.period-1)] = alpha_
+            delta_x[int((n_epoch - self.epoch_start) / self.period-1)] = delta_x_
 
         # val_entropy = evaluate_proj_temporal_perseverance_entropy(alpha, delta_x)
         val_corr = evaluate_proj_temporal_perseverance_corr(alpha, delta_x)
@@ -1330,4 +1330,9 @@ class MMS:
         if not os.path.exists(index_file):
             return list()
         return load_labelled_data_index(index_file)
+
+    def get_epoch_index(self, epoch_id):
+        index_file = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "index.json")
+        index = load_labelled_data_index(index_file)
+        return index
 
