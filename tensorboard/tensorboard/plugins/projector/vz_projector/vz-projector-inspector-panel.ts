@@ -70,6 +70,7 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
   private displayContexts: string[];
   private projector: any; // Projector; type omitted b/c LegacyElement
   private selectedPointIndices: number[];
+  private currentPredicate: any;
   private neighborsOfFirstPoint: knn.NearestEntry[];
   private searchBox: any; // ProjectorInput; type omitted b/c LegacyElement
   private resetFilterButton: HTMLButtonElement;
@@ -434,11 +435,13 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
         this.projectorEventContext.notifySelectionChanged([]);
         return;
       }
-      const indices = projector.dataSet.query(
+      const result = projector.dataSet.query(
         value,
         inRegexMode,
         this.selectedMetadataField
       );
+      const indices = result[1];
+      this.currentPredicate = result[0];
       if (indices.length === 0) {
         this.searchBox.message = '0 matches.';
       } else {
@@ -454,7 +457,7 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
       const indices = this.selectedPointIndices.concat(
         this.neighborsOfFirstPoint.map((n) => n.index)
       );
-      projector.filterDataset(indices);
+      projector.filterDataset(indices, this.currentPredicate);
       this.enableResetFilterButton(true);
       this.updateFilterButtons(0);
     };
@@ -464,6 +467,7 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
     };
     this.clearSelectionButton.onclick = () => {
       projector.adjustSelectionAndHover([]);
+      this.currentPredicate = undefined;
     };
     this.enableResetFilterButton(false);
   }

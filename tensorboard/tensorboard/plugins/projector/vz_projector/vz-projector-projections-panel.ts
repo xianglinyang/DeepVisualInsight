@@ -874,11 +874,12 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     // only the nearest neighbors of A onto B-C where B and C are not nearest
     // neighbors of A.
     let accessor = (i: number) => this.originalDataSet.points[i].vector;
-    let r = this.originalDataSet.query(
+    let result = this.originalDataSet.query(
       pattern,
       inRegexMode,
       this.customSelectedSearchByMetadataOption
     );
+    let r = result[1];
     return {centroid: vector.centroid(r, accessor), numMatches: r.length};
   }
   getPcaSampledDimText() {
