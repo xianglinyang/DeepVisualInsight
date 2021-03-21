@@ -672,7 +672,8 @@ class MMS:
         diff = diff.reshape(-1, 1)
 
         color = color[:, 0:3]
-        color = diff * 0.5 * color + (1 - diff) * np.ones(color.shape, dtype=np.uint8)
+        # color = diff * 0.5 * color + (1 - diff) * np.ones(color.shape, dtype=np.uint8)
+        color = diff * 0.6 * color + (1 - diff) * np.ones(color.shape, dtype=np.uint8)
         decision_view = color.reshape(resolution, resolution, 3)
         grid_view = grid.reshape(resolution, resolution, 2)
         return grid_view, decision_view
@@ -1343,3 +1344,37 @@ class MMS:
         index_file = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "index.json")
         index = load_labelled_data_index(index_file)
         return index
+
+    def point_inv_preserve(self, epoch_id, data):
+        data = torch.unsqueeze(data, 0)
+        encoder = self.get_proj_model(epoch_id)
+        embedding = encoder(data).cpu().numpy()
+        del encoder
+        gc.collect()
+
+        decoder = self.get_inv_model(epoch_id)
+        inv_data = decoder(embedding).cpu().numpy()
+        del decoder
+        gc.collect()
+
+        ori_pred = self.get_pred(epoch_id, data).squeeze()
+        new_pred = self.get_pred(epoch_id, inv_data).squeeze()
+        old_label = ori_pred.argmax(-1)
+        new_label = new_pred.argmax(-1)
+        l = old_label == new_label
+
+        conf_diff = ori_pred[old_label] - new_pred[old_label]
+        
+        return l, conf_diff
+    
+    def training_accu_subject(self, epoch_id):
+        labels = self.get_epoch_train_labels(epoch_id)
+        pred = self.get_epoch_train_pred(epoch_id).argmax(-1)
+        
+        return np.sum(labels==pred) / len(labels)
+    
+    def testing_accu_subject(self, epoch_id):
+        labels = self.get_epoch_test_labels(epoch_id)
+        pred = self.get_epoch_test_pred(epoch_id).argmax(-1)
+        
+        return np.sum(labels==pred) / len(labels)
