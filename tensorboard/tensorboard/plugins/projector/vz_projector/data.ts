@@ -396,7 +396,7 @@ export class DataSet {
   /** Runs tsne on the data. */
   async projectDVI (
       iteration: number,
-      stepCallback: (iter: number, evaluation:any, totalIter?: number) => void
+      stepCallback: (iter: number, evaluation:any, newSelection: any[], totalIter?: number) => void
   ) {
     this.projections['tsne'] = true;
     function componentToHex(c: number) {
@@ -547,13 +547,14 @@ export class DataSet {
 
         this.DVICurrentRealDataNumber = real_data_number;
         this.DVIRealDataNumber[iteration] = real_data_number;
-        stepCallback(this.tSNEIteration, evaluation, this.tSNETotalIter);
+        stepCallback(this.tSNEIteration, evaluation, new_selection, this.tSNETotalIter);
     });
     } else {
       const validDataNumber = this.DVIValidPointNumber[iteration];
       const evaluation = this.DVIEvaluation[iteration];
       this.tSNEIteration = iteration;
       const matches = this.get_match();
+      const newSelection = [];
       for (let i = 0; i < validDataNumber; i++) {
         let dataPoint = this.points[i];
         dataPoint.projections['tsne-0'] = dataPoint.DVI_projections[iteration][0];
@@ -575,6 +576,9 @@ export class DataSet {
             }
          }
         dataPoint.current_new_selection = dataPoint.new_selection[iteration];
+        if(dataPoint.current_new_selection) {
+          newSelection.push(i);
+        }
       }
       for (let i = validDataNumber; i < this.points.length; i++) {
         let dataPoint = this.points[i];
@@ -583,7 +587,7 @@ export class DataSet {
           dataPoint.current_training = false;
       }
       this.DVICurrentRealDataNumber = this.DVIRealDataNumber[iteration];
-      stepCallback(this.tSNEIteration, evaluation, this.tSNETotalIter);
+      stepCallback(this.tSNEIteration, evaluation, newSelection, this.tSNETotalIter);
     }
   }
 
