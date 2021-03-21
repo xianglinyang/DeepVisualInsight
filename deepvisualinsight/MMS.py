@@ -260,7 +260,7 @@ class MMS:
                     encoder = encoder_in
                 if decoder_in is not None:
                     decoder = decoder_in
-                parametric_model = ParametricModel(self, encoder, decoder, optimizer, losses, loss_weights,
+                parametric_model = ParametricModel(encoder, decoder, optimizer, losses, loss_weights,
                                                    self.temporal,
                                                    prev_trainable_variables=None)
             parametric_model.compile(
@@ -314,10 +314,10 @@ class MMS:
                     encoder = self.get_proj_model(n_epoch-self.period)
                     prev_embedding = encoder(prev_data).cpu().numpy()
                 alpha = find_alpha(prev_data, train_data, n_neighbors=15)
-                alpha[alpha < 0.5] = 0.0 # alpha >=0.5 is convincing
-                update_dists = find_update_dist(prev_data, train_data, sigmas, rhos)
-                update_dists[update_dists < 0.05] = 0.0
-                alpha = alpha*update_dists
+                alpha[alpha < 0.3] = 0.0 # alpha >=0.5 is convincing
+                # update_dists = find_update_dist(prev_data, train_data, sigmas, rhos)
+                # update_dists[update_dists < 0.05] = 0.0
+                # alpha = alpha*update_dists
                 (
                     edge_dataset,
                     batch_size,
@@ -672,7 +672,8 @@ class MMS:
         diff = diff.reshape(-1, 1)
 
         color = color[:, 0:3]
-        color = diff * 0.5 * color + (1 - diff) * np.ones(color.shape, dtype=np.uint8)
+        # color = diff * 0.5 * color + (1 - diff) * np.ones(color.shape, dtype=np.uint8)
+        color = diff * 0.6 * color + (1 - diff) * np.ones(color.shape, dtype=np.uint8)
         decision_view = color.reshape(resolution, resolution, 3)
         grid_view = grid.reshape(resolution, resolution, 2)
         return grid_view, decision_view
@@ -799,13 +800,13 @@ class MMS:
         for c in range(self.class_num):
             color = self.cmap(c/(self.class_num-1))
             plot = self.ax.plot([], [], '^', markeredgecolor=color,
-                fillstyle='full', ms=3, mew=3, zorder=1)
+                fillstyle='full', ms=9, mew=9, zorder=1)
             self.sample_plots.append(plot[0])
 
         # highlight
         color = (0.0, 0.0, 0.0, 1.0)
         plot = self.ax.plot([], [], 'o', markeredgecolor=color,
-                            fillstyle='full', ms=1.5, mew=1.5, zorder=3)
+                            fillstyle='full', ms=2.0, mew=2.0, zorder=3)
         self.sample_plots.append(plot[0])
 
         # set the mouse-event listeners
@@ -1051,7 +1052,7 @@ class MMS:
 
     def proj_temporal_perseverance_train(self, n_neighbors=15):
         l = len(self.training_labels)
-        eval_num = int((self.epoch_end - self.epoch_start) / self.period) + 1
+        eval_num = int((self.epoch_end - self.epoch_start) / self.period)
         alpha = np.zeros((eval_num, l))
         delta_x = np.zeros((eval_num, l))
         for n_epoch in range(self.epoch_start+self.period, self.epoch_end+1, self.period):
@@ -1061,6 +1062,10 @@ class MMS:
             encoder = self.get_proj_model(n_epoch - self.period)
             prev_embedding = encoder(prev_data).cpu().numpy()
 
+            del encoder
+            gc.collect()
+
+            encoder = self.get_proj_model(n_epoch)
             data = self.get_epoch_train_repr_data(n_epoch)
             embedding = encoder(data).cpu().numpy()
 
@@ -1070,8 +1075,8 @@ class MMS:
             alpha_ = backend.find_alpha(prev_data, data, n_neighbors)
             delta_x_ = np.linalg.norm(prev_embedding - embedding, axis=1)
 
-            alpha[int((n_epoch - self.epoch_start) / self.period)] = alpha_
-            delta_x[int((n_epoch - self.epoch_start) / self.period)] = delta_x_
+            alpha[int((n_epoch - self.epoch_start) / self.period - 1)] = alpha_
+            delta_x[int((n_epoch - self.epoch_start) / self.period - 1)] = delta_x_
 
         # val_entropy = evaluate_proj_temporal_perseverance_entropy(alpha, delta_x)
         val_corr = evaluate_proj_temporal_perseverance_corr(alpha, delta_x)
@@ -1079,7 +1084,7 @@ class MMS:
 
     def proj_temporal_perseverance_test(self, n_neighbors=15):
         l = len(self.testing_labels)
-        eval_num = int((self.epoch_end - self.epoch_start) / self.period) + 1
+        eval_num = int((self.epoch_end - self.epoch_start) / self.period)
         alpha = np.zeros((eval_num, l))
         delta_x = np.zeros((eval_num, l))
         for n_epoch in range(self.epoch_start + self.period, self.epoch_end + 1, self.period):
@@ -1089,7 +1094,11 @@ class MMS:
             encoder = self.get_proj_model(n_epoch - self.period)
             prev_embedding = encoder(prev_data).cpu().numpy()
 
+            del encoder
+            gc.collect()
+
             # data = self.get_representation_data(n_epoch, self.testing_data)
+            encoder = self.get_proj_model(n_epoch)
             data = self.get_epoch_test_repr_data(n_epoch)
             embedding = encoder(data).cpu().numpy()
 
@@ -1098,8 +1107,8 @@ class MMS:
 
             alpha_ = backend.find_alpha(prev_data, data, n_neighbors)
             delta_x_ = np.linalg.norm(prev_embedding - embedding, axis=1)
-            alpha[int((n_epoch - self.epoch_start) / self.period)] = alpha_
-            delta_x[int((n_epoch - self.epoch_start) / self.period)] = delta_x_
+            alpha[int((n_epoch - self.epoch_start) / self.period - 1)] = alpha_
+            delta_x[int((n_epoch - self.epoch_start) / self.period - 1)] = delta_x_
 
         # val_entropy = evaluate_proj_temporal_perseverance_entropy(alpha, delta_x)
         val_corr = evaluate_proj_temporal_perseverance_corr(alpha, delta_x)
@@ -1323,7 +1332,7 @@ class MMS:
         prev_index = load_labelled_data_index(prev_index_file)
         new_I = len(index) - len(prev_index)
 
-        return index[new_I:]
+        return index[-new_I:]
 
     def noisy_data_index(self):
         index_file = os.path.join(self.model_path, "index.json")
@@ -1331,3 +1340,41 @@ class MMS:
             return list()
         return load_labelled_data_index(index_file)
 
+    def get_epoch_index(self, epoch_id):
+        index_file = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "index.json")
+        index = load_labelled_data_index(index_file)
+        return index
+
+    def point_inv_preserve(self, epoch_id, data):
+        data = torch.unsqueeze(data, 0)
+        encoder = self.get_proj_model(epoch_id)
+        embedding = encoder(data).cpu().numpy()
+        del encoder
+        gc.collect()
+
+        decoder = self.get_inv_model(epoch_id)
+        inv_data = decoder(embedding).cpu().numpy()
+        del decoder
+        gc.collect()
+
+        ori_pred = self.get_pred(epoch_id, data).squeeze()
+        new_pred = self.get_pred(epoch_id, inv_data).squeeze()
+        old_label = ori_pred.argmax(-1)
+        new_label = new_pred.argmax(-1)
+        l = old_label == new_label
+
+        conf_diff = ori_pred[old_label] - new_pred[old_label]
+        
+        return l, conf_diff
+    
+    def training_accu_subject(self, epoch_id):
+        labels = self.get_epoch_train_labels(epoch_id)
+        pred = self.get_epoch_train_pred(epoch_id).argmax(-1)
+        
+        return np.sum(labels==pred) / len(labels)
+    
+    def testing_accu_subject(self, epoch_id):
+        labels = self.get_epoch_test_labels(epoch_id)
+        pred = self.get_epoch_test_pred(epoch_id).argmax(-1)
+        
+        return np.sum(labels==pred) / len(labels)
