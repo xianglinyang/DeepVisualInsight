@@ -570,7 +570,9 @@ export class DataSet {
         if(dataPoint.current_prediction == dataPoint.metadata['label']) {
             dataPoint.current_wrong_prediction = false;
           } else {
-            dataPoint.current_wrong_prediction = true;
+            if(dataPoint.metadata['label'] != "background") {
+              dataPoint.current_wrong_prediction = true;
+            }
          }
         dataPoint.current_new_selection = dataPoint.new_selection[iteration];
       }
