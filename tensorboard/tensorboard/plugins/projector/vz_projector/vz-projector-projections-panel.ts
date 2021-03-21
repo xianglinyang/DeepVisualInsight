@@ -329,12 +329,12 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
         this.previousDVIButton.disabled = true;
       }
       this.dataSet.projectDVI(this.dataSet.tSNEIteration - 1,
-          (iteration: number, evaluation:any, totalIter?: number) => {
+          (iteration: number, evaluation:any, newSelection:any[], totalIter?: number) => {
         if (iteration != null) {
           this.iterationLabelTsne.innerText = '' + iteration;
           this.totalIterationLabelDVI.innerText = '' + totalIter;
           this.updateEvaluationInformation(evaluation);
-          this.projector.notifyProjectionPositionsUpdated();
+          this.projector.notifyProjectionPositionsUpdated(newSelection);
           this.projector.onProjectionChanged();
         } else {
           this.projector.onProjectionChanged();
@@ -346,12 +346,12 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
       this.nextDVIButton.disabled = true;
       this.previousDVIButton.disabled = true;
       this.dataSet.projectDVI(this.dataSet.tSNEIteration + 1,
-          (iteration: number, evaluation:any, totalIter?: number) => {
+          (iteration: number, evaluation:any, newSelection:any[], totalIter?: number) => {
         if (iteration != null) {
           this.iterationLabelTsne.innerText = '' + iteration;
           this.totalIterationLabelDVI.innerText = '' + totalIter;
           this.updateEvaluationInformation(evaluation);
-          this.projector.notifyProjectionPositionsUpdated();
+          this.projector.notifyProjectionPositionsUpdated(newSelection);
           this.projector.onProjectionChanged();
           if(this.dataSet.tSNEIteration > 1) {
             this.previousDVIButton.disabled = false;

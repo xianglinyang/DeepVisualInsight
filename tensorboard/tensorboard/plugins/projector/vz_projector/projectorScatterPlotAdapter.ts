@@ -51,6 +51,7 @@ const POINT_SCALE_DEFAULT = 1.0;
 const POINT_SCALE_SELECTED = 1.2;
 const POINT_SCALE_NEIGHBOR = 1.2;
 const POINT_SCALE_HOVER = 1.2;
+const POINT_SCALE_NEW_SELECTION = 2;
 
 const LABELS_3D_COLOR_UNSELECTED = 0xffffff;
 const LABELS_3D_COLOR_NO_SELECTION = 0xffffff;
@@ -86,6 +87,7 @@ export class ProjectorScatterPlotAdapter {
   private projection: Projection;
   private hoverPointIndex: number;
   private selectedPointIndices: number[];
+  private newSelectionIndices: any[];
   private neighborsOfFirstSelectedPoint: knn.NearestEntry[];
   private renderLabelsIn3D: boolean = false;
   private labelPointAccessor: string;
@@ -130,8 +132,12 @@ export class ProjectorScatterPlotAdapter {
     );
     this.createVisualizers(false);
   }
-  notifyProjectionPositionsUpdated() {
+  notifyProjectionPositionsUpdated(newSelection?: any[]) {
+    if(newSelection != undefined) {
+      this.newSelectionIndices = newSelection;
+    }
     this.updateScatterPlotPositions();
+    this.updateScatterPlotAttributes();
     this.scatterPlot.render();
   }
   setDataSet(dataSet: DataSet) {
@@ -219,6 +225,7 @@ export class ProjectorScatterPlotAdapter {
     }
     const dataSet = this.projection.dataSet;
     const selectedSet = this.selectedPointIndices;
+    const newSelectionSet = this.newSelectionIndices;
     const hoverIndex = this.hoverPointIndex;
     const neighbors = this.neighborsOfFirstSelectedPoint;
     const pointColorer = this.legendPointColorer;
@@ -235,6 +242,7 @@ export class ProjectorScatterPlotAdapter {
     const pointScaleFactors = this.generatePointScaleFactorArray(
       dataSet,
       selectedSet,
+      newSelectionSet,
       neighbors,
       hoverIndex
     );
@@ -443,6 +451,7 @@ export class ProjectorScatterPlotAdapter {
   generatePointScaleFactorArray(
     ds: DataSet,
     selectedPointIndices: number[],
+    newSelectionIndices: any[],
     neighborsOfFirstPoint: knn.NearestEntry[],
     hoverPointIndex: number
   ): Float32Array {
@@ -455,6 +464,8 @@ export class ProjectorScatterPlotAdapter {
       selectedPointIndices == null ? 0 : selectedPointIndices.length;
     const neighborCount =
       neighborsOfFirstPoint == null ? 0 : neighborsOfFirstPoint.length;
+    const newSelectionCount =
+      newSelectionIndices == null ? 0 : newSelectionIndices.length;
     // Scale up all selected points.
     {
       const n = selectedPointCount;
@@ -469,6 +480,13 @@ export class ProjectorScatterPlotAdapter {
       for (let i = 0; i < n; ++i) {
         const p = neighborsOfFirstPoint[i].index;
         scale[p] = POINT_SCALE_NEIGHBOR;
+      }
+    }
+    {
+      const n = newSelectionCount;
+      for (let i = 0; i < n; ++i) {
+        const p = newSelectionIndices[i];
+        scale[p] = POINT_SCALE_NEW_SELECTION;
       }
     }
     // Scale up the hover point.
