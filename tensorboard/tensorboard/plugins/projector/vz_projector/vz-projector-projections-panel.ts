@@ -329,12 +329,12 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
         this.previousDVIButton.disabled = true;
       }
       this.dataSet.projectDVI(this.dataSet.tSNEIteration - 1,
-          (iteration: number, evaluation:any, totalIter?: number) => {
+          (iteration: number, evaluation:any, newSelection:any[], totalIter?: number) => {
         if (iteration != null) {
           this.iterationLabelTsne.innerText = '' + iteration;
           this.totalIterationLabelDVI.innerText = '' + totalIter;
           this.updateEvaluationInformation(evaluation);
-          this.projector.notifyProjectionPositionsUpdated();
+          this.projector.notifyProjectionPositionsUpdated(newSelection);
           this.projector.onProjectionChanged();
         } else {
           this.projector.onProjectionChanged();
@@ -346,12 +346,12 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
       this.nextDVIButton.disabled = true;
       this.previousDVIButton.disabled = true;
       this.dataSet.projectDVI(this.dataSet.tSNEIteration + 1,
-          (iteration: number, evaluation:any, totalIter?: number) => {
+          (iteration: number, evaluation:any, newSelection:any[], totalIter?: number) => {
         if (iteration != null) {
           this.iterationLabelTsne.innerText = '' + iteration;
           this.totalIterationLabelDVI.innerText = '' + totalIter;
           this.updateEvaluationInformation(evaluation);
-          this.projector.notifyProjectionPositionsUpdated();
+          this.projector.notifyProjectionPositionsUpdated(newSelection);
           this.projector.onProjectionChanged();
           if(this.dataSet.tSNEIteration > 1) {
             this.previousDVIButton.disabled = false;
@@ -874,11 +874,12 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     // only the nearest neighbors of A onto B-C where B and C are not nearest
     // neighbors of A.
     let accessor = (i: number) => this.originalDataSet.points[i].vector;
-    let r = this.originalDataSet.query(
+    let result = this.originalDataSet.query(
       pattern,
       inRegexMode,
       this.customSelectedSearchByMetadataOption
     );
+    let r = result[1];
     return {centroid: vector.centroid(r, accessor), numMatches: r.length};
   }
   getPcaSampledDimText() {

@@ -282,13 +282,13 @@ class Projector
   registerSelectionChangedListener(listener: SelectionChangedListener) {
     this.selectionChangedListeners.push(listener);
   }
-  filterDataset(pointIndices: number[]) {
+  filterDataset(pointIndices: number[], predicate: any) {
     const selectionSize = this.selectedPointIndices.length;
     /*
     if (this.dataSetBeforeFilter == null) {
       this.dataSetBeforeFilter = this.dataSet;
     }*/
-    this.dataSet.setDVIFilteredData(pointIndices);
+    this.dataSet.setDVIFilteredData(pointIndices, predicate);
     //this.setCurrentDataSet(this.dataSet.getSubset(pointIndices));
     this.dataSetFilterIndices = pointIndices;
     this.projectorScatterPlotAdapter.updateScatterPlotPositions();
@@ -305,7 +305,7 @@ class Projector
       this.projection.dataSet = this.dataSetBeforeFilter;
     }
     this.dataSetBeforeFilter = null;*/
-    this.dataSet.setDVIFilteredData([]);
+    this.dataSet.setDVIFilteredData([], undefined);
     this.projectorScatterPlotAdapter.updateScatterPlotPositions();
     this.projectorScatterPlotAdapter.updateScatterPlotAttributes();
     this.dataSetFilterIndices = [];
@@ -632,8 +632,8 @@ class Projector
     }
     this.notifyProjectionChanged(projection);
   }
-  notifyProjectionPositionsUpdated() {
-    this.projectorScatterPlotAdapter.notifyProjectionPositionsUpdated();
+  notifyProjectionPositionsUpdated(newSelection?: any[]) {
+    this.projectorScatterPlotAdapter.notifyProjectionPositionsUpdated(newSelection);
   }
   /**
    * Gets the current view of the embedding and saves it as a State object.
@@ -674,7 +674,7 @@ class Projector
         this.resetFilterDataset();
       }
       if (state.filteredPoints != null) {
-        this.filterDataset(state.filteredPoints);
+        this.filterDataset(state.filteredPoints, undefined);
       }
       this.projectionsPanel.enablePolymerChangesTriggerReprojection();
     }

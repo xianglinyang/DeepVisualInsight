@@ -187,7 +187,7 @@ export class DataSet {
   } = [];
   DVIAvailableIteration: Array<number> = [];
   DVIVisualizeDataPath = "";
-  DVIFilteredData: Array<number> = [];
+  DVIPredicates: any[] = [];
   superviseFactor: number;
   superviseLabels: string[];
   superviseInput: string = '';
@@ -373,8 +373,7 @@ export class DataSet {
       }
     });
   }
-  setDVIFilteredData(pointIndices: number[]) {
-    this.DVIFilteredData = pointIndices;
+  setDVIFilteredData(pointIndices: number[], predicate: any) {
     if(pointIndices.length > 0) {
       for (let i = 0; i < this.points.length; i++) {
         if (pointIndices.indexOf(i) == -1 && i < this.DVICurrentRealDataNumber) {
@@ -382,6 +381,7 @@ export class DataSet {
           dataPoint.projections = {};
         }
       }
+      this.DVIPredicates.push(predicate);
     } else {
       for (let i = 0; i < this.points.length; i++) {
         let dataPoint = this.points[i];
@@ -389,13 +389,14 @@ export class DataSet {
         dataPoint.projections['tsne-1'] = dataPoint.DVI_projections[this.tSNEIteration][1];
         dataPoint.projections['tsne-2'] = 0;
       }
+      this.DVIPredicates = [];
     }
   }
 
   /** Runs tsne on the data. */
   async projectDVI (
       iteration: number,
-      stepCallback: (iter: number, evaluation:any, totalIter?: number) => void
+      stepCallback: (iter: number, evaluation:any, newSelection: any[], totalIter?: number) => void
   ) {
     this.projections['tsne'] = true;
     function componentToHex(c: number) {
@@ -471,6 +472,7 @@ export class DataSet {
             dataPoint.new_selection = {};
           }
         }
+        const matches = this.get_match();
         for (let i = 0; i < real_data_number; i++) {
           let dataPoint = this.points[i];
           dataPoint.projections['tsne-0'] = result[i][0];
@@ -479,7 +481,7 @@ export class DataSet {
           dataPoint.color = rgbToHex(label_color_list[i][0], label_color_list[i][1], label_color_list[i][2]);
           dataPoint.DVI_projections[iteration] = [result[i][0], result[i][1]];
           dataPoint.DVI_color[iteration] = dataPoint.color;
-          if (this.DVIFilteredData.length != 0 && this.DVIFilteredData.indexOf(i) == -1
+          if (matches.length != 0 && matches.indexOf(i) == -1
               && i < this.DVICurrentRealDataNumber) {
             dataPoint.projections = {}
           }
@@ -545,19 +547,21 @@ export class DataSet {
 
         this.DVICurrentRealDataNumber = real_data_number;
         this.DVIRealDataNumber[iteration] = real_data_number;
-        stepCallback(this.tSNEIteration, evaluation, this.tSNETotalIter);
+        stepCallback(this.tSNEIteration, evaluation, new_selection, this.tSNETotalIter);
     });
     } else {
       const validDataNumber = this.DVIValidPointNumber[iteration];
       const evaluation = this.DVIEvaluation[iteration];
       this.tSNEIteration = iteration;
+      const matches = this.get_match();
+      const newSelection = [];
       for (let i = 0; i < validDataNumber; i++) {
         let dataPoint = this.points[i];
         dataPoint.projections['tsne-0'] = dataPoint.DVI_projections[iteration][0];
         dataPoint.projections['tsne-1'] = dataPoint.DVI_projections[iteration][1];
         dataPoint.projections['tsne-2'] = 0;
         dataPoint.color = dataPoint.DVI_color[iteration];
-         if (this.DVIFilteredData.length != 0 && this.DVIFilteredData.indexOf(i) == -1
+         if (matches.length != 0 && matches.indexOf(i) == -1
               && i < this.DVICurrentRealDataNumber) {
             dataPoint.projections = {}
           }
@@ -567,9 +571,14 @@ export class DataSet {
         if(dataPoint.current_prediction == dataPoint.metadata['label']) {
             dataPoint.current_wrong_prediction = false;
           } else {
-            dataPoint.current_wrong_prediction = true;
+            if(dataPoint.metadata['label'] != "background") {
+              dataPoint.current_wrong_prediction = true;
+            }
          }
         dataPoint.current_new_selection = dataPoint.new_selection[iteration];
+        if(dataPoint.current_new_selection) {
+          newSelection.push(i);
+        }
       }
       for (let i = validDataNumber; i < this.points.length; i++) {
         let dataPoint = this.points[i];
@@ -578,7 +587,7 @@ export class DataSet {
           dataPoint.current_training = false;
       }
       this.DVICurrentRealDataNumber = this.DVIRealDataNumber[iteration];
-      stepCallback(this.tSNEIteration, evaluation, this.tSNETotalIter);
+      stepCallback(this.tSNEIteration, evaluation, newSelection, this.tSNETotalIter);
     }
   }
 
@@ -965,11 +974,36 @@ export class DataSet {
   /**
    * Search the dataset based on a metadata field.
    */
-  query(query: string, inRegexMode: boolean, fieldName: string): number[] {
+  query(query: string, inRegexMode: boolean, fieldName: string): [any, number[]] {
     let predicate = util.getSearchPredicate(query, inRegexMode, fieldName);
     let matches: number[] = [];
     this.points.forEach((point, id) => {
-      if (predicate(point)) {
+      let result = true;
+      for(let i = 0; i < this.DVIPredicates.length; i++) {
+        const current_predicate = this.DVIPredicates[i];
+        if (!current_predicate(point)) {
+          result = false;
+          break;
+        }
+      }
+      if (result && predicate(point)) {
+        matches.push(id);
+      }
+    });
+    return [predicate, matches];
+  }
+  get_match() {
+    let matches: number[] = [];
+    this.points.forEach((point, id) => {
+      let result = true;
+      for(let i = 0; i < this.DVIPredicates.length; i++) {
+        const current_predicate = this.DVIPredicates[i];
+        if (!current_predicate(point)) {
+          result = false;
+          break;
+        }
+      }
+      if (result) {
         matches.push(id);
       }
     });
