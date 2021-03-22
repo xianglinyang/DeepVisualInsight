@@ -52,6 +52,7 @@ const POINT_SCALE_SELECTED = 1.2;
 const POINT_SCALE_NEIGHBOR = 1.2;
 const POINT_SCALE_HOVER = 1.2;
 const POINT_SCALE_NEW_SELECTION = 2;
+const POINT_SCALE_SELECTED_NEW_SELECTION = 2.4;
 
 const LABELS_3D_COLOR_UNSELECTED = 0xffffff;
 const LABELS_3D_COLOR_NO_SELECTION = 0xffffff;
@@ -466,6 +467,11 @@ export class ProjectorScatterPlotAdapter {
       neighborsOfFirstPoint == null ? 0 : neighborsOfFirstPoint.length;
     const newSelectionCount =
       newSelectionIndices == null ? 0 : newSelectionIndices.length;
+    const selectedNewSelectionIndices =
+        (selectedPointIndices == null || newSelectionIndices == null) ? null :
+            selectedPointIndices.filter(value => {newSelectionIndices.includes(value)});
+    const selectedNewSelectionCount =
+        selectedNewSelectionIndices == null ? 0 : selectedPointIndices.length;
     // Scale up all selected points.
     {
       const n = selectedPointCount;
@@ -487,6 +493,13 @@ export class ProjectorScatterPlotAdapter {
       for (let i = 0; i < n; ++i) {
         const p = newSelectionIndices[i];
         scale[p] = POINT_SCALE_NEW_SELECTION;
+      }
+    }
+    {
+      const n = selectedNewSelectionCount;
+      for (let i = 0; i < n; ++i) {
+        const p = selectedNewSelectionIndices[i];
+        scale[p] = POINT_SCALE_SELECTED_NEW_SELECTION;
       }
     }
     // Scale up the hover point.
