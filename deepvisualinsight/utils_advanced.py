@@ -43,7 +43,7 @@ def clustering(data, predictions, n_clusters_per_cls, n_class=10, verbose=0):
     return kmeans_result, predictions
 
 
-def cw_l2_attack(model, image, label, target_cls, target_gap, device, diff=0.1,
+def cw_l2_attack(model, split, image, label, target_cls, target_gap, device, diff=0.1,
                  c=1, kappa=0, max_iter=25, learning_rate=0.1, verbose=1) :
     '''
     Implementation of C&W L2 targeted attack, Modified from https://github.com/Harry24k/CW-pytorch
@@ -89,8 +89,8 @@ def cw_l2_attack(model, image, label, target_cls, target_gap, device, diff=0.1,
         loss2 = torch.sum(c*f(a)) # c*{f(label) - f(target_cls)}
         
         # Add a third loss to minimize the distance between gap layers
-        gap_a = gap_model(model)(a)
-        gap_a = gap_a.view((gap_a.shape[0], gap_a.shape[1]))
+        gap_a = gap_model(model, split)(a)
+        gap_a = gap_a.view((gap_a.shape[0], -1))
         loss3 = nn.MSELoss(reduction='sum')(gap_a, target_gap.to(device)) 
 
         cost = loss1 + loss2 + loss3
@@ -129,7 +129,7 @@ def cw_l2_attack(model, image, label, target_cls, target_gap, device, diff=0.1,
     return attack_images.detach().cpu(), successful, step
 
 
-def get_border_points(model, input_x, gaps, confs, kmeans_result, predictions, device,
+def get_border_points(model, split, input_x, gaps, confs, kmeans_result, predictions, device,
                       num_adv_eg=5000, num_cls=10, n_clusters_per_cls=10, verbose=1):
     '''Get BPs
     :param model: subject model
@@ -195,10 +195,10 @@ def get_border_points(model, input_x, gaps, confs, kmeans_result, predictions, d
         gap2 = gaps[data2_index[image2_idx]]
 
         # attack from cluster 1 to cluster 2
-        attack1, successful1, attack_step1 = cw_l2_attack(model, image1.to(device), cls1, cls2, gap2, device)
+        attack1, successful1, attack_step1 = cw_l2_attack(model, split, image1.to(device, dtype=torch.float), cls1, cls2, gap2, device)
 
         # attack from cluster 2 to cluster 1
-        attack2, successful2, attack_step2 = cw_l2_attack(model, image2.to(device), cls2, cls1, gap1, device)
+        attack2, successful2, attack_step2 = cw_l2_attack(model, split, image2.to(device, dtype=torch.float), cls2, cls1, gap1, device)
 
         if successful1:
             adv_examples = torch.cat((adv_examples, attack1), dim=0)
@@ -221,7 +221,7 @@ def get_border_points(model, input_x, gaps, confs, kmeans_result, predictions, d
     return adv_examples, attack_steps_ct
 
 
-def batch_run(model, data, device, batch_size=200):
+def batch_run(model, split, data, device, batch_size=200):
     '''Get GAP layers and predicted labels for data
     :param model: subject model
     :param data: images torch.Tensor of shape (N, C, H, W)
@@ -241,8 +241,8 @@ def batch_run(model, data, device, batch_size=200):
         inputs = inputs.to(device, dtype=torch.float)
         
         with torch.no_grad():
-            gap = gap_model(model)(inputs) # get GAP layers
-            gap = gap.view((gap.shape[0], gap.shape[1])) # flatten GAP layers
+            gap = gap_model(model, split)(inputs) # get GAP layers
+            gap = gap.view((gap.shape[0], -1)) # flatten GAP layers
             
             conf = model(inputs)
 
@@ -266,8 +266,8 @@ def softmax_model(model): # softmax layer
     return torch.nn.Sequential(*(list(model.children())[-1:]))
 
 
-def gap_model(model): # GAP layer
-    return torch.nn.Sequential(*(list(model.children())[:-1]))
+def gap_model(model, split): # GAP layer
+    return torch.nn.Sequential(*(list(model.children())[:split]))
 
 ##################################################################################################################
 
