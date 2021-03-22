@@ -139,12 +139,13 @@ class MMS:
 
             if self.advance_border_gen:
                 t0 = time.time()
-                gaps, preds, confs = utils_advanced.batch_run(self.model, training_data, self.device, batch_size=200)
+                gaps, preds, confs = utils_advanced.batch_run(self.model, self.split, training_data, self.device, batch_size=200)
                 # Kmeans clustering
                 kmeans_result, predictions = utils_advanced.clustering(gaps.numpy(), preds.numpy(),
                                                                        n_clusters_per_cls=10)
                 # Adversarial attacks
                 border_points, _ = utils_advanced.get_border_points(model=self.model,
+                                                                    split=self.split,
                                                                     input_x=training_data, gaps=gaps,
                                                                     confs=confs,
                                                                     kmeans_result=kmeans_result,
