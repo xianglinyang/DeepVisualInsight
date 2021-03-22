@@ -549,13 +549,13 @@ def define_losses(batch_size, temporal):
         losses["regularization"] = regularize_loss_fn
         loss_weights["regularization"] = 0.5  # TODO: change this weight
 
-        # embedding_to_loss_fn = embedding_loss()
-        # losses["embedding_to"] = embedding_to_loss_fn
-        # loss_weights["embedding_to"] = 1.0
-        #
-        # embedding_to_recon_loss_fn = embedding_loss()
-        # losses["embedding_to_recon"] = embedding_to_recon_loss_fn
-        # loss_weights["embedding_to_recon"] = 1.0
+        embedding_to_loss_fn = embedding_loss()
+        losses["embedding_to"] = embedding_to_loss_fn
+        loss_weights["embedding_to"] = 1.0
+
+        embedding_to_recon_loss_fn = embedding_loss()
+        losses["embedding_to_recon"] = embedding_to_recon_loss_fn
+        loss_weights["embedding_to_recon"] = 1.0
 
     # if temporal:
     #     temporal_loss_fn = temporal_loss()
