@@ -33,8 +33,19 @@ def animation():
     
     path_files = os.listdir(path+'/Model')
     maximum_iteration = len(path_files) - 2
-    data = torch.load(data_path + "/testing_dataset_data.pth")
-    labels = torch.load(data_path + "/testing_dataset_label.pth").tolist()
+    
+    training_data = torch.load(data_path + "/training_dataset_data.pth")
+    training_labels = torch.load(data_path + "/training_dataset_label.pth")
+    testing_data = torch.load(data_path + "/testing_dataset_data.pth")
+    testing_labels = torch.load(data_path + "/testing_dataset_label.pth")
+    
+    training_data_number = training_data.shape[0]
+    testing_data_number = testing_data.shape[0]
+    training_data_index = list(range(0, training_data_number))
+    testing_data_index = list(range(training_data_number, training_data_number + testing_data_number))
+    data = torch.cat((training_data, testing_data), 0)
+    labels = torch.cat((training_labels, testing_labels), 0).tolist()
+    
     if not res['cache']:
         prepare_data(path, data, iteration, resolution, folder_path, False)
 
@@ -53,12 +64,35 @@ def animation():
     with open(folder_path+'/color.npy', 'rb') as f:
         standard_color = np.load(f)*255
         standard_color = standard_color.astype(int).tolist()
+    
+    with open(folder_path+'/evaluation_'+str(iteration)+'.json', 'r') as f:
+        evaluation = json.load(f)
+        evaluation_new = evaluation
+        for item in evaluation:
+          value = evaluation[item]
+          value = round(value, 2)
+          evaluation_new[item] = value    
 
     label_color_list = []
+    classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
+    label_list = []
     for label in labels:
         label_color_list.append(standard_color[label])
-
-    return make_response(jsonify({'result': result, 'grid_index': grid_index, 'grid_color': grid_color, 'label_color_list':label_color_list, 'maximum_iteration':maximum_iteration}), 200)
+        label_list.append(classes[label])
+    
+    prediction_list = []
+    with open(folder_path+'/prediction_'+str(iteration)+'.npy', 'rb') as f:
+         prediction = np.load(f).tolist()
+         for pred in prediction:
+             prediction_list.append(classes[pred])
+    
+    with open(folder_path+'/current_training_'+str(iteration)+'.json', 'r') as f:
+         current_training = json.load(f)
+    
+    with open(folder_path+'/new_selection_'+str(iteration)+'.json', 'r') as f:
+         new_selection = json.load(f)
+         
+    return make_response(jsonify({'result': result, 'grid_index': grid_index, 'grid_color': grid_color, 'label_color_list':label_color_list, 'label_list':label_list, 'maximum_iteration':maximum_iteration, 'training_data':current_training, 'testing_data':testing_data_index, 'evaluation':evaluation_new, 'prediction_list':prediction_list, 'new_selection':new_selection}), 200)
 
 @app.route('/', methods=["POST", "GET"])
 def index():

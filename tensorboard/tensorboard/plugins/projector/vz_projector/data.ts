@@ -472,7 +472,7 @@ export class DataSet {
             dataPoint.new_selection = {};
           }
         }
-        const matches = this.get_match();
+
         for (let i = 0; i < real_data_number; i++) {
           let dataPoint = this.points[i];
           dataPoint.projections['tsne-0'] = result[i][0];
@@ -481,10 +481,6 @@ export class DataSet {
           dataPoint.color = rgbToHex(label_color_list[i][0], label_color_list[i][1], label_color_list[i][2]);
           dataPoint.DVI_projections[iteration] = [result[i][0], result[i][1]];
           dataPoint.DVI_color[iteration] = dataPoint.color;
-          if (matches.length != 0 && matches.indexOf(i) == -1
-              && i < this.DVICurrentRealDataNumber) {
-            dataPoint.projections = {}
-          }
           dataPoint.training_data[iteration] = false;
           dataPoint.testing_data[iteration] = false;
           dataPoint.current_training = false;
@@ -545,6 +541,14 @@ export class DataSet {
           dataPoint.current_new_selection = true;
         }
 
+        const matches = this.get_match();
+        for (let i = 0; i < real_data_number; i++) {
+          let dataPoint = this.points[i];
+          if (matches.length != 0 && matches.indexOf(i) == -1
+              && i < this.DVICurrentRealDataNumber) {
+            dataPoint.projections = {}
+          }
+        }
         this.DVICurrentRealDataNumber = real_data_number;
         this.DVIRealDataNumber[iteration] = real_data_number;
         stepCallback(this.tSNEIteration, evaluation, new_selection, this.tSNETotalIter);
@@ -553,7 +557,7 @@ export class DataSet {
       const validDataNumber = this.DVIValidPointNumber[iteration];
       const evaluation = this.DVIEvaluation[iteration];
       this.tSNEIteration = iteration;
-      const matches = this.get_match();
+
       const newSelection = [];
       for (let i = 0; i < validDataNumber; i++) {
         let dataPoint = this.points[i];
@@ -561,11 +565,7 @@ export class DataSet {
         dataPoint.projections['tsne-1'] = dataPoint.DVI_projections[iteration][1];
         dataPoint.projections['tsne-2'] = 0;
         dataPoint.color = dataPoint.DVI_color[iteration];
-         if (matches.length != 0 && matches.indexOf(i) == -1
-              && i < this.DVICurrentRealDataNumber) {
-            dataPoint.projections = {}
-          }
-         dataPoint.current_training = dataPoint.training_data[iteration];
+        dataPoint.current_training = dataPoint.training_data[iteration];
         dataPoint.current_testing = dataPoint.testing_data[iteration];
         dataPoint.current_prediction = dataPoint.prediction[iteration];
         if(dataPoint.current_prediction == dataPoint.metadata['label']) {
@@ -585,6 +585,13 @@ export class DataSet {
           dataPoint.projections = {};
           dataPoint.current_testing = false;
           dataPoint.current_training = false;
+      }
+      const matches = this.get_match();
+      for (let i = 0; i < validDataNumber; i++) {
+        let dataPoint = this.points[i];
+        if (matches.length != 0 && matches.indexOf(i) == -1 && i < this.DVICurrentRealDataNumber) {
+          dataPoint.projections = {}
+        }
       }
       this.DVICurrentRealDataNumber = this.DVIRealDataNumber[iteration];
       stepCallback(this.tSNEIteration, evaluation, newSelection, this.tSNETotalIter);
