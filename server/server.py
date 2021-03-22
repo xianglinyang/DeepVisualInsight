@@ -85,8 +85,14 @@ def animation():
          prediction = np.load(f).tolist()
          for pred in prediction:
              prediction_list.append(classes[pred])
-
-    return make_response(jsonify({'result': result, 'grid_index': grid_index, 'grid_color': grid_color, 'label_color_list':label_color_list, 'label_list':label_list, 'maximum_iteration':maximum_iteration, 'training_data':training_data_index, 'testing_data':testing_data_index, 'evaluation':evaluation_new, 'prediction_list':prediction_list, 'new_selection':[]}), 200)
+    
+    with open(folder_path+'/current_training_'+str(iteration)+'.json', 'r') as f:
+         current_training = json.load(f)
+    
+    with open(folder_path+'/new_selection_'+str(iteration)+'.json', 'r') as f:
+         new_selection = json.load(f)
+         
+    return make_response(jsonify({'result': result, 'grid_index': grid_index, 'grid_color': grid_color, 'label_color_list':label_color_list, 'label_list':label_list, 'maximum_iteration':maximum_iteration, 'training_data':current_training, 'testing_data':testing_data_index, 'evaluation':evaluation_new, 'prediction_list':prediction_list, 'new_selection':new_selection}), 200)
 
 @app.route('/', methods=["POST", "GET"])
 def index():
