@@ -801,7 +801,7 @@ class MMS:
         for c in range(self.class_num):
             color = self.cmap(c/(self.class_num-1))
             plot = self.ax.plot([], [], '^', markeredgecolor=color,
-                fillstyle='full', ms=9, mew=9, zorder=1)
+                fillstyle='full', ms=3, mew=3, zorder=1)
             self.sample_plots.append(plot[0])
 
         # highlight
@@ -1323,17 +1323,17 @@ class MMS:
         return val
 
     def get_new_index(self, epoch_id):
-        prev_epoch = epoch_id - self.period
-        if prev_epoch < self.epoch_start:
+        new_epoch = epoch_id + self.period
+        if new_epoch > self.epoch_end:
             return list()
 
         index_file = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "index.json")
         index = load_labelled_data_index(index_file)
-        prev_index_file = os.path.join(self.model_path, "Epoch_{:d}".format(prev_epoch), "index.json")
-        prev_index = load_labelled_data_index(prev_index_file)
-        new_I = len(index) - len(prev_index)
+        new_index_file = os.path.join(self.model_path, "Epoch_{:d}".format(new_epoch), "index.json")
+        new_index = load_labelled_data_index(new_index_file)
+        new_I = len(new_index) - len(index)
 
-        return index[-new_I:]
+        return new_index[-new_I:]
 
     def noisy_data_index(self):
         index_file = os.path.join(self.model_path, "index.json")
