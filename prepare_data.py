@@ -32,7 +32,6 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
     with open(prefix+'current_training_'+str(iteration)+'.json', 'w') as f:
         json.dump(current_index, f)
     
-    '''
     evaluation = {}
     evaluation['nn_train_10'] = mms.proj_nn_perseverance_knn_train(iteration, 10)
     evaluation['nn_train_15'] = mms.proj_nn_perseverance_knn_train(iteration, 15)
@@ -83,7 +82,7 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
 
     with open(prefix+'color.npy', 'wb') as f:
         np.save(f, color)
-    '''
+        
 if __name__ == "__main__":
     content_path = "/home/selab/Enviroment/data/new_random_tl_cifar10"
     training_data = torch.load("/home/selab/Enviroment/data/resnet18_cifar10/data/training_dataset_data.pth")
