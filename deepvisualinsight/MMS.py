@@ -1341,6 +1341,20 @@ class MMS:
             return list()
         return load_labelled_data_index(index_file)
 
+    def get_original_labels(self):
+        index_file = os.path.join(self.content_path, "index.json")
+        if not os.path.exists(index_file):
+            return list()
+        index = load_labelled_data_index(index_file)
+        old_file = os.path.join(self.content_path, "old_labels.json")
+        old_labels = load_labelled_data_index(old_file)
+
+        labels = np.copy(self.training_labels.cpu().numpy())
+
+        labels[index] = old_labels
+
+        return labels
+
     def get_epoch_index(self, epoch_id):
         index_file = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "index.json")
         index = load_labelled_data_index(index_file)
