@@ -569,7 +569,7 @@ export class DataSet {
         dataPoint.current_training = dataPoint.training_data[iteration];
         dataPoint.current_testing = dataPoint.testing_data[iteration];
         dataPoint.current_prediction = dataPoint.prediction[iteration];
-        if(dataPoint.current_prediction == dataPoint.metadata['label']) {
+        if(dataPoint.current_prediction == dataPoint.metadata['label'] && dataPoint.metadata['label'] != "background") {
             dataPoint.current_wrong_prediction = false;
           } else {
             if(dataPoint.metadata['label'] != "background") {
