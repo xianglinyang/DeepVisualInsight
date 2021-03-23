@@ -251,6 +251,9 @@ export function getSearchPredicate(
           (searchQueryObj["is_correct_prediction"] == "true" || searchQueryObj["is_correct_prediction"] == "false")) {
         let queryCorrectPrediction = searchQueryObj["is_correct_prediction"];
         let correctPredictionResult = false;
+        if(p.current_wrong_prediction == undefined) {
+          return false;
+        }
         if(queryCorrectPrediction == "true" && !p.current_wrong_prediction) {
           correctPredictionResult = true;
         }

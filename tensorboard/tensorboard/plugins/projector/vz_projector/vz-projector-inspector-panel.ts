@@ -281,7 +281,13 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
     const metadata = this.projector.dataSet.points[pointIndex].metadata[
       this.selectedMetadataField
     ];
-    return metadata !== undefined ? String(metadata) : `Unknown #${pointIndex}`;
+    let prediction = this.projector.dataSet.points[pointIndex].current_prediction;
+    if (prediction == undefined) {
+      prediction = `Unknown`;
+    }
+
+    const stringMetaData = metadata !== undefined ? String(metadata) : `Unknown #${pointIndex}`;
+    return "Label: " + stringMetaData + " Prediction: " + prediction;
   }
   private spriteImageRenderer() {
     const spriteImagePath = this.spriteMeta.imagePath;

@@ -513,6 +513,7 @@ export class DataSet {
           dataPoint.current_prediction = "background";
           dataPoint.current_new_selection = undefined;
           dataPoint.new_selection[iteration] = undefined;
+          dataPoint.current_wrong_prediction = undefined;
         }
 
         for (let i = real_data_number + background_point_number; i < this.points.length; i++) {
@@ -568,11 +569,13 @@ export class DataSet {
         dataPoint.current_training = dataPoint.training_data[iteration];
         dataPoint.current_testing = dataPoint.testing_data[iteration];
         dataPoint.current_prediction = dataPoint.prediction[iteration];
-        if(dataPoint.current_prediction == dataPoint.metadata['label']) {
+        if(dataPoint.current_prediction == dataPoint.metadata['label'] && dataPoint.metadata['label'] != "background") {
             dataPoint.current_wrong_prediction = false;
           } else {
             if(dataPoint.metadata['label'] != "background") {
               dataPoint.current_wrong_prediction = true;
+            } else {
+              dataPoint.current_wrong_prediction = undefined;
             }
          }
         dataPoint.current_new_selection = dataPoint.new_selection[iteration];
