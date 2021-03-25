@@ -160,7 +160,7 @@ export function getSearchPredicate(
     query = query.toLowerCase();
     const active_learning_query = 'active_learning';
     const options = {keywords: ['label', 'prediction', 'is_training', 'is_correct_prediction', 'new_selection',
-        active_learning_query, 'is_noisy']};
+        active_learning_query, 'is_noisy', 'same_as_original_label']};
     const searchQueryObj = searchQuery.parse(query, options);
     const valid_new_selection = (searchQueryObj["new_selection"]!=null && !Array.isArray(searchQueryObj["new_selection"]) &&
           (searchQueryObj["new_selection"] == "true" || searchQueryObj["new_selection"] == "false"));
@@ -168,6 +168,8 @@ export function getSearchPredicate(
           (searchQueryObj[active_learning_query] == "true"));
     const valid_noisy = (searchQueryObj["is_noisy"]!=null && !Array.isArray(searchQueryObj["is_noisy"]) &&
           (searchQueryObj["is_noisy"] == "true" || searchQueryObj["is_noisy"] == "false"));
+    const valid_original = (searchQueryObj["same_as_original_label"]!=null && !Array.isArray(searchQueryObj["same_as_original_label"]) &&
+          (searchQueryObj["same_as_original_label"] == "true" || searchQueryObj["same_as_original_label"] == "false"));
     predicate = (p) => {
       if(searchQueryObj["label"]==null && searchQueryObj["prediction"]==null &&
           !valid_new_selection && !valid_active_learning && !valid_noisy &&
@@ -246,6 +248,19 @@ export function getSearchPredicate(
           newActiveLearningResult = true;
         }
         if(!newActiveLearningResult) {
+          return false;
+        }
+      }
+      if(valid_original) {
+        let queryOriginal = searchQueryObj["same_as_original_label"];
+        let originalResult = false;
+        if(queryOriginal == "true" && p.noisy && p.original_label == p.current_prediction) {
+          originalResult = true;
+        }
+        if(queryOriginal == "false" && p.noisy && p.original_label != p.current_prediction) {
+          originalResult = true;
+        }
+        if(!originalResult) {
           return false;
         }
       }
