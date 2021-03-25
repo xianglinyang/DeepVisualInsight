@@ -1336,7 +1336,7 @@ class MMS:
         return new_index[-new_I:]
 
     def noisy_data_index(self):
-        index_file = os.path.join(self.model_path, "index.json")
+        index_file = os.path.join(self.content_path, "index.json")
         if not os.path.exists(index_file):
             return list()
         return load_labelled_data_index(index_file)
