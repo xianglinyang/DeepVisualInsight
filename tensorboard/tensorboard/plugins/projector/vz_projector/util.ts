@@ -172,7 +172,7 @@ export function getSearchPredicate(
           (searchQueryObj["same_as_original_label"] == "true" || searchQueryObj["same_as_original_label"] == "false"));
     predicate = (p) => {
       if(searchQueryObj["label"]==null && searchQueryObj["prediction"]==null &&
-          !valid_new_selection && !valid_active_learning && !valid_noisy &&
+          !valid_new_selection && !valid_active_learning && !valid_noisy && !valid_original &&
           (searchQueryObj["is_training"]==null || Array.isArray(searchQueryObj["is_training"]) ||
               ((searchQueryObj["is_training"] != "true" && searchQueryObj["is_training"] != "false")))
           && (searchQueryObj["is_correct_prediction"]==null || Array.isArray(searchQueryObj["is_correct_prediction"]) ||
