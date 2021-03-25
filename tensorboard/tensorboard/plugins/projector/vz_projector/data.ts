@@ -112,6 +112,8 @@ export interface DataPoint {
   current_prediction?: string;
   current_wrong_prediction?: boolean;
   current_new_selection?: boolean;
+  original_label?: string;
+  noisy?: boolean;
 }
 const IS_FIREFOX = navigator.userAgent.toLowerCase().indexOf('firefox') >= 0;
 /** Controls whether nearest neighbors computation is done on the GPU or CPU. */
@@ -438,6 +440,8 @@ export class DataSet {
         const training_data = data.training_data;
         const testing_data = data.testing_data;
         const new_selection = data.new_selection;
+        const noisy_data = data.noisy_data;
+        const original_label_list = data.original_label_list;
 
         const evaluation = data.evaluation;
         this.DVIEvaluation[iteration] = evaluation;
@@ -495,6 +499,8 @@ export class DataSet {
           }
           dataPoint.new_selection[iteration] = false;
           dataPoint.current_new_selection = false;
+          dataPoint.original_label = original_label_list[i];
+          dataPoint.noisy = false;
         }
 
         for (let i = 0; i < background_point_number; i++) {
@@ -514,6 +520,8 @@ export class DataSet {
           dataPoint.current_new_selection = undefined;
           dataPoint.new_selection[iteration] = undefined;
           dataPoint.current_wrong_prediction = undefined;
+          dataPoint.original_label = "background";
+          dataPoint.noisy = undefined;
         }
 
         for (let i = real_data_number + background_point_number; i < this.points.length; i++) {
@@ -540,6 +548,12 @@ export class DataSet {
           let dataPoint = this.points[dataIndex];
           dataPoint.new_selection[iteration] = true;
           dataPoint.current_new_selection = true;
+        }
+
+        for (let i = 0; i < noisy_data.length; i++) {
+          const dataIndex = noisy_data[i];
+          let dataPoint = this.points[dataIndex];
+          dataPoint.noisy = true;
         }
 
         const matches = this.get_match();
