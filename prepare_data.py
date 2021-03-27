@@ -8,30 +8,39 @@ import json
 
 def prepare_data(content_path, data, iteration, resolution, folder_name, direct_call=True):
     sys.path.append(content_path)
-    from Model.model import ResNet18
-    #from Model.model import resnet18
+    #from Model.model import ResNet18
+    from Model.model import resnet18
     prefix = folder_name + '/'
     if direct_call:
         prefix = 'server/'+folder_name + '/'
-    #net = resnet18()
-    net = ResNet18()
+    net = resnet18()
+    #net = ResNet18()
   
 
     classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
 
-    mms = MMS(content_path, net, 1, 6, 1, 512, 10, classes, cmap="tab10", resolution=resolution, neurons=256,
+    mms = MMS(content_path, net, 1, 11, 1, 512, 10, classes, cmap="tab10", resolution=resolution, neurons=256,
               verbose=1)
     # mms.data_preprocessing()
     # mms.prepare_visualization_for_all()
-    new_index = mms.get_new_index(iteration)
-    current_index = mms.get_epoch_index(iteration)
-    print(len(new_index), len(current_index))
+    #new_index = mms.get_new_index(iteration)
+    #current_index = mms.get_epoch_index(iteration)
+    #print(len(new_index), len(current_index))
+    '''
     with open(prefix+'new_selection_'+str(iteration)+'.json', 'w') as f:
         json.dump(new_index, f)
-    
+    '''
+    '''
     with open(prefix+'current_training_'+str(iteration)+'.json', 'w') as f:
         json.dump(current_index, f)
-    
+    '''
+    noisy_data = mms.noisy_data_index()
+    with open(prefix+'noisy_data_index.json','w') as f:
+        json.dump(noisy_data, f)
+    original_label = mms.get_original_labels()
+    with open(prefix+'original_label.npy', 'wb') as f:
+        np.save(f, original_label)
+    '''
     evaluation = {}
     evaluation['nn_train_10'] = mms.proj_nn_perseverance_knn_train(iteration, 10)
     evaluation['nn_train_15'] = mms.proj_nn_perseverance_knn_train(iteration, 15)
@@ -82,13 +91,13 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
 
     with open(prefix+'color.npy', 'wb') as f:
         np.save(f, color)
-        
+    '''   
 if __name__ == "__main__":
-    content_path = "/home/selab/Enviroment/data/new_random_tl_cifar10"
-    training_data = torch.load("/home/selab/Enviroment/data/resnet18_cifar10/data/training_dataset_data.pth")
-    testing_data = torch.load("/home/selab/Enviroment/data/resnet18_cifar10/data/testing_dataset_data.pth")
+    content_path = "/home/selab/Enviroment/data/noisy"
+    training_data = torch.load("/home/selab/Enviroment/data/noisy/data/training_dataset_data.pth")
+    testing_data = torch.load("/home/selab/Enviroment/data/noisy/data/testing_dataset_data.pth")
     data = torch.cat((training_data, testing_data), 0)
     print("start")
-    for i in range(1, 7):
+    for i in range(1, 12):
       print("prepare for iteration: " + str(i))
-      prepare_data(content_path, data, iteration=i, folder_name="data/new_random_tl_cifar10", resolution=200)
+      prepare_data(content_path, data, iteration=i, folder_name="data/noisy", resolution=200)

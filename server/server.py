@@ -86,13 +86,39 @@ def animation():
          for pred in prediction:
              prediction_list.append(classes[pred])
     
-    with open(folder_path+'/current_training_'+str(iteration)+'.json', 'r') as f:
-         current_training = json.load(f)
-    
-    with open(folder_path+'/new_selection_'+str(iteration)+'.json', 'r') as f:
-         new_selection = json.load(f)
+    current_training_path = folder_path+'/current_training_'+str(iteration)+'.json'
+    if os.path.isfile(current_training_path):
+         with open(current_training_path, 'r') as f:
+              current_training = json.load(f)
+    else:
+         current_training = training_data_index
          
-    return make_response(jsonify({'result': result, 'grid_index': grid_index, 'grid_color': grid_color, 'label_color_list':label_color_list, 'label_list':label_list, 'maximum_iteration':maximum_iteration, 'training_data':current_training, 'testing_data':testing_data_index, 'evaluation':evaluation_new, 'prediction_list':prediction_list, 'new_selection':new_selection}), 200)
+         
+    new_selection_path = folder_path+'/new_selection_'+str(iteration)+'.json'
+    if os.path.isfile(new_selection_path):
+         with open(new_selection_path, 'r') as f:
+              new_selection = json.load(f)
+    else:
+         new_selection = []
+         
+    noisy_data_path = folder_path+'/noisy_data_index.json'
+    if os.path.isfile(noisy_data_path):
+         with open(noisy_data_path, 'r') as f:
+              noisy_data = json.load(f)
+    else:
+         noisy_data = []
+    
+    original_label_path = folder_path+'/original_label.npy'
+    original_label_list = []
+    if os.path.isfile(original_label_path):
+         with open(original_label_path, 'rb') as f:
+              original_label = np.load(f).tolist()
+              for label in original_label:
+                  original_label_list.append(classes[label])
+    else:
+         original_label_list = label_list
+             
+    return make_response(jsonify({'result': result, 'grid_index': grid_index, 'grid_color': grid_color, 'label_color_list':label_color_list, 'label_list':label_list, 'maximum_iteration':maximum_iteration, 'training_data':current_training, 'testing_data':testing_data_index, 'evaluation':evaluation_new, 'prediction_list':prediction_list, 'new_selection':new_selection, 'noisy_data':noisy_data, 'original_label_list':original_label_list}), 200)
 
 @app.route('/', methods=["POST", "GET"])
 def index():
