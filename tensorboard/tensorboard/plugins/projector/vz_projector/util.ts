@@ -160,7 +160,7 @@ export function getSearchPredicate(
     query = query.toLowerCase();
     const active_learning_query = 'active_learning';
     const options = {keywords: ['label', 'prediction', 'is_training', 'is_correct_prediction', 'new_selection',
-        active_learning_query, 'is_noisy', 'same_as_original_label']};
+        active_learning_query, 'is_noisy', 'noisy_type', 'original_or_flipped']};
     const searchQueryObj = searchQuery.parse(query, options);
     const valid_new_selection = (searchQueryObj["new_selection"]!=null && !Array.isArray(searchQueryObj["new_selection"]) &&
           (searchQueryObj["new_selection"] == "true" || searchQueryObj["new_selection"] == "false"));
@@ -168,11 +168,14 @@ export function getSearchPredicate(
           (searchQueryObj[active_learning_query] == "true"));
     const valid_noisy = (searchQueryObj["is_noisy"]!=null && !Array.isArray(searchQueryObj["is_noisy"]) &&
           (searchQueryObj["is_noisy"] == "true" || searchQueryObj["is_noisy"] == "false"));
-    const valid_original = (searchQueryObj["same_as_original_label"]!=null && !Array.isArray(searchQueryObj["same_as_original_label"]) &&
-          (searchQueryObj["same_as_original_label"] == "true" || searchQueryObj["same_as_original_label"] == "false"));
+    const valid_original = (searchQueryObj["noisy_type"]!=null && !Array.isArray(searchQueryObj["noisy_type"]) &&
+          (searchQueryObj["noisy_type"] == "original" || searchQueryObj["noisy_type"] == "flipped" ||
+              searchQueryObj["noisy_type"] == "others"));
+    const valid_original_or_flipped = (searchQueryObj["original_or_flipped"]!=null && !Array.isArray(searchQueryObj["original_or_flipped"]) &&
+          (searchQueryObj["original_or_flipped"] == "true"));
     predicate = (p) => {
       if(searchQueryObj["label"]==null && searchQueryObj["prediction"]==null &&
-          !valid_new_selection && !valid_active_learning && !valid_noisy && !valid_original &&
+          !valid_new_selection && !valid_active_learning && !valid_noisy && !valid_original && !valid_original_or_flipped &&
           (searchQueryObj["is_training"]==null || Array.isArray(searchQueryObj["is_training"]) ||
               ((searchQueryObj["is_training"] != "true" && searchQueryObj["is_training"] != "false")))
           && (searchQueryObj["is_correct_prediction"]==null || Array.isArray(searchQueryObj["is_correct_prediction"]) ||
@@ -252,15 +255,30 @@ export function getSearchPredicate(
         }
       }
       if(valid_original) {
-        let queryOriginal = searchQueryObj["same_as_original_label"];
+        let queryOriginal = searchQueryObj["noisy_type"];
         let originalResult = false;
-        if(queryOriginal == "true" && p.noisy && p.original_label == p.current_prediction) {
+        if(queryOriginal == "original" && p.noisy && p.original_label == p.current_prediction) {
           originalResult = true;
         }
-        if(queryOriginal == "false" && p.noisy && p.original_label != p.current_prediction) {
+        if(queryOriginal == "flipped" && p.noisy && p.original_label == p.metadata["label"].toString().toLowerCase()) {
+          originalResult = true;
+        }
+        if(queryOriginal == "others" && p.noisy && p.original_label != p.metadata["label"].toString().toLowerCase() &&
+            p.original_label == p.current_prediction) {
           originalResult = true;
         }
         if(!originalResult) {
+          return false;
+        }
+      }
+      if(valid_original_or_flipped) {
+        let queryOriginalOrFlipped = searchQueryObj["original_or_flipped"];
+        let originalOrFlipped = false;
+        if(queryOriginalOrFlipped == "true" && p.noisy && (p.original_label == p.current_prediction ||
+            p.original_label == p.metadata["label"].toString().toLowerCase())) {
+          originalOrFlipped = true;
+        }
+        if(!originalOrFlipped) {
           return false;
         }
       }
