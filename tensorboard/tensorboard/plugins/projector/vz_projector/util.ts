@@ -260,10 +260,10 @@ export function getSearchPredicate(
         if(queryOriginal == "original" && p.noisy && p.original_label == p.current_prediction) {
           originalResult = true;
         }
-        if(queryOriginal == "flipped" && p.noisy && p.original_label == p.metadata["label"].toString().toLowerCase()) {
+        if(queryOriginal == "flipped" && p.noisy && p.current_prediction == p.metadata["label"].toString().toLowerCase()) {
           originalResult = true;
         }
-        if(queryOriginal == "others" && p.noisy && p.original_label != p.metadata["label"].toString().toLowerCase() &&
+        if(queryOriginal == "others" && p.noisy && p.current_prediction != p.metadata["label"].toString().toLowerCase() &&
             p.original_label == p.current_prediction) {
           originalResult = true;
         }
@@ -275,7 +275,7 @@ export function getSearchPredicate(
         let queryOriginalOrFlipped = searchQueryObj["original_or_flipped"];
         let originalOrFlipped = false;
         if(queryOriginalOrFlipped == "true" && p.noisy && (p.original_label == p.current_prediction ||
-            p.original_label == p.metadata["label"].toString().toLowerCase())) {
+            p.current_prediction == p.metadata["label"].toString().toLowerCase())) {
           originalOrFlipped = true;
         }
         if(!originalOrFlipped) {
