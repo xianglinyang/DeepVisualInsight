@@ -264,7 +264,7 @@ export function getSearchPredicate(
           originalResult = true;
         }
         if(queryOriginal == "others" && p.noisy && p.current_prediction != p.metadata["label"].toString().toLowerCase() &&
-            p.original_label == p.current_prediction) {
+            p.original_label != p.current_prediction) {
           originalResult = true;
         }
         if(!originalResult) {
