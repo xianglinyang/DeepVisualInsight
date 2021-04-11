@@ -1,4 +1,4 @@
-# DeepVisualInsight
+# DeepVisualInsight (DVI): A visualization platform for debugging deep neural network models
 
 //TODO we need to have installation information here.
 
