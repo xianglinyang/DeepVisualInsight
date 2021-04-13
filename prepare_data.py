@@ -8,14 +8,21 @@ import json
 
 def prepare_data(content_path, data, iteration, resolution, folder_name, direct_call=True):
     sys.path.append(content_path)
-    #from Model.model import ResNet18
-    from Model.model import resnet18
+    net = None
+    try:
+        from Model.model import resnet18
+        net = resnet18()
+    except Exception as e:
+        from Model.model import ResNet18
+        net = ResNet18()
+
     prefix = folder_name + '/'
     if direct_call:
         prefix = 'server/'+folder_name + '/'
-    net = resnet18()
+
     #net = ResNet18()
   
+
 
     classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
 

@@ -133,4 +133,4 @@ def hello_world():
 # if this is the main thread of execution first load the model and then start the server
 if __name__ == "__main__":
 
-    app.run(host="192.168.254.128")
+    app.run(host="localhost")
