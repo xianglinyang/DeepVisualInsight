@@ -87,9 +87,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   @property({type: Boolean})
   DVINotCache: boolean = false;
   @property({type: String})
-  subjectModelPathEditorInput: string = '';
-  @property({type: String})
-  visualizeDataPathEditorInput: string = '';
+  subjectModelPathEditorInput: string = "models/data/";
   @property({type: String})
   resolutionEditorInput: number;
 
@@ -143,12 +141,14 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   private boundTest10: HTMLElement;
   private boundTest15: HTMLElement;
   private boundTest30: HTMLElement;
+  /*
   private invNnTrain10: HTMLElement;
   private invNnTrain15: HTMLElement;
   private invNnTrain30: HTMLElement;
   private invNnTest10: HTMLElement;
   private invNnTest15: HTMLElement;
   private invNnTest30: HTMLElement;
+  */
   private invAccTrain: HTMLElement;
   private invAccTest: HTMLElement;
   private invConfTrain: HTMLElement;
@@ -203,12 +203,14 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     this.boundTest10 = this.$$('.bound_test_10') as HTMLElement;
     this.boundTest15 = this.$$('.bound_test_15') as HTMLElement;
     this.boundTest30 = this.$$('.bound_test_30') as HTMLElement;
+    /*
     this.invNnTrain10 = this.$$('.inv_nn_train_10') as HTMLElement;
     this.invNnTrain15 = this.$$('.inv_nn_train_15') as HTMLElement;
     this.invNnTrain30 = this.$$('.inv_nn_train_30') as HTMLElement;
     this.invNnTest10 = this.$$('.inv_nn_test_10') as HTMLElement;
     this.invNnTest15 = this.$$('.inv_nn_test_15') as HTMLElement;
     this.invNnTest30 = this.$$('.inv_nn_test_30') as HTMLElement;
+    */
     this.invAccTrain = this.$$('.inv_acc_train') as HTMLElement;
     this.invAccTest = this.$$('.inv_acc_test') as HTMLElement;
     this.invConfTrain = this.$$('.inv_conf_train') as HTMLElement;
@@ -246,9 +248,6 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
    private subjectModelPathEditorInputChange() {
     this.dataSet.DVIsubjectModelPath = this.subjectModelPathEditorInput;
   }
-  private visualizeDataPathEditorInputChange(){
-    this.dataSet.DVIVisualizeDataPath = this.visualizeDataPathEditorInput;
-  }
   private resolutionEditorInputChange(){
     this.dataSet.DVIResolution = this.resolutionEditorInput;
   }
@@ -265,12 +264,14 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
      this.boundTest10.innerText = ''+evaluation.bound_test_10;
      this.boundTest15.innerText = ''+evaluation.bound_test_15;
      this.boundTest30.innerText = ''+evaluation.bound_test_30;
+     /*
      this.invNnTrain10.innerText = ''+evaluation.inv_nn_train_10;
      this.invNnTrain15.innerText = ''+evaluation.inv_nn_train_15;
      this.invNnTrain30.innerText = ''+evaluation.inv_nn_train_30;
      this.invNnTest10.innerText = ''+evaluation.inv_nn_test_10;
      this.invNnTest15.innerText = ''+evaluation.inv_nn_test_15;
      this.invNnTest30.innerText = ''+evaluation.inv_nn_test_30;
+     */
      this.invAccTrain.innerText = ''+evaluation.inv_acc_train;
      this.invAccTest.innerText = ''+evaluation.inv_acc_test;
      this.invConfTrain.innerText = ''+evaluation.inv_conf_train;

@@ -174,7 +174,7 @@ export class DataSet {
   tSNEShouldKill = false;
   tSNEJustPause = false;
   tSNETotalIter: number = 0;
-  DVIsubjectModelPath = "";
+  DVIsubjectModelPath = "models/data/";
   DVIUseCache = true;
   DVIResolution = 400;
   DVIValidPointNumber: {
@@ -416,7 +416,7 @@ export class DataSet {
       await fetch("http://localhost:5000/animation", {
         method: 'POST',
         body: JSON.stringify({"cache": this.DVIUseCache, "path": this.DVIsubjectModelPath,  "iteration":iteration,
-              "resolution":this.DVIResolution, "data_path":this.DVIVisualizeDataPath}),
+              "resolution":this.DVIResolution, "data_path": this.DVIsubjectModelPath + '/data'}),
         headers: headers,
         mode: 'cors'
       }).then(response => response.json()).then(data => {
