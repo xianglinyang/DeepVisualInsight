@@ -33,21 +33,24 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
     #new_index = mms.get_new_index(iteration)
     #current_index = mms.get_epoch_index(iteration)
     #print(len(new_index), len(current_index))
+    training_acc = mms.training_accu(iteration)
+    testing_acc = mms.testing_accu(iteration)
+    with open(prefix+'acc'+str(iteration)+'.json', 'w') as f:
+        json.dump({'training': training_acc, 'testing':testing_acc}, f)
     '''
+    active learning
     with open(prefix+'new_selection_'+str(iteration)+'.json', 'w') as f:
         json.dump(new_index, f)
-    '''
-    '''
     with open(prefix+'current_training_'+str(iteration)+'.json', 'w') as f:
         json.dump(current_index, f)
-    '''
+
     noisy_data = mms.noisy_data_index()
     with open(prefix+'noisy_data_index.json','w') as f:
         json.dump(noisy_data, f)
     original_label = mms.get_original_labels()
     with open(prefix+'original_label.npy', 'wb') as f:
         np.save(f, original_label)
-    '''
+    
     evaluation = {}
     evaluation['nn_train_10'] = mms.proj_nn_perseverance_knn_train(iteration, 10)
     evaluation['nn_train_15'] = mms.proj_nn_perseverance_knn_train(iteration, 15)
@@ -100,11 +103,11 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
         np.save(f, color)
     '''   
 if __name__ == "__main__":
-    content_path = "/home/selab/Enviroment/data/noisy"
-    training_data = torch.load("/home/selab/Enviroment/data/noisy/data/training_dataset_data.pth")
-    testing_data = torch.load("/home/selab/Enviroment/data/noisy/data/testing_dataset_data.pth")
+    content_path = "/models/data/entropy"
+    training_data = torch.load("/models/data/entropy/data/training_dataset_data.pth")
+    testing_data = torch.load("/models/data/entropy/data/testing_dataset_data.pth")
     data = torch.cat((training_data, testing_data), 0)
     print("start")
-    for i in range(1, 12):
+    for i in range(1, 7):
       print("prepare for iteration: " + str(i))
-      prepare_data(content_path, data, iteration=i, folder_name="data/noisy", resolution=200)
+      prepare_data(content_path, data, iteration=i, folder_name="data/entropy", resolution=200)

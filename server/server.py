@@ -117,8 +117,20 @@ def animation():
                   original_label_list.append(classes[label])
     else:
          original_label_list = label_list
-             
-    return make_response(jsonify({'result': result, 'grid_index': grid_index, 'grid_color': grid_color, 'label_color_list':label_color_list, 'label_list':label_list, 'maximum_iteration':maximum_iteration, 'training_data':current_training, 'testing_data':testing_data_index, 'evaluation':evaluation_new, 'prediction_list':prediction_list, 'new_selection':new_selection, 'noisy_data':noisy_data, 'original_label_list':original_label_list}), 200)
+
+    with open(folder_path + '/acc' + str(iteration) + '.json', 'r') as f:
+        acc = json.load(f)
+        acc_train = round(acc['training'], 2)
+        acc_test = round(acc['testing'], 2)
+        evaluation_new['acc_train'] = acc_train
+        evaluation_new['acc_test'] = acc_test
+
+    return make_response(jsonify({'result': result, 'grid_index': grid_index, 'grid_color': grid_color,
+                                  'label_color_list':label_color_list, 'label_list':label_list,
+                                  'maximum_iteration':maximum_iteration, 'training_data':current_training,
+                                  'testing_data':testing_data_index, 'evaluation':evaluation_new,
+                                  'prediction_list':prediction_list, 'new_selection':new_selection,
+                                  'noisy_data':noisy_data, 'original_label_list':original_label_list}), 200)
 
 @app.route('/', methods=["POST", "GET"])
 def index():
