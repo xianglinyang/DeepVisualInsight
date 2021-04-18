@@ -87,7 +87,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   @property({type: Boolean})
   DVINotCache: boolean = false;
   @property({type: String})
-  subjectModelPathEditorInput: string = "models/data/";
+  subjectModelPathEditorInput: string = "/models/data/entropy";
   @property({type: String})
   resolutionEditorInput: number;
 

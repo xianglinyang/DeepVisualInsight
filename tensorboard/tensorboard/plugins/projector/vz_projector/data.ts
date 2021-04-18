@@ -174,7 +174,7 @@ export class DataSet {
   tSNEShouldKill = false;
   tSNEJustPause = false;
   tSNETotalIter: number = 0;
-  DVIsubjectModelPath = "models/data/";
+  DVIsubjectModelPath = "/models/data/entropy";
   DVIUseCache = true;
   DVIResolution = 400;
   DVIValidPointNumber: {
