@@ -153,6 +153,8 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   private invAccTest: HTMLElement;
   private invConfTrain: HTMLElement;
   private invConfTest: HTMLElement;
+  private accTrain: HTMLElement;
+  private accTest: HTMLElement;
 
   initialize(projector: any) {
     this.polymerChangesTriggerReprojection = true;
@@ -215,6 +217,8 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     this.invAccTest = this.$$('.inv_acc_test') as HTMLElement;
     this.invConfTrain = this.$$('.inv_conf_train') as HTMLElement;
     this.invConfTest = this.$$('.inv_conf_test') as HTMLElement;
+    this.accTrain = this.$$('.acc_train') as HTMLElement;
+    this.accTest = this.$$('.acc_test') as HTMLElement;
   }
   disablePolymerChangesTriggerReprojection() {
     this.polymerChangesTriggerReprojection = false;
@@ -276,6 +280,8 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
      this.invAccTest.innerText = ''+evaluation.inv_acc_test;
      this.invConfTrain.innerText = ''+evaluation.inv_conf_train;
      this.invConfTest.innerText = ''+evaluation.inv_conf_test;
+     this.accTrain.innerText = ''+evaluation.acc_train;
+     this.accTest.innerText = ''+evaluation.acc_test;
   }
   private setupUIControls() {
     {

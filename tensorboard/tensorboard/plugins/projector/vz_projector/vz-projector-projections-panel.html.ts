@@ -308,6 +308,7 @@ export const template = html`
           <p>Projection boundary perserverance knn: (train,10): <span class="bound_train_10">NA</span> (train,15): <span class="bound_train_15">NA</span> (train,30): <span class="bound_train_30">NA</span> (test,10): <span class="bound_test_10">NA</span> (test,15): <span class="bound_test_15">NA</span> (test,30): <span class="bound_test_30">NA</span></p>
           <p>PPR: train: <span class="inv_acc_train">NA</span> test: <span class="inv_acc_test">NA</span></p>
           <p>CCR: train: <span class="inv_conf_train">NA</span> test: <span class="inv_conf_test">NA</span></p>
+          <p>Accuracy: train: <span class="acc_train">NA</span> test: <span class="acc_test">NA</span></p>
           </div>
            <p>Total iteration number: <span class="dvi-total-iter">0</span></p>
           <p id="tsne-sampling" class="notice">
