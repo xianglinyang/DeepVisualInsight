@@ -350,7 +350,7 @@ class MMS:
             print("Average time for training visualzation model: {:.4f}".format(
                 (t1 - t0) / int((self.epoch_end - self.epoch_start) / self.period + 1)))
 
-    ################################################ Backend API ################################################
+    ################################################ Backend APIs ################################################
     def get_proj_model(self, epoch_id):
         '''
         get the encoder of epoch_id
@@ -699,12 +699,9 @@ class MMS:
 
     def get_standard_classes_color(self):
         '''
-        get background view
-        :param epoch_id: epoch that need to be visualized
-        :param resolution: background resolution
+        get the RGB value for 10 classes
         :return:
-            grid_view : numpy.ndarray, self.resolution,self.resolution, 2
-            color : numpy.ndarray, self.resolution,self.resolution, 3
+            color : numpy.ndarray, shape (10, 3)
         '''
         mesh_max_class = self.class_num - 1
         mesh_classes = np.arange(10)
@@ -1370,7 +1367,7 @@ class MMS:
         val = evaluate_inv_accu(labels, pred)
         return val
 
-    ############################################## Case Studies Related###############################################
+    ############################################## Case Studies Related ###############################################
     '''active learning'''
     def get_new_index(self, epoch_id):
         """get the index of new selection"""
