@@ -45,5 +45,6 @@
       "metadataPath": "https://storage.googleapis.com/embedding-projector/data/iris_labels.tsv"
     }
   ],
-  "modelCheckpointPath": "Demo datasets"
+  "modelCheckpointPath": "Demo datasets",
+  "serverIp": "localhost"
 }
