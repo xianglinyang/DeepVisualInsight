@@ -7,6 +7,7 @@ import time
 import matplotlib.pyplot as plt
 import torch
 import json
+import tensorflow as tf
 
 content_path = "E:\\DVI_exp_data\\resnet18_cifar10"
 # content_path = "E:\\DVI_exp_data\\resnet18_fashionmnist"
@@ -16,12 +17,14 @@ content_path = "E:\\DVI_exp_data\\resnet18_cifar10"
 # content_path = "E:\\DVI_exp_data\\noisy_model\\resnet18_cifar10"
 # content_path = "E:\\DVI_exp_data\\inexpressive_model"
 # content_path = "../../DVI_EXP/normal_training/resnet18_cifar10"
+# content_path = "E:\\DVI_exp_data\\active_learning\\same_start\\random"
+content_path = "E:\\DVI_exp_data\\active_learning\\same_start\\entropy"
 
 sys.path.append(content_path)
 
 from Model.model import *
-net = resnet18()
-# net = ResNet18()
+# net = resnet18()
+net = ResNet18()
 # net = CIFAR_17()
 
 classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
@@ -30,10 +33,14 @@ classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "sh
 
 
 # TODO temporal loss dynamically change weight?
-mms = MMS(content_path, net, 40, 200, 80, 512, 10, classes, cmap="tab10", resolution=100, neurons=256, verbose=1, temporal=False, split=-1, advance_border_gen=True, attack_device="cuda:0")
+mms = MMS(content_path, net, 0, 0, 1, 512, 10, classes, cmap="tab10", resolution=100, neurons=256, verbose=1, temporal=False, split=-1, advance_border_gen=True, attack_device="cuda:0")
+encoder_location = os.path.join("E:\\DVI_exp_data\\active_learning\\same_start\\random", "Model", "Epoch_{:d}".format(1), "encoder_advance")
+encoder = tf.keras.models.load_model(encoder_location)
+decoder_location = os.path.join("E:\\DVI_exp_data\\active_learning\\same_start\\random", "Model", "Epoch_{:d}".format(1), "decoder_advance")
+decoder = tf.keras.models.load_model(decoder_location)
 
 # mms.data_preprocessing()
-mms.prepare_visualization_for_all()
+# mms.prepare_visualization_for_all(encoder, decoder)
 #
 # for i in [40, 120, 200]:
 #     print(mms.proj_nn_perseverance_knn_train(i, 10))
@@ -51,14 +58,6 @@ mms.prepare_visualization_for_all()
 #     print(mms.proj_boundary_perseverance_knn_test(i, 10))
 #     print(mms.proj_boundary_perseverance_knn_test(i, 15))
 #     print(mms.proj_boundary_perseverance_knn_test(i, 30))
-#
-#     print(mms.inv_nn_preserve_train(i, 10))
-#     print(mms.inv_nn_preserve_train(i, 15))
-#     print(mms.inv_nn_preserve_train(i, 30))
-#
-#     print(mms.inv_nn_preserve_test(i, 10))
-#     print(mms.inv_nn_preserve_test(i, 15))
-#     print(mms.inv_nn_preserve_test(i, 30))
 #
 #     print(mms.inv_accu_train(i))
 #     print(mms.inv_accu_test(i))
@@ -106,35 +105,35 @@ mms.prepare_visualization_for_all()
     # print(mms.inv_dist_test(i))
 
 #
-# img_save_location = os.path.join(mms.content_path, "img")
-# if not os.path.exists(img_save_location):
-#     os.mkdir(img_save_location)
-#
-# for i in range(1, 201, 1):
-#     train_data = mms.get_epoch_repr_data(i)
-#     labels = mms.get_epoch_labels(i)
-#     # with open("E:\\DVI_exp_data\\noisy_model\\resnet18\\index.json", 'r') as f:
-#     #     index = json.load(f)
-#     # with open("E:\\DVI_exp_data\\noisy_model\\resnet18\\new_labels.json", 'r') as f:
-#     #     ori_labels = json.load(f)
-#     if train_data is None:
-#         continue
-#     z = mms.batch_project(train_data, i)
-#
-#     fig, ax = plt.subplots(ncols=1, figsize=(10, 8))
-#     sc = ax.scatter(
-#         z[:, 0],
-#         z[:, 1],
-#         c=labels,
-#         cmap="tab10",
-#         s=0.1,
-#         alpha=0.5,
-#         rasterized=True,
-#     )
-#     ax.axis('equal')
-#     ax.set_title("parametric UMAP autoencoder embeddings-training data", fontsize=20)
-#     plt.savefig(os.path.join(img_save_location, "{:d}".format(i)))
-#     mms.savefig(i, os.path.join(img_save_location, "b_{:d}".format(i)))
+img_save_location = os.path.join(mms.content_path, "img")
+if not os.path.exists(img_save_location):
+    os.mkdir(img_save_location)
+
+for i in range(0, 1, 1):
+    train_data = mms.get_epoch_train_repr_data(i)
+    labels = mms.get_epoch_train_labels(i)
+    # with open("E:\\DVI_exp_data\\noisy_model\\resnet18\\index.json", 'r') as f:
+    #     index = json.load(f)
+    # with open("E:\\DVI_exp_data\\noisy_model\\resnet18\\new_labels.json", 'r') as f:
+    #     ori_labels = json.load(f)
+    if train_data is None:
+        continue
+    z = mms.batch_project(train_data, i)
+
+    fig, ax = plt.subplots(ncols=1, figsize=(10, 8))
+    sc = ax.scatter(
+        z[:, 0],
+        z[:, 1],
+        c=labels,
+        cmap="tab10",
+        s=0.1,
+        alpha=0.5,
+        rasterized=True,
+    )
+    ax.axis('equal')
+    ax.set_title("parametric UMAP autoencoder embeddings-training data", fontsize=20)
+    plt.savefig(os.path.join(img_save_location, "{:d}".format(i)))
+    mms.savefig(i, os.path.join(img_save_location, "b_{:d}".format(i)))
 
 
 

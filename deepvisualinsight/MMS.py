@@ -10,11 +10,12 @@ from scipy.spatial.distance import cdist
 import deepvisualinsight.utils_advanced as utils_advanced
 
 
-
 class MMS:
-    def __init__(self, content_path, model_structure, epoch_start, epoch_end, period, repr_num, class_num, classes, low_dims=2,
-                 cmap="tab10", resolution=100, neurons=None, temporal=False, transfer_learning=True, verbose=1,
-                 split=-1, advance_border_gen=False, attack_device="cpu"):
+    def __init__(self, content_path, model_structure, epoch_start, epoch_end, period, repr_num, class_num, classes,
+                 low_dims=2,
+                 cmap="tab10", resolution=100, neurons=None, temporal=False, transfer_learning=True, batch_size=1000,
+                 verbose=1, split=-1, advance_border_gen=False, attack_device="cpu"):
+
         '''
         This class contains the model management system (super DB) and provides
         several DVI user interface for dimension reduction and inverse projection function
@@ -33,7 +34,7 @@ class MMS:
         period : int
             seletive choose epoch to visualize
         repr_num : int
-            the output shape of representation data
+            the dimension of embeddings
         class_num : int
             the length of classification labels
         classes	: list, tuple of str
@@ -46,18 +47,20 @@ class MMS:
             See here for the names: https://matplotlib.org/3.1.1/gallery/color/colormap_reference.html
         resolution : int, by default 100
             Resolution of the classification boundary plot.
-        # boundary_diff : float
-        #     the difference between top1 and top2 logits from last layer. The difference is used to define boundary.
         neurons : int
             the number of units inside each layer of autoencoder
         temporal: boolean, by default False
             choose whether to add temporal loss or not
         transfer_learning: boolean, by default True
             choose whether to use transfer learning
+        batch_size: int, by default 1000
+            the batch size to train autoencoder
         verbose : int, by default 1
         split: int, by default -1
         advance_border_gen : boolean, by default False
             whether to use advance adversarial attack method for border points generation
+        attack_device: str, by default "cpu"
+            the device the perform adversatial attack
         '''
         self.model = model_structure
         self.visualization_models = None
@@ -73,16 +76,15 @@ class MMS:
         self.low_dims = low_dims
         self.cmap = plt.get_cmap(cmap)
         self.resolution = resolution
-        # self.boundary_diff = boundary_diff
         self.class_num = class_num
         self.classes = classes
         self.temporal = temporal
         self.transfer_learning = transfer_learning
+        self.batch_size = batch_size
         self.verbose = verbose
         self.split = split
         self.advance_border_gen = advance_border_gen
         self.device = torch.device(attack_device)
-        # self.device = torch.device('cpu')
         if len(tf.config.list_physical_devices('GPU')) > 0:
             self.tf_device = tf.config.list_physical_devices('GPU')[0]
             for d in tf.config.list_physical_devices('GPU'):
@@ -115,11 +117,9 @@ class MMS:
 
     def data_preprocessing(self):
         '''
-        preprocessing data. This process includes find_train_centers, find_border_points and find_border_centers
+        preprocessing data. This process includes find_border_points and find_border_centers
         save data for later training
         '''
-        time_border_clustering = list()
-        time_train_clustering = list()
         time_borders_gen = list()
         for n_epoch in range(self.epoch_start, self.epoch_end+1, self.period):
             index_file = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "index.json")
@@ -144,7 +144,7 @@ class MMS:
                 kmeans_result, predictions = utils_advanced.clustering(gaps.numpy(), preds.numpy(),
                                                                        n_clusters_per_cls=10)
                 # Adversarial attacks
-                border_points, _ = utils_advanced.get_border_points(model=self.model,
+                border_points, _ = utils_advanced.get_border_points_cw(model=self.model,
                                                                     split=self.split,
                                                                     input_x=training_data, gaps=gaps,
                                                                     confs=confs,
@@ -167,17 +167,15 @@ class MMS:
                 # border points gen
                 t0 = time.time()
                 border_points = get_border_points(training_data, training_labels, self.model, self.device)
-                t1 = time.time()
-                time_borders_gen.append(round(t1 - t0, 4))
 
                 # border clustering
                 border_points = torch.from_numpy(border_points)
                 border_points = border_points.to(self.device)
                 border_representation = batch_run(repr_model, border_points, self.repr_num)
-                t2 = time.time()
                 border_centers = clustering(border_representation, n_clusters, verbose=0)
-                t3 = time.time()
-                time_border_clustering.append(round(t3 - t2, 4))
+                t1 = time.time()
+                time_borders_gen.append(round(t1 - t0, 4))
+
                 location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "border_centers.npy")
                 np.save(location, border_centers)
 
@@ -192,13 +190,6 @@ class MMS:
             location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "train_data.npy")
             np.save(location, train_data_representation)
 
-            t5 = time.time()
-            train_centers = clustering(train_data_representation, n_clusters, verbose=0)
-            t6 = time.time()
-            time_train_clustering.append(round(t6 - t5, 4))
-            location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "train_centers.npy")
-            np.save(location, train_centers)
-
             # test data
             test_data = testing_data.to(self.device)
             test_data_representation = batch_run(repr_model, test_data, self.repr_num)
@@ -207,21 +198,10 @@ class MMS:
 
             if self.verbose > 0:
                 print("Finish data preprocessing for Epoch {:d}...".format(n_epoch))
-        time_taken = list()
-        time_taken.append(sum(time_borders_gen) / len(time_borders_gen))
-        time_taken.append(sum(time_train_clustering) / len(time_train_clustering))
-        if len(time_border_clustering) > 0:
-            time_taken.append(sum(time_border_clustering) / len(time_border_clustering))
         print(
             "Average time for generate border points: {:.4f}".format(sum(time_borders_gen) / len(time_borders_gen)))
-        print("Average time for clustering training points: {:.4f}".format(
-            sum(time_train_clustering) / len(time_train_clustering)))
-        if len(time_border_clustering) > 0:
-            print("Average time for clustering border points: {:.4f}".format(
-                sum(time_border_clustering) / len(time_border_clustering)))
 
         self.model = self.model.to(self.device)
-        return time_taken
 
     def prepare_visualization_for_all(self, encoder_in=None, decoder_in=None):
         """
@@ -229,7 +209,7 @@ class MMS:
         """
         dims = (self.repr_num,)
         n_components = 2
-        batch_size = 200
+        batch_size = self.batch_size
         encoder, decoder = define_autoencoder(dims, n_components, self.neurons)
         if encoder_in is not None:
             encoder = encoder_in
@@ -238,7 +218,7 @@ class MMS:
         optimizer = tf.keras.optimizers.Adam(1e-3)
 
         weights_dict = {}
-        losses, loss_weights = define_losses(200, self.temporal)
+        losses, loss_weights = define_losses(batch_size, self.temporal)
         parametric_model = ParametricModel(encoder, decoder, optimizer, losses, loss_weights, self.temporal,
                                            prev_trainable_variables=None)
         callbacks = [
@@ -252,7 +232,6 @@ class MMS:
             tf.keras.callbacks.LambdaCallback(on_train_end=lambda logs: weights_dict.update(
                 {'prev': [tf.identity(tf.stop_gradient(x)) for x in parametric_model.trainable_weights]})),
         ]
-        # self.data_preprocessing()
         t0 = time.time()
         for n_epoch in range(self.epoch_start, self.epoch_end+1, self.period):
             if not self.transfer_learning:
@@ -268,7 +247,6 @@ class MMS:
                 optimizer=optimizer, loss=losses, loss_weights=loss_weights,
             )
 
-            train_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "train_centers.npy")
             if self.advance_border_gen:
                 border_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch),
                                                   "advance_border_centers.npy")
@@ -277,16 +255,19 @@ class MMS:
                                                   "border_centers.npy")
             train_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "train_data.npy")
 
-            # in case no data save for vis
-            if not os.path.exists(train_data_loc):
+            try:
+                train_data = np.load(train_data_loc)
+            except Exception as e:
+                print("no train data saved for Epoch {}".format(n_epoch))
+                continue
+            try:
+                border_centers = np.load(border_centers_loc)
+            except Exception as e:
+                print("no border points saved for Epoch {}".format(n_epoch))
                 continue
 
-            train_centers = np.load(train_centers_loc)
-            border_centers = np.load(border_centers_loc)
-            train_data = np.load(train_data_loc)
-
             complex, sigmas, rhos = fuzzy_complex(train_data, 15)
-            bw_complex, _, _ = boundary_wise_complex(train_centers, border_centers, 15)
+            bw_complex, _, _ = boundary_wise_complex(train_data, border_centers, 15)
             if not self.temporal:
                 (
                     edge_dataset,
@@ -294,7 +275,7 @@ class MMS:
                     n_edges,
                     _edge_weight,
                 ) = construct_mixed_edge_dataset(
-                    (train_data, train_centers, border_centers),
+                    (train_data, border_centers),
                     complex,
                     bw_complex,
                     20,
@@ -316,16 +297,13 @@ class MMS:
                     prev_embedding = encoder(prev_data).cpu().numpy()
                 alpha = find_alpha(prev_data, train_data, n_neighbors=15)
                 alpha[alpha < 0.3] = 0.0 # alpha >=0.5 is convincing
-                # update_dists = find_update_dist(prev_data, train_data, sigmas, rhos)
-                # update_dists[update_dists < 0.05] = 0.0
-                # alpha = alpha*update_dists
                 (
                     edge_dataset,
                     batch_size,
                     n_edges,
                     edge_weight,
                 ) = construct_temporal_mixed_edge_dataset(
-                    (train_data, train_centers, border_centers),
+                    (train_data, border_centers),
                     complex,
                     bw_complex,
                     20,
@@ -342,7 +320,7 @@ class MMS:
             # create embedding
             history = parametric_model.fit(
                 edge_dataset,
-                epochs=200,
+                epochs=200, # a large value, because we have early stop callback
                 steps_per_epoch=steps_per_epoch,
                 callbacks=callbacks,
                 max_queue_size=100,
@@ -369,7 +347,6 @@ class MMS:
         if self.verbose > 0:
             print("Average time for training visualzation model: {:.4f}".format(
                 (t1 - t0) / int((self.epoch_end - self.epoch_start) / self.period + 1)))
-        return (t1 - t0) / int((self.epoch_end - self.epoch_start) / self.period + 1)
 
     def get_proj_model(self, epoch_id):
         '''
@@ -450,9 +427,12 @@ class MMS:
             return embedding.squeeze()
 
     def individual_inverse(self, data, epoch_id):
-        '''
-        ba
-        '''
+        """
+        map a 2D point back into high dimensional space
+        :param data: ndarray, (1, 2)
+        :param epoch_id: num of epoch
+        :return: high dim representation, numpy.ndarray
+        """
         decoder = self.get_inv_model(epoch_id)
         if decoder is None:
             return None
@@ -462,6 +442,12 @@ class MMS:
             return representation_data.squeeze()
 
     def batch_inverse(self, data, epoch_id):
+        """
+        map 2D points back into high dimensional space
+        :param data: ndarray, (n, 2)
+        :param epoch_id: num of epoch
+        :return: high dim representation, numpy.ndarray
+        """
         decoder = self.get_inv_model(epoch_id)
         if decoder is None:
             return None
@@ -1378,7 +1364,7 @@ class MMS:
         new_label = new_pred.argmax(-1)
         l = old_label == new_label
 
-        conf_diff = ori_pred[old_label] - new_pred[old_label]
+        conf_diff = np.abs(ori_pred[old_label] - new_pred[old_label])
         
         return l, conf_diff
     

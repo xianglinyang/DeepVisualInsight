@@ -185,6 +185,18 @@ def construct_mixed_edge_dataset(
     X_input, old_graph_, new_graph_, n_epochs, batch_size, parametric_embedding,
         parametric_reconstruction
 ):
+    """
+    construct the mixed edge dataset
+    connect border points and train data(both direction)
+    :param X_input: tuple (train_data, border_points)
+    :param old_graph_: train data complex
+    :param new_graph_: boundary wise complex
+    :param n_epochs: how many epoch that expected to train the autoencoder
+    :param batch_size: edge dataset batch size
+    :param parametric_embedding: booldean, whether to use parametric embedding
+    :param parametric_reconstruction: booldean, whether to reconstruct original data
+    :return: tf edge dataset
+    """
 
     def gather_X(edge_to, edge_from, weight):
         edge_to_batch = tf.gather(fitting_data, edge_to)
@@ -198,11 +210,10 @@ def construct_mixed_edge_dataset(
 
         return (edge_to_batch, edge_from_batch, weight), outputs
 
-    train_data, centers, border_centers = X_input
-    cp_num = len(train_data)
-    centers_num = len(centers)
-    bc_num = len(border_centers)
-    fitting_data = np.concatenate((train_data, centers, border_centers), axis=0)
+    train_data, border_centers = X_input
+    # cp_num = len(train_data)
+
+    fitting_data = np.concatenate((train_data, border_centers), axis=0)
 
     # get data from graph
     old_graph, old_epochs_per_sample, old_head, old_tail, old_weight, old_n_vertices = get_graph_elements(
@@ -213,8 +224,8 @@ def construct_mixed_edge_dataset(
         new_graph_, n_epochs
     )
     ## normalize two graphs
-    new_head = new_head + cp_num
-    new_tail = new_tail + cp_num
+    # new_head = new_head + cp_num
+    # new_tail = new_tail + cp_num
 
     # number of elements per batch for embedding
     if batch_size is None:
@@ -391,16 +402,39 @@ def convert_distance_to_probability(distances, a=1.0, b=1.0):
     return 1.0 / (1.0 + a * distances ** (2 * b))
 
 
-def boundary_wise_complex(centers, border_centers, n_neighbors):
-    high_tree = KDTree(border_centers)
-    from sklearn.utils import check_random_state
-    random_state = check_random_state(None)
+def boundary_wise_complex(train_data, border_centers, n_neighbors):
+    """
+    compute the boundary wise complex
+    for each border point, we calculate its k nearest train points
+    for each train data, we calculate its k nearest border points
+    :param train_data:
+    :param border_centers:
+    :param n_neighbors:
+    :return:
+    """
+    # solution 1 both way
+    # # from border points to train data
+    # high_tree = KDTree(train_data)
+    # knn_dists_b, knn_indices_b = high_tree.query(border_centers, k=n_neighbors)
+    #
+    # # from train_data to border points
+    # high_tree = KDTree(border_centers)
+    # knn_dists_t, knn_indices_t = high_tree.query(train_data, k=n_neighbors)
+    # knn_indices_t = knn_dists_t + len(train_data)
 
-    fitting_data = np.concatenate((centers, border_centers), axis=0)
+    # solution 2
+    high_tree = KDTree(border_centers)
+
+    fitting_data = np.concatenate((train_data, border_centers), axis=0)
     knn_dists, knn_indices = high_tree.query(fitting_data, k=n_neighbors)
-    knn_indices = knn_indices + len(centers)
+    knn_indices = knn_indices + len(train_data)
+
+    # knn_dists = np.concatenate((knn_dists_t, knn_dists_b), axis=0)
+    # knn_indices = np.concatenate((knn_indices_t, knn_indices_b), axis=0)
 
     from umap.umap_ import fuzzy_simplicial_set
+    from sklearn.utils import check_random_state
+    random_state = check_random_state(None)
     bw_complex, sigmas, rhos = fuzzy_simplicial_set(
         X=fitting_data,
         n_neighbors=n_neighbors,
@@ -630,14 +664,13 @@ def construct_temporal_mixed_edge_dataset(
 
         return (edge_to_batch, edge_from_batch, to_alpha_batch, to_pe_batch, weight), outputs
 
-    train_data, centers, border_centers = X_input
-    cp_num = len(train_data)
-    centers_num = len(centers)
+    train_data, border_centers = X_input
+    # cp_num = len(train_data)
     bc_num = len(border_centers)
-    fitting_data = np.concatenate((train_data, centers, border_centers), axis=0)
+    fitting_data = np.concatenate((train_data, border_centers), axis=0)
     alpha = np.expand_dims(alpha, axis=1)
-    alpha = np.concatenate((alpha, np.zeros((centers_num + bc_num, 1))), axis=0)
-    prev_embedding = np.concatenate((prev_embedding, np.zeros((centers_num + bc_num, 2))), axis=0)
+    alpha = np.concatenate((alpha, np.zeros((bc_num, 1))), axis=0)
+    prev_embedding = np.concatenate((prev_embedding, np.zeros((bc_num, 2))), axis=0)
 
     # get data from graph
     old_graph, old_epochs_per_sample, old_head, old_tail, old_weight, old_n_vertices = get_graph_elements(
@@ -647,9 +680,10 @@ def construct_temporal_mixed_edge_dataset(
     new_graph, new_epochs_per_sample, new_head, new_tail, new_weight, new_n_vertices = get_graph_elements(
         new_graph_, n_epochs
     )
+    new_epochs_per_sample = np.repeat(new_epochs_per_sample, 2)
     ## normalize two graphs
-    new_head = new_head + cp_num
-    new_tail = new_tail + cp_num
+    # new_head = new_head + cp_num
+    # new_tail = new_tail + cp_num
 
     # number of elements per batch for embedding
     if batch_size is None:
@@ -754,6 +788,7 @@ def regularize_loss():
 #         return alldiff
 #
 #     return loss
+
 
 def embedding_loss():
     '''
