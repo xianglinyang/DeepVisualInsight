@@ -1,3 +1,6 @@
+"""
+Help functions to evaluate our visualization system
+"""
 from sklearn.neighbors import KDTree
 from deepvisualinsight import backend
 import numpy as np
@@ -8,6 +11,14 @@ from sklearn.manifold import trustworthiness
 
 
 def evaluate_proj_nn_perseverance_knn(data, embedding, n_neighbors, metric="euclidean"):
+    """
+    evaluate projection function, nn preserving property using knn algorithm
+    :param data: ndarray, high dimensional representations
+    :param embedding: ndarray, low dimensional representations
+    :param n_neighbors: int, the number of neighbors
+    :param metric: str, by default "euclidean"
+    :return nn property: float, nn preserving property
+    """
     n_trees = 5 + int(round((data.shape[0]) ** 0.5 / 20.0))
     n_iters = max(5, int(round(np.log2(data.shape[0]))))
     # get nearest neighbors
@@ -41,11 +52,28 @@ def evaluate_proj_nn_perseverance_knn(data, embedding, n_neighbors, metric="eucl
 
 
 def evaluate_proj_nn_perseverance_trustworthiness(data, embedding, n_neighbors, metric="euclidean"):
+    """
+    evaluate projection function, nn preserving property using trustworthiness formula
+    :param data: ndarray, high dimensional representations
+    :param embedding: ndarray, low dimensional representations
+    :param n_neighbors: int, the number of neighbors
+    :param metric: str, by default "euclidean"
+    :return nn property: float, nn preserving property
+    """
     t = trustworthiness(data, embedding, n_neighbors=n_neighbors, metric=metric)
     return t
 
 
 def evaluate_proj_boundary_perseverance_knn(data, embedding, high_centers, low_centers, n_neighbors):
+    """
+    evaluate projection function, boundary preserving property
+    :param data: ndarray, high dimensional representations
+    :param embedding: ndarray, low dimensional representations
+    :param high_centers: ndarray, border points high dimensional representations
+    :param low_centers: ndarray, border points low dimensional representations
+    :param n_neighbors: int, the number of neighbors
+    :return boundary preserving property: float,boundary preserving property
+    """
     high_tree = KDTree(high_centers)
     low_tree = KDTree(low_centers)
 
@@ -60,6 +88,13 @@ def evaluate_proj_boundary_perseverance_knn(data, embedding, high_centers, low_c
 
 
 def evaluate_proj_temporal_perseverance_corr(alpha, delta_x):
+    """
+    Evaluate temporal preserving property,
+    calculate the correlation between neighbor preserving rate and moving distance in low dim in a time sequence
+    :param alpha: ndarray, shape(N,) neighbor preserving rate
+    :param delta_x: ndarray, shape(N,), moved distance in low dim for each point
+    :return corr: ndarray, shape(N,), correlation for each point from temporal point of view
+    """
     alpha = alpha.T
     delta_x = delta_x.T
     shape = alpha.shape
@@ -75,14 +110,33 @@ def evaluate_proj_temporal_perseverance_corr(alpha, delta_x):
 
 
 def evaluate_inv_distance(data, inv_data):
+    """
+    The distance between original data and reconstruction data
+    :param data: ndarray, high dimensional data
+    :param inv_data: ndarray, reconstruction data
+    :return err: mse, reconstruction error
+    """
     return np.linalg.norm(data-inv_data, axis=1).mean()
 
 
 def evaluate_inv_accu(labels, pred):
+    """
+    prediction accuracy of reconstruction data
+    :param labels: ndarray, shape(N,), label for each point
+    :param pred: ndarray, shape(N,), prediction for each point
+    :return accu: float, the reconstruction accuracy
+    """
     return np.sum(labels == pred) / len(labels)
 
 
 def evaluate_inv_conf(labels, ori_pred, new_pred):
+    """
+    the confidence difference between original data and reconstruction data
+    :param labels: ndarray, shape(N,), the original prediction for each point
+    :param ori_pred: ndarray, shape(N,10), the prediction of original data
+    :param new_pred: ndarray, shape(N,10), the prediction of reconstruction data
+    :return diff: float, the mean of confidence difference for each point
+    """
     old_conf = [ori_pred[i, labels[i]] for i in range(len(labels))]
     new_conf = [new_pred[i, labels[i]] for i in range(len(labels))]
     old_conf = np.array(old_conf)
@@ -93,39 +147,15 @@ def evaluate_inv_conf(labels, ori_pred, new_pred):
     return diff.mean()
 
 
-def evaluate_inv_nn(data, recon, n_neighbors=15):
-    n_trees = 5 + int(round((data.shape[0]) ** 0.5 / 20.0))
-    n_iters = max(5, int(round(np.log2(data.shape[0]))))
-    # get nearest neighbors
-    nnd = NNDescent(
-        data,
-        n_neighbors=n_neighbors,
-        metric="euclidean",
-        n_trees=n_trees,
-        n_iters=n_iters,
-        max_candidates=60,
-        verbose=True
-    )
-    high_ind, _ = nnd.neighbor_graph
-    nnd = NNDescent(
-        recon,
-        n_neighbors=n_neighbors,
-        metric="euclidean",
-        n_trees=n_trees,
-        n_iters=n_iters,
-        max_candidates=60,
-        verbose=True
-    )
-    recon_ind, _ = nnd.neighbor_graph
-
-    border_pres = np.zeros(len(data))
-    for i in range(len(data)):
-        border_pres[i] = len(np.intersect1d(high_ind[i], recon_ind[i]))
-    # return border_pres.mean(), border_pres.max(), border_pres.min()
-    return border_pres.mean()
-
-
 def evaluate_proj_temporal_perseverance_entropy(alpha, delta_x):
+    """
+    (discard)
+    calculate the temporal preserving property
+    based on the correlation between the entropy of moved distance and neighbor preserving rate(alpha)
+    :param alpha: ndarray, shape(N,), neighbor preserving rate for each point
+    :param delta_x: ndarray, shape(N,), the moved distance in low dim for each point
+    :return corr: float, the mean of all correlation
+    """
     alpha = alpha.T
     delta_x = delta_x.T
     shape = alpha.shape
