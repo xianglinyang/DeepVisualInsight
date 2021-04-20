@@ -8,6 +8,7 @@ import gc
 from scipy.special import softmax
 from scipy.spatial.distance import cdist
 import deepvisualinsight.utils_advanced as utils_advanced
+from deepvisualinsight.VisualizationModel import ParametricModel
 
 
 class MMS:
