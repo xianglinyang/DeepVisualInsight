@@ -116,7 +116,7 @@ class MMS:
         if self.verbose > 0:
             print("Finish loading content!")
 
-    ################################################ Trainer ################################################
+    #################################################### Trainer ####################################################
     def data_preprocessing(self):
         '''
         preprocessing data. This process includes find_border_points and find_border_centers
@@ -1370,7 +1370,7 @@ class MMS:
         val = evaluate_inv_accu(labels, pred)
         return val
 
-    ############################################## Case Studies ###############################################
+    ############################################## Case Studies Related###############################################
     '''active learning'''
     def get_new_index(self, epoch_id):
         """get the index of new selection"""
