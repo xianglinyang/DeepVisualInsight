@@ -43,7 +43,7 @@ def clustering(data, predictions, n_clusters_per_cls, n_class=10, verbose=0):
     return kmeans_result, predictions
 
 
-def mixup(model, image1, image2, label, target_cls, diff=0.1, max_iter=8, verbose=1):
+def mixup(model, image1, image2, label, target_cls, device, diff=0.1, max_iter=8, verbose=1):
     def f(x):
         # New prediction
         with torch.no_grad():
@@ -170,7 +170,7 @@ def get_border_points(model, input_x, confs, kmeans_result, predictions,
     return adv_examples, attack_steps_ct
 
 
-def batch_run(model, data, batch_size=200):
+def batch_run(model, data, device, batch_size=200):
     '''Get GAP layers and predicted labels for data
     :param model: subject model
     :param data: images torch.Tensor of shape (N, C, H, W)
@@ -200,3 +200,19 @@ def batch_run(model, data, batch_size=200):
             preds = torch.cat((preds, torch.argmax(conf, dim=1).detach().cpu().float()), dim=0)
 
     return gaps, preds, confs
+
+###################################### I didn't change those functions ######################################
+def load_labelled_data_index(filename):
+    if not os.path.exists(filename):
+        sys.exit("data file doesn't exist!")
+    with open(filename, 'r') as f:
+        index = json.load(f)
+    return index
+
+
+def softmax_model(model, split): # softmax layer
+    return torch.nn.Sequential(*(list(model.children())[split:]))
+
+
+def gap_model(model, split): # GAP layer
+    return torch.nn.Sequential(*(list(model.children())[:split]))
