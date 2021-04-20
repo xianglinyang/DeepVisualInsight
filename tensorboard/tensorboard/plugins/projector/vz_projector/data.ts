@@ -398,21 +398,8 @@ export class DataSet {
   /** Runs tsne on the data. */
   async projectDVI (
       iteration: number,
-      stepCallback: (iter: number, evaluation:any, newSelection: any[], totalIter?: number) => void
+      stepCallback: (iter: number|null, evaluation:any, newSelection: any[], totalIter?: number) => void
   ) {
-    /*
-    const xhr = new XMLHttpRequest();
-    const projectorConfigPath = "standalone_projector_config.json";
-    let projectorConfig = "localhost1";
-    xhr.open('GET', projectorConfigPath);
-    xhr.onload = () => {
-      projectorConfig = JSON.parse(xhr.responseText);
-      console.log(projectorConfig);
-    };
-    xhr.send();
-
-    console.log("hi");
-    console.log(projectorConfig);*/
     this.projections['tsne'] = true;
     function componentToHex(c: number) {
       const hex = c.toString(16);
@@ -585,7 +572,12 @@ export class DataSet {
         this.DVICurrentRealDataNumber = real_data_number;
         this.DVIRealDataNumber[iteration] = real_data_number;
         stepCallback(this.tSNEIteration, evaluation, new_selection, this.tSNETotalIter);
-    });          });
+    }).catch(error => {
+        console.log(error);
+        stepCallback(null, null, null);
+    });
+
+          });
     } else {
       const validDataNumber = this.DVIValidPointNumber[iteration];
       const evaluation = this.DVIEvaluation[iteration];
