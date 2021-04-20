@@ -709,7 +709,7 @@ export class ProjectorScatterPlotAdapter {
   }
   private getLabelText(ds: DataSet, i: number, accessor: string): string {
     return ds.points[i].metadata[accessor] !== undefined
-      ? String(ds.points[i].metadata[accessor])
+      ? (ds.points[i].metadata[accessor] !== "background" ? String(ds.points[i].metadata[accessor]) : "")
       : `Unknown #${i}`;
   }
   private updateScatterPlotWithNewProjection(projection: Projection) {
