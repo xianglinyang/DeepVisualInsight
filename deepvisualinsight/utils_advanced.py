@@ -128,6 +128,17 @@ def cw_l2_attack(model, split, image, label, target_cls, target_gap, device, dif
 
 
 def mixup_bi(model, image1, image2, label, target_cls, device, diff=0.1, max_iter=8, verbose=1):
+    '''Get BPs based on mixup method, fast
+    :param model: subject model
+    :param image1: images, torch.Tensor of shape (N, C, H, W)
+    :param image2: images, torch.Tensor of shape (N, C, H, W)
+    :param label: int, 0-9, prediction for image1
+    :param target_cls: int, 0-9, prediction for image2
+    :param device: the device to run code, torch cpu or torch cuda
+    :param diff: the difference between top1 and top2 logits we define as boundary, float by default 0.1
+    :param max_iter: binary search iteration maximum value, int by default 8
+    :param verbose: whether to print verbose message, int by default 1
+    '''
     def f(x):
         # New prediction
         with torch.no_grad():
@@ -226,12 +237,7 @@ def get_border_points_cw(model, split, input_x, gaps, confs, kmeans_result, pred
         conf2 = confs[data2_index]         
         pvec2 = (1/(conf2[:,cls2]-conf2[:,cls1]+1e-4)) / torch.sum((1/(conf2[:,cls2]-conf2[:,cls1]+1e-4)))
         
-        # probability to be sampled is inversely proportinal to the distance to decision boundary
-#         sort1, _ = torch.sort(confs[data1_index], dim=1, descending=True)
-#         pvec1 = (1/(sort1[:,0]-sort1[:,1]+1e-4)) / torch.sum(1/(sort1[:,0]-sort1[:,1]+1e-4)) # smaller top1-top2 is preferred
-#         sort2, _ = torch.sort(confs[data2_index], dim=1, descending=True)
-#         pvec2 = (1/(sort2[:,0]-sort2[:,1]+1e-4)) / torch.sum((1/(sort2[:,0]-sort2[:,1]+1e-4)))
-    
+
         image1_idx = np.random.choice(range(len(data1_index)), size=1, p=pvec1.numpy()) 
         image2_idx = np.random.choice(range(len(data2_index)), size=1, p=pvec2.numpy()) 
 

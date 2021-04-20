@@ -144,7 +144,7 @@ class MMS:
                 kmeans_result, predictions = utils_advanced.clustering(gaps.numpy(), preds.numpy(),
                                                                        n_clusters_per_cls=10)
                 # Adversarial attacks
-                border_points, _ = utils_advanced.get_border_points_cw(model=self.model,
+                border_points, _ = utils_advanced.get_border_points_mixup(model=self.model,
                                                                     split=self.split,
                                                                     input_x=training_data, gaps=gaps,
                                                                     confs=confs,
