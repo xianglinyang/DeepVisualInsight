@@ -123,9 +123,7 @@ def cw_l2_attack(model, split, image, label, target_cls, target_gap, device, dif
             
     # w is the noise added to the original image, restricted to be [-1, 1]
     attack_images = image + torch.tanh(w) 
-    
-#     ratio_truncate_w = (torch.sum(torch.abs(torch.tanh(w) - 1)<=0.001).item() + torch.sum(torch.abs(torch.tanh(w) + 1)<=0.001).item()) / (torch.sum(torch.ones_like(image)).item())
-    
+
     return attack_images.detach().cpu(), successful, step
 
 
@@ -141,8 +139,9 @@ def mixup_bi(model, image1, image2, label, target_cls, device, diff=0.1, max_ite
         return pred_new, normalized
 
     # initialze upper and lower bound
+    # set a limitation to upper bound
     upper = 1
-    lower = 0
+    lower = 0.80
     successful = False
 
     for step in range(max_iter):
@@ -150,6 +149,8 @@ def mixup_bi(model, image1, image2, label, target_cls, device, diff=0.1, max_ite
         # take middle point
         lamb = (upper + lower) / 2
         image_mix = lamb * image1 + (1 - lamb) * image2
+        # clip image
+        image_mix = torch.clamp(image_mix, 0, 1)
 
         pred_new, normalized = f(image_mix)
 
@@ -162,12 +163,13 @@ def mixup_bi(model, image1, image2, label, target_cls, device, diff=0.1, max_ite
 
         # Stop when ...
         # successfully flip the label
-        if torch.argmax(pred_new, dim=1).item() == target_cls:
-            successful = True
-            break
+        # if torch.argmax(pred_new, dim=1).item() == target_cls:
+        #     successful = True
+        #     break
 
-        # or reach the decision boundary
-        if torch.abs(normalized[0, label] - normalized[0, target_cls]).item() < diff:
+        # reach the decision boundary, and
+        # abs(upper-lower) < 0.1 or step>1
+        if torch.abs(normalized[0, label] - normalized[0, target_cls]).item() < diff and (upper-lower) < 0.1:
             successful = True
             break
 
@@ -330,7 +332,6 @@ def get_border_points_mixup(model, split, input_x, gaps, confs, kmeans_result, p
             adv_examples = torch.cat((adv_examples, attack), dim=0)
             ct += 1
             attack_steps_ct.append(attack_step)
-
 
         if verbose:
             if ct % 1000 == 0:
