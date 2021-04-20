@@ -400,6 +400,19 @@ export class DataSet {
       iteration: number,
       stepCallback: (iter: number, evaluation:any, newSelection: any[], totalIter?: number) => void
   ) {
+    /*
+    const xhr = new XMLHttpRequest();
+    const projectorConfigPath = "standalone_projector_config.json";
+    let projectorConfig = "localhost1";
+    xhr.open('GET', projectorConfigPath);
+    xhr.onload = () => {
+      projectorConfig = JSON.parse(xhr.responseText);
+      console.log(projectorConfig);
+    };
+    xhr.send();
+
+    console.log("hi");
+    console.log(projectorConfig);*/
     this.projections['tsne'] = true;
     function componentToHex(c: number) {
       const hex = c.toString(16);
@@ -413,7 +426,12 @@ export class DataSet {
       let headers = new Headers();
       headers.append('Content-Type', 'application/json');
       headers.append('Accept', 'application/json');
-      await fetch("http://localhost:5000/animation", {
+      await fetch("standalone_projector_config.json", {method: 'GET'})
+          .then(response => response.json())
+          .then(data => {
+            const ip_address = data.serverIp;
+
+      fetch("http://"+ip_address+":5000/animation", {
         method: 'POST',
         body: JSON.stringify({"cache": this.DVIUseCache, "path": this.DVIsubjectModelPath,  "iteration":iteration,
               "resolution":this.DVIResolution, "data_path": this.DVIsubjectModelPath + '/data'}),
@@ -567,7 +585,7 @@ export class DataSet {
         this.DVICurrentRealDataNumber = real_data_number;
         this.DVIRealDataNumber[iteration] = real_data_number;
         stepCallback(this.tSNEIteration, evaluation, new_selection, this.tSNETotalIter);
-    });
+    });          });
     } else {
       const validDataNumber = this.DVIValidPointNumber[iteration];
       const evaluation = this.DVIEvaluation[iteration];
