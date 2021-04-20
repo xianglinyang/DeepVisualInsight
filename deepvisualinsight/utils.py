@@ -128,6 +128,7 @@ def get_border_points(data_, target_, model, device, epsilon=.01, limit=7,):
 
 
 def load_labelled_data_index(filename):
+    """load training data by index file"""
     if not os.path.exists(filename):
         sys.exit("data file doesn't exist!")
     with open(filename, 'r') as f:
@@ -135,15 +136,18 @@ def load_labelled_data_index(filename):
     return index
 
 
-def softmax_model(model):
-    return torch.nn.Sequential(*(list(model.children())[-1:]))
+def softmax_model(model, split): # softmax layer
+    """separate model that contains softmax layer"""
+    return torch.nn.Sequential(*(list(model.children())[split:]))
 
 
-def gap_model(model):
-    return torch.nn.Sequential(*(list(model.children())[:-1]))
+def gap_model(model, split): # GAP layer
+    """get the model that produce gap data"""
+    return torch.nn.Sequential(*(list(model.children())[:split]))
 
 
 def batch_run(model, data, output_shape, batch_size=200):
+    """batch run, in case memory error"""
     data = data.to(dtype=torch.float)
     input_X = np.zeros([len(data), output_shape])
     n_batches = max(math.ceil(len(data) / batch_size), 1)
