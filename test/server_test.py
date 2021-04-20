@@ -154,7 +154,7 @@ class MyTestCase(unittest.TestCase):
                       verbose=1)
 
         start = time.time()
-        dimension_reduction_result = mms.batch_get_embedding(data, iteration)
+        dimension_reduction_result = mms.batch_embedding(data, iteration)
         end = time.time()
         print("Succeed for dimensional reduction related API, used time:"+str(end - start))
 
