@@ -88,7 +88,7 @@ def evaluate_inv_conf(labels, ori_pred, new_pred):
     old_conf = np.array(old_conf)
     new_conf = np.array(new_conf)
 
-    diff = old_conf - new_conf
+    diff = np.abs(old_conf - new_conf)
     # return diff.mean(), diff.max(), diff.min()
     return diff.mean()
 
