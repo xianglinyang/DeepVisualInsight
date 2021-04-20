@@ -129,7 +129,52 @@ def cw_l2_attack(model, split, image, label, target_cls, target_gap, device, dif
     return attack_images.detach().cpu(), successful, step
 
 
-def get_border_points(model, split, input_x, gaps, confs, kmeans_result, predictions, device,
+def mixup_bi(model, image1, image2, label, target_cls, device, diff=0.1, max_iter=8, verbose=1):
+    def f(x):
+        # New prediction
+        with torch.no_grad():
+            x = x.to(device, dtype=torch.float)
+            pred_new = model(x)
+            conf_max = torch.max(pred_new.detach().cpu(), dim=1)[0]
+            conf_min = torch.min(pred_new.detach().cpu(), dim=1)[0]
+            normalized = (pred_new.detach().cpu() - conf_min) / (conf_max - conf_min)  # min-max rescaling
+        return pred_new, normalized
+
+    # initialze upper and lower bound
+    upper = 1
+    lower = 0
+    successful = False
+
+    for step in range(max_iter):
+
+        # take middle point
+        lamb = (upper + lower) / 2
+        image_mix = lamb * image1 + (1 - lamb) * image2
+
+        pred_new, normalized = f(image_mix)
+
+        # Bisection method
+        if normalized[0, label] - normalized[0, target_cls] > 0:  # shall decrease weight on image 1
+            upper = lamb
+
+        else:  # shall increase weight on image 1
+            lower = lamb
+
+        # Stop when ...
+        # successfully flip the label
+        if torch.argmax(pred_new, dim=1).item() == target_cls:
+            successful = True
+            break
+
+        # or reach the decision boundary
+        if torch.abs(normalized[0, label] - normalized[0, target_cls]).item() < diff:
+            successful = True
+            break
+
+    return image_mix, successful, step
+
+
+def get_border_points_cw(model, split, input_x, gaps, confs, kmeans_result, predictions, device,
                       num_adv_eg=5000, num_cls=10, n_clusters_per_cls=10, verbose=1):
     '''Get BPs
     :param model: subject model
@@ -171,7 +216,7 @@ def get_border_points(model, split, input_x, gaps, confs, kmeans_result, predict
         # randomly select one image for each cluster
         data1_index = np.argwhere((predictions == cls1) & (kmeans_result == cluster1)).squeeze()
         data2_index = np.argwhere((predictions == cls2) & (kmeans_result == cluster2)).squeeze()
-        
+
         # probability to be sampled is inversely proportinal to the distance to "targeted" decision boundary
         # smaller class1-class2 is preferred
         conf1 = confs[data1_index]
@@ -221,6 +266,83 @@ def get_border_points(model, split, input_x, gaps, confs, kmeans_result, predict
     return adv_examples, attack_steps_ct
 
 
+def get_border_points_mixup(model, split, input_x, gaps, confs, kmeans_result, predictions, device,
+                      num_adv_eg=5000, num_cls=10, n_clusters_per_cls=10, verbose=1):
+    '''Get BPs
+    :param model: subject model
+    :param input_x: images, torch.Tensor of shape (N, C, H, W)
+    :param gaps: GAP, torch.Tensor of shape (N, 512)
+    :param kmeans_result: predicted cluster label, numpy.ndarray of shape (N,)
+    :param predictions: class prediction, numpy.ndarray of shape (N,)
+    :param num_adv_eg: number of adversarial examples to be generated, int
+    :param num_cls: number of classes, int eg 10 for CIFAR10
+    :param n_clusters_per_cls: number of clusters for each class, int
+    :return adv_examples: adversarial images, torch.Tensor of shape (N, C, H, W)
+    :return attack_steps_ct: attacking steps
+    '''
+
+    ct = 0
+    adv_examples = torch.tensor([])
+    attack_steps_ct = []
+
+    t0 = time.time()
+    while ct < num_adv_eg:
+
+        # randomly select two classes
+        cls1 = np.random.choice(range(num_cls), 1)[0]
+        while np.sum(predictions == cls1) <= 1:  # avoid empty class
+            cls1 = np.random.choice(range(num_cls), 1)[0]
+        cls2 = cls1
+        while cls2 == cls1 or np.sum(predictions == cls2) <= 1:  # choose a different class,  avoid empty class
+            cls2 = np.random.choice(range(num_cls), 1)[0]
+
+        # randomly select one cluster from each class
+        cluster1 = np.random.choice(range(n_clusters_per_cls), 1)[0]
+        while np.sum((predictions == cls1) & (kmeans_result == cluster1)) <= 1:  # avoid empty cluster
+            cluster1 = np.random.choice(range(n_clusters_per_cls), 1)[0]
+
+        cluster2 = np.random.choice(range(n_clusters_per_cls), 1)[0]
+        while np.sum((predictions == cls2) & (kmeans_result == cluster2)) <= 1:  # avoid empty cluster
+            cluster2 = np.random.choice(range(n_clusters_per_cls), 1)[0]
+
+        # randomly select one image for each cluster
+        data1_index = np.argwhere((predictions == cls1) & (kmeans_result == cluster1)).squeeze()
+        data2_index = np.argwhere((predictions == cls2) & (kmeans_result == cluster2)).squeeze()
+
+        # probability to be sampled is inversely proportinal to the distance to "targeted" decision boundary
+        # smaller class1-class2 is preferred
+        conf1 = confs[data1_index]
+        pvec1 = (1 / (conf1[:, cls1] - conf1[:, cls2] + 1e-4)) / torch.sum(
+            (1 / (conf1[:, cls1] - conf1[:, cls2] + 1e-4)))
+        conf2 = confs[data2_index]
+        pvec2 = (1 / (conf2[:, cls2] - conf2[:, cls1] + 1e-4)) / torch.sum(
+            (1 / (conf2[:, cls2] - conf2[:, cls1] + 1e-4)))
+
+        image1_idx = np.random.choice(range(len(data1_index)), size=1, p=pvec1.numpy())
+        image2_idx = np.random.choice(range(len(data2_index)), size=1, p=pvec2.numpy())
+
+        image1 = input_x[data1_index[image1_idx]]
+        image2 = input_x[data2_index[image2_idx]]
+
+        attack, successful, attack_step = mixup_bi(model, image1, image2, cls1, cls2, device)
+
+        if successful:
+            adv_examples = torch.cat((adv_examples, attack), dim=0)
+            ct += 1
+            attack_steps_ct.append(attack_step)
+
+
+        if verbose:
+            if ct % 1000 == 0:
+                print('{}/{}'.format(ct, num_adv_eg))
+
+    t1 = time.time()
+    if verbose:
+        print('Total time {:2f}'.format(t1 - t0))
+
+    return adv_examples, attack_steps_ct
+
+
 def batch_run(model, split, data, device, batch_size=200):
     '''Get GAP layers and predicted labels for data
     :param model: subject model
@@ -262,8 +384,8 @@ def load_labelled_data_index(filename):
     return index
 
 
-def softmax_model(model): # softmax layer
-    return torch.nn.Sequential(*(list(model.children())[-1:]))
+def softmax_model(model, split): # softmax layer
+    return torch.nn.Sequential(*(list(model.children())[split:]))
 
 
 def gap_model(model, split): # GAP layer
@@ -301,8 +423,9 @@ if __name__ == '__main__':
     
     # Adversarial attacks
     print('Adv attack ... ')
-    adv_examples, attack_steps_ct = get_border_points(model = model, input_x = input_x, gaps = gaps, confs = confs, kmeans_result = kmeans_result, predictions = predictions, num_adv_eg = 5000, num_cls = 10, n_clusters_per_cls = 10, verbose = 1)
-    
+    adv_examples, attack_steps_ct = get_border_points_cw(model=model, input_x=input_x, gaps=gaps, confs=confs,
+                                                      kmeans_result=kmeans_result, predictions=predictions,
+                                                      num_adv_eg=5000, num_cls=10, n_clusters_per_cls=10, verbose=1)
     # Save??
     torch.save(adv_examples, 'BPs.pt')
     
