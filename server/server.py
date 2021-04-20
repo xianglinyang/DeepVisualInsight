@@ -144,5 +144,6 @@ def hello_world():
 
 # if this is the main thread of execution first load the model and then start the server
 if __name__ == "__main__":
-
-    app.run(host="localhost")
+    with open('../tensorboard/tensorboard/plugins/projector/vz_projector/standalone_projector_config.json', 'r') as f:
+        ip_adress = json.load(f)["serverIp"]
+    app.run(host=ip_adress)
