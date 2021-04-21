@@ -1,6 +1,7 @@
 import unittest
 from deepvisualinsight.MMS import MMS
 import sys
+import numpy as np
 
 # https://docs.google.com/document/d/1xGgBpFzCcwiRUU_l9_Y_q0nTeIcCG1-GvXWnBZhfcGs/edit
 
@@ -9,6 +10,7 @@ class MyTestCase(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(MyTestCase, self).__init__(*args, **kwargs)
 
+        # choose resnet18_cifar10 to test all apis
         content_path = "E:\\DVI_exp_data\\resnet18_cifar10"
         sys.path.append(content_path)
 
@@ -23,20 +25,96 @@ class MyTestCase(unittest.TestCase):
     ############################################### Backend API ###################################################
     '''get autoencoder model'''
     def test_get_proj_model(self):
-        encoder = self.mms.get_proj_model(500)
+        # if encoder does not exist
+        encoder = self.mms.get_proj_model(-1)
         self.assertIsNone(encoder)
 
+        # general setting
+        encoder = self.mms.get_proj_model(120)
+        self.assertIsNotNone(encoder)
+
     def test_get_env_model(self):
-        decoder = self.mms.get_inv_model(500)
+        # if decoder does not exist
+        decoder = self.mms.get_inv_model(-1)
         self.assertIsNone(decoder)
 
-    # '''Dimension reduction'''
-    # embedding = mms.batch_project(data, epoch_id)
-    # embedding = mms.individual_project(data, epoch_id)
-    # recon = mms.batch_inverse(data, epoch_id)
-    # recon = mms.individual_inverse(data, epoch_id)
-    #
-    # '''tool'''
+        # general setting
+        decoder = self.mms.get_inv_model(120)
+        self.assertIsNotNone(decoder)
+
+    '''Dimension reduction'''
+    def test_batch_project(self):
+        # general setting
+        epoch_id = 120
+        data = np.random.rand(500, 512)
+        embedding = self.mms.batch_project(data, epoch_id)
+
+        shape = (500, 2)
+        output_shape = embedding.shape
+        self.assertEqual(len(shape), len(output_shape))
+        self.assertTupleEqual(shape, output_shape)
+
+        # if projection function does not exist
+        epoch_id = -1
+        data = np.random.rand(500, 512)
+        embedding = self.mms.batch_project(data, epoch_id)
+        self.assertIsNone(embedding)
+
+    def test_individual_project(self):
+        # general setting
+        epoch_id = 120
+        data = np.random.rand(512)
+        embedding = self.mms.individual_project(data, epoch_id)
+
+        shape = (2,)
+        output_shape = embedding.shape
+        self.assertEqual(len(shape), len(output_shape))
+        self.assertTupleEqual(shape, output_shape)
+
+        # encoder does not exist
+        epoch_id = -1
+        data = np.random.rand(512)
+        embedding = self.mms.individual_project(data, epoch_id)
+        self.assertIsNone(embedding)
+
+    def test_batch_inverse(self):
+        # general setting
+        epoch_id = 120
+        data = np.random.rand(500, 2)
+        recon = self.mms.batch_inverse(data, epoch_id)
+
+        shape = (500, 512)
+        output_shape = recon.shape
+        self.assertEqual(len(shape), len(output_shape))
+        self.assertTupleEqual(shape, output_shape)
+
+        # if projection function does not exist
+        epoch_id = -1
+        data = np.random.rand(500, 2)
+        recon = self.mms.batch_inverse(data, epoch_id)
+        self.assertIsNone(recon)
+
+    def test_individual_inverse(self):
+        # general setting
+        epoch_id = 120
+        data = np.random.rand(2)
+        recon = self.mms.individual_inverse(data, epoch_id)
+
+        shape = (512,)
+        output_shape = recon.shape
+        self.assertEqual(len(shape), len(output_shape))
+        self.assertTupleEqual(shape, output_shape)
+
+        # encoder does not exist
+        epoch_id = -1
+        data = np.random.rand(2)
+        recon = self.mms.individual_inverse(data, epoch_id)
+        self.assertIsNone(recon)
+
+    '''tool'''
+    # def test_get_incorrect_predictions(self):
+    #     epoch_id = 120
+
     # result = mms.get_incorrect_predictions(epoch_id, data, targets)
     #
     # repr_data = mms.get_representation_data(epoch_id, data)
@@ -53,7 +131,7 @@ class MyTestCase(unittest.TestCase):
     # border_repr = mms.get_epoch_border_centers(epoch_id)
 
     ########################################## Evaluation Functions ###############################################
-    # '''project'''
+    '''project'''
     # # nn preserving property
     # val = mms.proj_nn_perseverance_knn_train(epoch_id, n_neighbors=15)
     # val = mms.proj_nn_perseverance_knn_test(epoch_id, n_neighbors=15)
@@ -66,7 +144,7 @@ class MyTestCase(unittest.TestCase):
     # val = mms.proj_boundary_perseverance_knn_train(epoch_id, n_neighbors=15)
     # val = mms.proj_boundary_perseverance_knn_test(epoch_id, n_neighbors=15)
     #
-    # '''inverse'''
+    '''inverse'''
     # # prediction accuracy
     # val = mms.inv_accu_train(epoch_id)
     # val = mms.inv_accu_test(epoch_id)
@@ -82,20 +160,19 @@ class MyTestCase(unittest.TestCase):
     # # single instance
     # pred, conf_diff = point_inv_preserve(epoch_id, data)
     #
-    # '''subject model'''
+    '''subject model'''
     # accu = mms.training_accu(epoch_id)
     # accu = mms.testing_accu(epoch_id)
     ############################################# Visualization ###################################################
     # pass
     ########################################## Case Studies Related ###############################################
-    # '''active learning'''
+    '''active learning'''
     # idxs = mms.get_new_index(epoch_id)
     # idxs = mms.get_epoch_index(epoch_id)
     #
-    # '''noise data(mislabelled)'''
+    '''noise data(mislabelled)'''
     # idxs = mms.noisy_data_index()
     # labels = mms.get_original_labels()
-
 
 
 if __name__ == '__main__':
