@@ -208,18 +208,49 @@ class MyTestCase(unittest.TestCase):
 
     ########################################## Evaluation Functions ###############################################
     '''project'''
-    # # nn preserving property
-    # val = mms.proj_nn_perseverance_knn_train(epoch_id, n_neighbors=15)
-    # val = mms.proj_nn_perseverance_knn_test(epoch_id, n_neighbors=15)
-    #
+    # nn preserving property
+    def test_proj_nn_perseverance_knn_train(self):
+        epoch_id = 120
+        n_neighbors = 15
+        val = self.mms.proj_nn_perseverance_knn_train(epoch_id, n_neighbors=n_neighbors)
+        self.assertGreaterEqual(val, 1)
+        self.assertLessEqual(val, n_neighbors)
+
+    def test_proj_nn_perseverance_knn_test(self):
+        epoch_id = 120
+        n_neighbors = 15
+        val = self.mms.proj_nn_perseverance_knn_test(epoch_id, n_neighbors=n_neighbors)
+        self.assertGreaterEqual(val, 1)
+        self.assertLessEqual(val, n_neighbors)
+
     # # boundary preserving property
-    # val = mms.proj_boundary_perseverance_knn_train(epoch_id, n_neighbors=15)
-    # val = mms.proj_boundary_perseverance_knn_test(epoch_id, n_neighbors=15)
-    #
+    def test_proj_boundary_perseverance_knn_train(self):
+        epoch_id = 120
+        n_neighbors = 15
+        val = self.mms.proj_boundary_perseverance_knn_train(epoch_id, n_neighbors=n_neighbors)
+        self.assertGreaterEqual(val, 1)
+        self.assertLessEqual(val, n_neighbors)
+
+    def test_proj_boundary_perseverance_knn_test(self):
+        epoch_id = 120
+        n_neighbors = 15
+        val = self.mms.proj_boundary_perseverance_knn_test(epoch_id, n_neighbors=n_neighbors)
+        self.assertGreaterEqual(val, 1)
+        self.assertLessEqual(val, n_neighbors)
+
     # # temporal preserving property
-    # val = mms.proj_boundary_perseverance_knn_train(epoch_id, n_neighbors=15)
-    # val = mms.proj_boundary_perseverance_knn_test(epoch_id, n_neighbors=15)
-    #
+    def test_proj_temporal_perseverance_train(self):
+        n_neighbors = 15
+        val = self.mms.proj_temporal_perseverance_train(n_neighbors=n_neighbors)
+        self.assertGreaterEqual(val, -1.0)
+        self.assertLessEqual(val, 0.5)
+
+    def test_proj_temporal_perseverance_test(self):
+        n_neighbors = 15
+        val = self.mms.proj_temporal_perseverance_test(n_neighbors=n_neighbors)
+        self.assertGreaterEqual(val, -1.0)
+        self.assertLessEqual(val, .05)
+
     '''inverse'''
     # # prediction accuracy
     # val = mms.inv_accu_train(epoch_id)
@@ -237,8 +268,17 @@ class MyTestCase(unittest.TestCase):
     # pred, conf_diff = point_inv_preserve(epoch_id, data)
     #
     '''subject model'''
-    # accu = mms.training_accu(epoch_id)
-    # accu = mms.testing_accu(epoch_id)
+    def test_training_accu(self):
+        epoch_id = 120
+        accu = self.mms.training_accu(epoch_id)
+        self.assertLessEqual(accu, 1.0)
+        self.assertGreaterEqual(accu, 0.0)
+
+    def test_testing_accu(self):
+        epoch_id = 120
+        accu = self.mms.testing_accu(epoch_id)
+        self.assertLessEqual(accu, 1.0)
+        self.assertGreaterEqual(accu, 0.0)
     ############################################# Visualization ###################################################
     # pass
     ########################################## Case Studies Related ###############################################
