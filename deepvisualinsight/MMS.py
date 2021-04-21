@@ -1335,11 +1335,11 @@ class MMS:
         """
         get inverse confidence for a single point
         :param epoch_id: int
-        :param data: torch.Tensor
+        :param data: numpy.ndarray
         :return l: boolean, whether reconstruction data have the same prediction
         :return conf_diff: float, (0, 1), confidence difference
         """
-        data = torch.unsqueeze(data, 0)
+        data = np.expand_dims(data, 0)
         encoder = self.get_proj_model(epoch_id)
         embedding = encoder(data).cpu().numpy()
         del encoder
