@@ -2,6 +2,7 @@ import unittest
 from deepvisualinsight.MMS import MMS
 import sys
 import numpy as np
+import torch
 
 # https://docs.google.com/document/d/1xGgBpFzCcwiRUU_l9_Y_q0nTeIcCG1-GvXWnBZhfcGs/edit
 
@@ -112,11 +113,23 @@ class MyTestCase(unittest.TestCase):
         self.assertIsNone(recon)
 
     '''tool'''
-    # def test_get_incorrect_predictions(self):
-    #     epoch_id = 120
+    def test_get_incorrect_predictions(self):
+        # model does not exist
+        epoch_id = -1
+        data = torch.rand((50, 512), dtype=torch.float)
+        target = np.random.choice(10, 50)
 
-    # result = mms.get_incorrect_predictions(epoch_id, data, targets)
-    #
+        # self.assertRaises(FileNotFoundError, self.mms.get_incorrect_predictions, epoch_id, data, target)
+        with self.assertRaises(FileNotFoundError) as context:
+            pred = self.mms.get_incorrect_predictions(epoch_id, data, target)
+            self.assertIsNone(pred)
+
+        # general setting
+        epoch_id = 120
+        pred = self.mms.get_incorrect_predictions(epoch_id, data, target)
+        shape = (50, )
+        self.assertTupleEqual(shape, pred.shape)
+
     # repr_data = mms.get_representation_data(epoch_id, data)
     # repr_data = mms.get_epoch_train_repr_data(epoch_id)
     # repr_data = mms.get_epoch_test_repr_data(epoch_id)
