@@ -9,6 +9,6 @@ pip -r install requirements.txt
 ```
 ## Installation
 1. Download this repository.
-2. 
+2. install requirements.txt
 
 For more details, please see our [wiki](https://github.com/xianglinyang/DeepVisualInsight/wiki).
