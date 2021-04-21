@@ -252,21 +252,53 @@ class MyTestCase(unittest.TestCase):
         self.assertLessEqual(val, .05)
 
     '''inverse'''
-    # # prediction accuracy
-    # val = mms.inv_accu_train(epoch_id)
-    # val = mms.inv_accu_test(epoch_id)
-    #
-    # # confidence difference
-    # val = mms.inv_conf_diff_train(epoch_id)
-    # val = mms.inv_conf_diff_test(epoch_id)
-    #
-    # # mse
-    # val = mms.inv_dist_train(epoch_id)
-    # val = mms.inv_dist_test(epoch_id)
-    #
-    # # single instance
-    # pred, conf_diff = point_inv_preserve(epoch_id, data)
-    #
+    # prediction accuracy
+    def test_inv_accu_train(self):
+        epoch_id = 120
+        val = self.mms.inv_accu_train(epoch_id)
+        self.assertGreaterEqual(val, 0.5)
+        self.assertLessEqual(val, 1.0)
+
+    def test_inv_accu_test(self):
+        epoch_id = 120
+        val = self.mms.inv_accu_test(epoch_id)
+        self.assertGreaterEqual(val, 0.5)
+        self.assertLessEqual(val, 1.0)
+
+    # confidence difference
+    def test_inv_conf_diff_train(self):
+        epoch_id = 120
+        val = self.mms.inv_conf_diff_train(epoch_id)
+        self.assertGreaterEqual(val, 0.0)
+        self.assertLessEqual(val, 0.4)
+
+    def test_inv_conf_diff_test(self):
+        epoch_id = 120
+        val = self.mms.inv_conf_diff_test(epoch_id)
+        self.assertGreaterEqual(val, 0.0)
+        self.assertLessEqual(val, 0.5)
+
+    # mse
+    def test_inv_dist_train(self):
+        epoch_id = 120
+        val = self.mms.inv_dist_train(epoch_id)
+        self.assertGreaterEqual(val, 0.0)
+
+    def test_inv_dist_test(self):
+        epoch_id = 120
+        val = self.mms.inv_dist_test(epoch_id)
+        self.assertGreaterEqual(val, 0.0)
+
+    # single instance
+    def test_point_inv_preserve(self):
+        epoch_id = 120
+        data = torch.rand((3, 32, 32), dtype=torch.float)
+        pred, conf_diff = self.mms.point_inv_preserve(epoch_id, data)
+
+        self.assertIsInstance(pred, type(True))
+        self.assertGreaterEqual(conf_diff, 0.0)
+        self.assertLessEqual(conf_diff, 0.5)
+
     '''subject model'''
     def test_training_accu(self):
         epoch_id = 120
