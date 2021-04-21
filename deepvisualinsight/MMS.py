@@ -469,10 +469,10 @@ class MMS:
         '''
         model_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "subject_model.pth")
         # try:
-        #     f = open(model_location)
-        #     del f
+        #     self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
         # except FileNotFoundError:
-        #     print('subject model does not exist')
+        #     print("subject model does not exist!")
+        #     return None
         self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
         self.model = self.model.to(self.device)
         self.model.eval()
@@ -492,11 +492,12 @@ class MMS:
         :return: representation data, numpy.ndarray
         '''
         model_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "subject_model.pth")
-        try:
-            self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
-        except FileNotFoundError as e:
-            print("subject model does not exist!")
-            return None
+        # try:
+        #     self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
+        # except FileNotFoundError:
+        #     print("subject model does not exist!")
+        #     return None
+        self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
         self.model = self.model.to(self.device)
         self.model.eval()
 

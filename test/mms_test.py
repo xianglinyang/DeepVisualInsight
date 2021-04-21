@@ -4,7 +4,9 @@ import sys
 import numpy as np
 import torch
 
+# diagram of code structure
 # https://docs.google.com/document/d/1xGgBpFzCcwiRUU_l9_Y_q0nTeIcCG1-GvXWnBZhfcGs/edit
+# https://github.com/xianglinyang/DeepVisualInsight/wiki/usage_instructions
 
 
 class MyTestCase(unittest.TestCase):
@@ -119,10 +121,11 @@ class MyTestCase(unittest.TestCase):
         data = torch.rand((50, 512), dtype=torch.float)
         target = np.random.choice(10, 50)
 
-        # self.assertRaises(FileNotFoundError, self.mms.get_incorrect_predictions, epoch_id, data, target)
+        self.assertRaises(FileNotFoundError, self.mms.get_incorrect_predictions, epoch_id, data, target)
         with self.assertRaises(FileNotFoundError) as context:
             pred = self.mms.get_incorrect_predictions(epoch_id, data, target)
             self.assertIsNone(pred)
+        # self.assertTrue("subject model does not exist" in context.exception)
 
         # general setting
         epoch_id = 120
@@ -130,18 +133,78 @@ class MyTestCase(unittest.TestCase):
         shape = (50, )
         self.assertTupleEqual(shape, pred.shape)
 
-    # repr_data = mms.get_representation_data(epoch_id, data)
-    # repr_data = mms.get_epoch_train_repr_data(epoch_id)
-    # repr_data = mms.get_epoch_test_repr_data(epoch_id)
-    # labels = mms.get_epoch_train_labels(epoch_id)
-    # labels = mms.get_epoch_test_labels(epoch_id)
-    #
-    # pred = mms.get_pred(epoch_id, data)
-    # pred = mms.get_epoch_train_pred(epoch_id)
-    # pred = mms.get_epoch_test_pred(epoch_id)
-    #
-    # embedding = mms.batch_embedding(data, epoch_id)
-    # border_repr = mms.get_epoch_border_centers(epoch_id)
+    def test_get_representation_data(self):
+        # model does not exist
+        epoch_id = -1
+        data = torch.rand((50, 3, 32, 32), dtype=torch.float)
+
+        # self.assertRaises(FileNotFoundError, self.mms.get_incorrect_predictions, epoch_id, data, target)
+        with self.assertRaises(FileNotFoundError) as context:
+            repr_data = self.mms.get_representation_data(epoch_id, data)
+            self.assertIsNone(repr_data)
+        # self.assertTrue("subject model does not exist" in context.exception)
+
+        # general setting
+        epoch_id = 120
+        pred = self.mms.get_representation_data(epoch_id, data)
+        shape = (50, 512)
+        self.assertTupleEqual(shape, pred.shape)
+
+    def test_get_epoch_train_repr_data(self):
+        epoch_id = 120
+        repr_data = self.mms.get_epoch_train_repr_data(epoch_id)
+        shape = (50000, 512)
+        self.assertTupleEqual(shape, repr_data.shape)
+
+    def test_get_epoch_test_repr_data(self):
+        epoch_id = 120
+        repr_data = self.mms.get_epoch_test_repr_data(epoch_id)
+        shape = (10000, 512)
+        self.assertTupleEqual(shape, repr_data.shape)
+
+    def test_get_epoch_train_labels(self):
+        epoch_id = 120
+        labels = self.mms.get_epoch_train_labels(epoch_id)
+        shape = (50000, )
+        self.assertTupleEqual(shape, labels.shape)
+
+    def test_get_epoch_test_labels(self):
+        epoch_id = 120
+        labels = self.mms.get_epoch_test_labels()
+        shape = (10000, )
+        self.assertTupleEqual(shape, labels.shape)
+
+    def test_get_pred(self):
+        epoch_id = 120
+        data = np.random.rand(50, 512)
+        shape = (50, 10)
+        pred = self.mms.get_pred(epoch_id, data)
+        self.assertTupleEqual(shape, pred.shape)
+
+    def test_epoch_train_pred(self):
+        epoch_id = 120
+        pred = self.mms.get_epoch_train_pred(epoch_id)
+        shape = (50000, 10)
+        self.assertTupleEqual(pred.shape, shape)
+
+    def test_epoch_test_pred(self):
+        epoch_id = 120
+        pred = self.mms.get_epoch_test_pred(epoch_id)
+        shape = (10000, 10)
+        self.assertTupleEqual(pred.shape, shape)
+
+    def test_batch_embedding(self):
+        data = torch.rand(50, 3, 32, 32)
+        epoch_id = 120
+        embedding = self.mms.batch_embedding(data, epoch_id)
+        shape = (50, 2)
+        self.assertTupleEqual(shape, embedding.shape)
+
+    def test_get_epoch_border_centers(self):
+        epoch_id = 120
+        border_repr = self.mms.get_epoch_border_centers(epoch_id)
+        shape = (5000, 512)
+        self.assertTupleEqual(shape, border_repr.shape)
 
     ########################################## Evaluation Functions ###############################################
     '''project'''
