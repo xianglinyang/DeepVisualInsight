@@ -562,7 +562,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     (this.$$('#pca-sampling') as HTMLElement).style.display = wasSampled
       ? null
       : 'none';
-    this.showTab('pca');
+    this.showTab('tsne');
   }
   @observe('pcaIs3d')
   _pcaDimensionToggleObserver() {
@@ -621,6 +621,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
         this.style.height = main.clientHeight + 'px';
       });
     }
+    console.log(id);
     this.beginProjection(id);
   }
   private beginProjection(projection: ProjectionType) {

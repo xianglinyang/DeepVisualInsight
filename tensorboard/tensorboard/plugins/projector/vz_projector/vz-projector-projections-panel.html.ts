@@ -168,18 +168,6 @@ export const template = html`
             Deep Visual Insight
           </paper-tooltip>
 
-          <div data-tab="pca" id="pca-tab" class="ink-tab projection-tab">
-            PCA
-          </div>
-          <paper-tooltip
-            for="pca-tab"
-            position="bottom"
-            animation-delay="0"
-            fit-to-visible-bounds
-          >
-            Principal component analysis
-          </paper-tooltip>
-
         </div>
       </div>
       <div class="container">
