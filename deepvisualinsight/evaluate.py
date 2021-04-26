@@ -45,7 +45,7 @@ def evaluate_proj_nn_perseverance_knn(data, embedding, n_neighbors, metric="eucl
 
     border_pres = np.zeros(len(data))
     for i in range(len(data)):
-        border_pres[i] = len(np.intersect1d(high_ind[i],low_ind[i]))
+        border_pres[i] = len(np.intersect1d(high_ind[i], low_ind[i]))
 
     # return border_pres.mean(), border_pres.max(), border_pres.min()
     return border_pres.mean()

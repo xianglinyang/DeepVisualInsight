@@ -116,6 +116,7 @@ class MMS:
         if self.verbose > 0:
             print("Finish loading content!")
 
+    #################################################### Trainer ####################################################
     def data_preprocessing(self):
         '''
         preprocessing data. This process includes find_border_points and find_border_centers
@@ -349,6 +350,7 @@ class MMS:
             print("Average time for training visualzation model: {:.4f}".format(
                 (t1 - t0) / int((self.epoch_end - self.epoch_start) / self.period + 1)))
 
+    ################################################ Backend APIs ################################################
     def get_proj_model(self, epoch_id):
         '''
         get the encoder of epoch_id
@@ -466,12 +468,17 @@ class MMS:
         :return: result, ndarray of boolean
         '''
         model_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "subject_model.pth")
+        # try:
+        #     self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
+        # except FileNotFoundError:
+        #     print("subject model does not exist!")
+        #     return None
         self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
         self.model = self.model.to(self.device)
         self.model.eval()
 
         fc_model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
-        data = data.to(self.device)
+        data = data.to(device=self.device, dtype=torch.float)
         pred = batch_run(fc_model, data, self.class_num)
         pred = pred.argmax(axis=1)
         result = (pred == targets)
@@ -485,6 +492,11 @@ class MMS:
         :return: representation data, numpy.ndarray
         '''
         model_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "subject_model.pth")
+        # try:
+        #     self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
+        # except FileNotFoundError:
+        #     print("subject model does not exist!")
+        #     return None
         self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
         self.model = self.model.to(self.device)
         self.model.eval()
@@ -566,6 +578,7 @@ class MMS:
         return pred
 
     def get_epoch_train_repr_data(self, epoch_id):
+        """get representations of training data"""
         location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "train_data.npy")
         if os.path.exists(location):
             train_data = np.load(location)
@@ -575,6 +588,7 @@ class MMS:
             return None
 
     def get_epoch_train_labels(self, epoch_id):
+        """get training labels"""
         index_file = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "index.json")
         if os.path.exists(index_file):
             index = load_labelled_data_index(index_file)
@@ -585,6 +599,7 @@ class MMS:
             return None
 
     def get_epoch_test_repr_data(self, epoch_id):
+        """get representations of testing data"""
         location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "test_data.npy")
         if os.path.exists(location):
             test_data = np.load(location)
@@ -593,11 +608,38 @@ class MMS:
             print("No data!")
             return None
 
-    def get_epoch_test_labels(self, epoch_id):
+    def get_epoch_test_labels(self):
+        """get representations of testing data"""
         labels = self.testing_labels.cpu().numpy()
         return labels
 
+    def batch_embedding(self, data, epoch_id):
+        '''
+        get embedding of subject model at epoch_id
+        :param data: torch.Tensor
+        :param epoch_id:
+        :return: embedding, numpy.array
+        '''
+        repr_data = self.get_representation_data(epoch_id, data)
+        embedding = self.batch_project(repr_data, epoch_id)
+        return embedding
+
+    def get_epoch_border_centers(self, epoch_id):
+        """get border representations"""
+        if self.advance_border_gen:
+            location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "advance_border_centers.npy")
+        else:
+            location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "border_centers.npy")
+        if os.path.exists(location):
+            data = np.load(location)
+            return data
+        else:
+            print("No data!")
+            return None
+
+    ################################################ Visualization ################################################
     def get_epoch_plot_measures(self, epoch_id):
+        """get plot measure for visualization"""
         train_data = self.get_epoch_train_repr_data(epoch_id)
         encoder = self.get_proj_model(epoch_id)
 
@@ -614,7 +656,6 @@ class MMS:
         y_min = min(x_min, y_min)
         x_max = max(x_max, y_max)
         y_max = max(x_max, y_max)
-
 
         return x_min, y_min, x_max, y_max
 
@@ -668,12 +709,9 @@ class MMS:
 
     def get_standard_classes_color(self):
         '''
-        get background view
-        :param epoch_id: epoch that need to be visualized
-        :param resolution: background resolution
+        get the RGB value for 10 classes
         :return:
-            grid_view : numpy.ndarray, self.resolution,self.resolution, 2
-            color : numpy.ndarray, self.resolution,self.resolution, 3
+            color : numpy.ndarray, shape (10, 3)
         '''
         mesh_max_class = self.class_num - 1
         mesh_classes = np.arange(10)
@@ -682,12 +720,10 @@ class MMS:
         color = color[:, 0:3]
         return color
 
-    def _s(self, is_for_frontend=False):
+    def _init_plot(self, is_for_frontend=False):
         '''
         Initialises matplotlib artists and plots. from DeepView
         '''
-        # if self.interactive:
-        #     plt.ion()
         plt.ion()
         self.fig, self.ax = plt.subplots(1, 1, figsize=(8, 8))
         if not is_for_frontend:
@@ -733,7 +769,104 @@ class MMS:
         if not is_for_frontend:
             self.ax.legend()
 
-    def _visualize_init(self):
+    def show(self, epoch_id):
+        '''
+        Shows the current plot. from DeepView
+        '''
+        # if not hasattr(self, 'fig'):
+        #     self._s()
+        self._init_plot()
+
+        x_min, y_min, x_max, y_max = self.get_epoch_plot_measures(epoch_id)
+
+        grid, decision_view = self.get_epoch_decision_view(epoch_id, self.resolution)
+        self.cls_plot.set_data(decision_view)
+        self.cls_plot.set_extent((x_min, x_max, y_max, y_min))
+        self.ax.set_xlim((x_min, x_max))
+        self.ax.set_ylim((y_min, y_max))
+
+        params_str = 'res: %d'
+        desc = params_str % (self.resolution)
+        self.desc.set_text(desc)
+
+        train_data = self.get_epoch_train_repr_data(epoch_id)
+        train_labels = self.get_epoch_train_labels(epoch_id)
+        pred = self.get_pred(epoch_id, train_data)
+        pred = pred.argmax(axis=1)
+
+        proj_encoder = self.get_proj_model(epoch_id)
+        embedding = proj_encoder(train_data).cpu().numpy()
+
+        # labels == pred
+        for c in range(self.class_num):
+            data = embedding[np.logical_and(train_labels == c, train_labels == pred)]
+            self.sample_plots[c].set_data(data.transpose())
+
+        # labels != pred, draw label
+        for c in range(self.class_num):
+            data = embedding[np.logical_and(train_labels == c, train_labels != pred)]
+            self.sample_plots[self.class_num + c].set_data(data.transpose())
+        # labels != pred, draw pred
+        for c in range(self.class_num):
+            data = embedding[np.logical_and(pred == c, train_labels != pred)]
+            self.sample_plots[2*self.class_num + c].set_data(data.transpose())
+
+        if os.name == 'posix':
+            self.fig.canvas.manager.window.raise_()
+
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+        plt.show()
+
+    def savefig(self, epoch_id, path):
+        '''
+        Shows the current plot.
+        '''
+        # if not hasattr(self, 'fig'):
+        #     self._s()
+        self._init_plot()
+
+        x_min, y_min, x_max, y_max = self.get_epoch_plot_measures(epoch_id)
+
+        grid, decision_view = self.get_epoch_decision_view(epoch_id, self.resolution)
+        self.cls_plot.set_data(decision_view)
+        self.cls_plot.set_extent((x_min, x_max, y_max, y_min))
+        self.ax.set_xlim((x_min, x_max))
+        self.ax.set_ylim((y_min, y_max))
+
+        params_str = 'res: %d'
+        desc = params_str % (self.resolution)
+        self.desc.set_text(desc)
+
+        train_data = self.get_epoch_train_repr_data(epoch_id)
+        train_labels = self.get_epoch_train_labels(epoch_id)
+        pred = self.get_pred(epoch_id, train_data)
+        pred = pred.argmax(axis=1)
+
+        proj_encoder = self.get_proj_model(epoch_id)
+        embedding = proj_encoder(train_data).cpu().numpy()
+        for c in range(self.class_num):
+            data = embedding[np.logical_and(train_labels == c, train_labels == pred)]
+            self.sample_plots[c].set_data(data.transpose())
+
+        for c in range(self.class_num):
+            data = embedding[np.logical_and(train_labels == c, train_labels != pred)]
+            self.sample_plots[self.class_num+c].set_data(data.transpose())
+        #
+        for c in range(self.class_num):
+            data = embedding[np.logical_and(pred == c, train_labels != pred)]
+            self.sample_plots[2*self.class_num + c].set_data(data.transpose())
+
+        if os.name == 'posix':
+            self.fig.canvas.manager.window.raise_()
+
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+
+        # plt.text(-8, 8, "test", fontsize=18, style='oblique', ha='center', va='top', wrap=True)
+        plt.savefig(path)
+
+    def _customized_init(self):
         '''
         Initialises matplotlib artists and plots. from DeepView
         '''
@@ -802,107 +935,13 @@ class MMS:
         # self.fig.canvas.mpl_connect('button_press_event', self.show_sample)
         self.disable_synth = False
 
-    def show(self, epoch_id):
-        '''
-        Shows the current plot. from DeepView
-        '''
-        # if not hasattr(self, 'fig'):
-        #     self._s()
-        self._s()
-
-        x_min, y_min, x_max, y_max = self.get_epoch_plot_measures(epoch_id)
-
-        grid, decision_view = self.get_epoch_decision_view(epoch_id, self.resolution)
-        self.cls_plot.set_data(decision_view)
-        self.cls_plot.set_extent((x_min, x_max, y_max, y_min))
-        self.ax.set_xlim((x_min, x_max))
-        self.ax.set_ylim((y_min, y_max))
-
-        params_str = 'res: %d'
-        desc = params_str % (self.resolution)
-        self.desc.set_text(desc)
-
-        train_data = self.get_epoch_train_repr_data(epoch_id)
-        train_labels = self.get_epoch_train_labels(epoch_id)
-        pred = self.get_pred(epoch_id, train_data)
-        pred = pred.argmax(axis=1)
-
-        proj_encoder = self.get_proj_model(epoch_id)
-        embedding = proj_encoder(train_data).cpu().numpy()
-        for c in range(self.class_num):
-            data = embedding[np.logical_and(train_labels == c, train_labels == pred)]
-            self.sample_plots[c].set_data(data.transpose())
-
-        for c in range(self.class_num):
-            data = embedding[np.logical_and(train_labels == c, train_labels != pred)]
-            self.sample_plots[self.class_num + c].set_data(data.transpose())
-        #
-        for c in range(self.class_num):
-            data = embedding[np.logical_and(pred == c, train_labels != pred)]
-            self.sample_plots[2*self.class_num + c].set_data(data.transpose())
-
-        if os.name == 'posix':
-            self.fig.canvas.manager.window.raise_()
-
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
-        plt.show()
-
-    def savefig(self, epoch_id, path):
+    def customize_visualize(self, epoch_id, train_data, train_labels, test_data, test_labels, path, highlight_index):
         '''
         Shows the current plot.
         '''
         # if not hasattr(self, 'fig'):
         #     self._s()
-        self._s()
-
-        x_min, y_min, x_max, y_max = self.get_epoch_plot_measures(epoch_id)
-
-        grid, decision_view = self.get_epoch_decision_view(epoch_id, self.resolution)
-        self.cls_plot.set_data(decision_view)
-        self.cls_plot.set_extent((x_min, x_max, y_max, y_min))
-        self.ax.set_xlim((x_min, x_max))
-        self.ax.set_ylim((y_min, y_max))
-
-        params_str = 'res: %d'
-        desc = params_str % (self.resolution)
-        self.desc.set_text(desc)
-
-        train_data = self.get_epoch_train_repr_data(epoch_id)
-        train_labels = self.get_epoch_train_labels(epoch_id)
-        pred = self.get_pred(epoch_id, train_data)
-        pred = pred.argmax(axis=1)
-
-        proj_encoder = self.get_proj_model(epoch_id)
-        embedding = proj_encoder(train_data).cpu().numpy()
-        for c in range(self.class_num):
-            data = embedding[np.logical_and(train_labels == c, train_labels == pred)]
-            self.sample_plots[c].set_data(data.transpose())
-
-        for c in range(self.class_num):
-            data = embedding[np.logical_and(train_labels == c, train_labels != pred)]
-            self.sample_plots[self.class_num+c].set_data(data.transpose())
-        #
-        for c in range(self.class_num):
-            data = embedding[np.logical_and(pred == c, train_labels != pred)]
-            self.sample_plots[2*self.class_num + c].set_data(data.transpose())
-
-        if os.name == 'posix':
-            self.fig.canvas.manager.window.raise_()
-
-        self.fig.canvas.draw()
-        self.fig.canvas.flush_events()
-
-        # plt.text(-8, 8, "test", fontsize=18, style='oblique', ha='center', va='top', wrap=True)
-        plt.savefig(path)
-
-    def visualize(self, epoch_id, train_data, train_labels, test_data, test_labels, path, highlight_index):
-        '''
-        Shows the current plot.
-        '''
-        # if not hasattr(self, 'fig'):
-        #     self._s()
-        self._visualize_init()
+        self._customized_init()
 
         x_min, y_min, x_max, y_max = self.get_epoch_plot_measures(epoch_id)
 
@@ -954,32 +993,94 @@ class MMS:
         # plt.text(-8, 8, "test", fontsize=18, style='oblique', ha='center', va='top', wrap=True)
         plt.savefig(path, bbox_inches='tight', pad_inches=0)
 
-    def batch_get_embedding(self, data, epoch_id):
+    def _al_visualize_init(self):
         '''
-        get embedding of subject model at epoch_id
-        :param data: torch.Tensor
-        :param epoch_id:
-        :return: embedding, numpy.array
+        Initialises matplotlib artists and plots. from DeepView
         '''
-        repr_data = self.get_representation_data(epoch_id, data)
-        embedding = self.batch_project(repr_data, epoch_id)
-        return embedding
+        # if self.interactive:
+        #     plt.ion()
+        plt.ion()
+        self.fig, self.ax = plt.subplots(1, 1, figsize=(8, 8))
 
-    # TODO test those functions
+        self.ax.set_axis_off()
 
-    def get_epoch_border_centers(self, epoch_id):
-        if self.advance_border_gen:
-            location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "advance_border_centers.npy")
-        else:
-            location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "border_centers.npy")
-        if os.path.exists(location):
-            data = np.load(location)
-            return data
-        else:
-            print("No data!")
-            return None
+        # self.desc = self.fig.text(0.5, 0.02, '', fontsize=8, ha='center')
+        self.cls_plot = self.ax.imshow(np.zeros([5, 5, 3]),
+                                       interpolation='gaussian', zorder=0, vmin=0, vmax=1)
 
+        self.sample_plots = []
+
+        # train_data labels
+        for c in range(self.class_num):
+            color = self.cmap(c / (self.class_num - 1))
+            plot = self.ax.plot([], [], 'o', label=self.classes[c], ms=1.5,
+                                color=color, zorder=2, picker=mpl.rcParams['lines.markersize'])
+            self.sample_plots.append(plot[0])
+
+        # testing wrong labels
+        for c in range(self.class_num):
+            color = self.cmap(c / (self.class_num - 1))
+            plot = self.ax.plot([], [], '^', markeredgecolor=color,
+                                fillstyle='full', ms=3, mew=3, zorder=1)
+            self.sample_plots.append(plot[0])
+
+        # highlight with labels
+        for c in range(self.class_num):
+            color = self.cmap(c / (self.class_num - 1))
+            plot = self.ax.plot([], [], 'o', markeredgecolor=color,
+                                fillstyle='full', ms=2.5, mew=2.5, zorder=4)
+            self.sample_plots.append(plot[0])
+        # highlight
+        color = (0.0, 0.0, 0.0, 1.0)
+        plot = self.ax.plot([], [], 'o', markeredgecolor=color,
+                            fillstyle='full', ms=2.8, mew=2.8, zorder=3)
+        self.sample_plots.append(plot[0])
+
+        # set the mouse-event listeners
+        # self.fig.canvas.mpl_connect('pick_event', self.show_sample)
+        # self.fig.canvas.mpl_connect('button_press_event', self.show_sample)
+        self.disable_synth = False
+
+    def al_visualize(self, epoch_id, train_data, train_labels, path, highlight_index):
+        '''
+        active learning visualization implementation
+        '''
+        self._al_visualize_init()
+
+        x_min, y_min, x_max, y_max = self.get_epoch_plot_measures(epoch_id)
+
+        grid, decision_view = self.get_epoch_decision_view(epoch_id, self.resolution)
+        self.cls_plot.set_data(decision_view)
+        self.cls_plot.set_extent((x_min, x_max, y_max, y_min))
+        self.ax.set_xlim((x_min, x_max))
+        self.ax.set_ylim((y_min, y_max))
+
+        proj_encoder = self.get_proj_model(epoch_id)
+        embedding = proj_encoder(train_data).cpu().numpy()
+
+        # highlight in label color
+        highlight_embedding = embedding[highlight_index]
+        highlight_labels = train_labels[highlight_index]
+        for c in range(self.class_num):
+            data = highlight_embedding[highlight_labels == c]
+            self.sample_plots[2 * self.class_num + c].set_data(data.transpose())
+        # highlight in black edge
+        data = embedding[highlight_index]
+        self.sample_plots[3 * self.class_num].set_data(data.transpose())
+
+        if os.name == 'posix':
+            self.fig.canvas.manager.window.raise_()
+
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+
+        plt.savefig(path, bbox_inches='tight', pad_inches=0)
+
+    ############################################## Evaluation Functions ###############################################
+
+    '''projection preserving'''
     def proj_nn_perseverance_knn_train(self, epoch_id, n_neighbors=15):
+        """evalute training nn preserving property"""
         train_data = self.get_epoch_train_repr_data(epoch_id)
         encoder = self.get_proj_model(epoch_id)
         embedding = encoder(train_data).cpu().numpy()
@@ -991,6 +1092,7 @@ class MMS:
         return val
 
     def proj_nn_perseverance_knn_test(self, epoch_id, n_neighbors=15):
+        """evalute testing nn preserving property"""
         # test_data = self.get_representation_data(epoch_id, self.testing_data)
         test_data = self.get_epoch_test_repr_data(epoch_id)
         train_data = self.get_epoch_train_repr_data(epoch_id)
@@ -1006,6 +1108,7 @@ class MMS:
         return val
 
     def proj_boundary_perseverance_knn_train(self, epoch_id, n_neighbors=15):
+        """evalute training boundary preserving property"""
         encoder = self.get_proj_model(epoch_id)
         border_centers = self.get_epoch_border_centers(epoch_id)
         train_data = self.get_epoch_train_repr_data(epoch_id)
@@ -1021,6 +1124,7 @@ class MMS:
         return val
 
     def proj_boundary_perseverance_knn_test(self, epoch_id, n_neighbors=15):
+        """evalute testing boundary preserving property"""
         encoder = self.get_proj_model(epoch_id)
         border_centers = self.get_epoch_border_centers(epoch_id)
         train_data = self.get_epoch_train_repr_data(epoch_id)
@@ -1039,6 +1143,7 @@ class MMS:
         return val
 
     def proj_temporal_perseverance_train(self, n_neighbors=15):
+        """evalute training temporal preserving property"""
         l = len(self.training_labels)
         eval_num = int((self.epoch_end - self.epoch_start) / self.period)
         alpha = np.zeros((eval_num, l))
@@ -1071,6 +1176,7 @@ class MMS:
         return val_corr
 
     def proj_temporal_perseverance_test(self, n_neighbors=15):
+        """evalute testing temporal preserving property"""
         l = len(self.testing_labels)
         eval_num = int((self.epoch_end - self.epoch_start) / self.period)
         alpha = np.zeros((eval_num, l))
@@ -1103,7 +1209,9 @@ class MMS:
 
         return val_corr
 
+    '''inverse preserving'''
     def inv_accu_train(self, epoch_id):
+        """inverse training prediction accuracy"""
         data = self.get_epoch_train_repr_data(epoch_id)
 
         encoder = self.get_proj_model(epoch_id)
@@ -1123,6 +1231,7 @@ class MMS:
         return val
 
     def inv_accu_test(self, epoch_id):
+        """inverse testing prediction accuracy"""
         # data = self.get_representation_data(epoch_id, self.testing_data)
         data = self.get_epoch_test_repr_data(epoch_id)
 
@@ -1143,6 +1252,7 @@ class MMS:
         return val
 
     def inv_dist_train(self, epoch_id):
+        """inverse training difference"""
         data = self.get_epoch_train_repr_data(epoch_id)
         encoder = self.get_proj_model(epoch_id)
         embedding = encoder(data).cpu().numpy()
@@ -1158,6 +1268,7 @@ class MMS:
         return val
 
     def inv_dist_test(self, epoch_id):
+        """inverse testing difference"""
         # data = self.get_representation_data(epoch_id, self.testing_data)
         data = self.get_epoch_test_repr_data(epoch_id)
         encoder = self.get_proj_model(epoch_id)
@@ -1174,6 +1285,7 @@ class MMS:
         return val
 
     def inv_conf_diff_train(self, epoch_id):
+        """inverser training confidence difference"""
         data = self.get_epoch_train_repr_data(epoch_id)
         encoder = self.get_proj_model(epoch_id)
         embedding = encoder(data).cpu().numpy()
@@ -1196,6 +1308,7 @@ class MMS:
         return val
 
     def inv_conf_diff_test(self, epoch_id):
+        """inverse testing confidence difference"""
         # data = self.get_representation_data(epoch_id, self.testing_data)
         data = self.get_epoch_test_repr_data(epoch_id)
         encoder = self.get_proj_model(epoch_id)
@@ -1218,137 +1331,15 @@ class MMS:
         val = evaluate_inv_conf(labels, ori_pred, new_pred)
         return val
 
-    def inv_logits_diff_train(self, epoch_id):
-        data = self.get_epoch_train_repr_data(epoch_id)
-        encoder = self.get_proj_model(epoch_id)
-        embedding = encoder(data).cpu().numpy()
-        del encoder
-        gc.collect()
-
-        decoder = self.get_inv_model(epoch_id)
-        inv_data = decoder(embedding).cpu().numpy()
-        del decoder
-        gc.collect()
-
-        labels = self.get_epoch_train_labels(epoch_id)
-        ori_pred = self.get_pred(epoch_id, data)
-        new_pred = self.get_pred(epoch_id, inv_data)
-
-        val = evaluate_inv_conf(labels, ori_pred, new_pred)
-        return val
-
-    def nn_pred_accu(self, epoch_id, n_neighbors=15):
-        data = self.get_epoch_train_repr_data(epoch_id)
-        n_trees = min(64, 5 + int(round((data.shape[0]) ** 0.5 / 20.0)))
-        n_iters = max(5, int(round(np.log2(data.shape[0]))))
-        nnd = NNDescent(
-            data,
-            n_neighbors=n_neighbors,
-            metric="euclidean",
-            n_trees=n_trees,
-            n_iters=n_iters,
-            max_candidates=60,
-            verbose=True
-        )
-        indices, _ = nnd.neighbor_graph
-        pred = self.get_pred(epoch_id, data)
-        pred = pred.argmax(axis=1)
-        pers = pred[indices]
-        res = np.zeros(len(pred))
-        for i in range(len(pred)):
-            res[i] = np.sum(pers[i] == pred[i])/n_neighbors
-        return res.mean()
-
-    def training_accu(self,epoch_id):
-        train_data = self.get_epoch_train_repr_data(epoch_id)
-        labels = self.get_epoch_train_labels(epoch_id)
-        pred = self.get_pred(epoch_id, train_data).argmax(-1)
-        val = evaluate_inv_accu(labels, pred)
-        return val
-
-    def testing_accu(self, epoch_id):
-        # test_data = self.testing_data
-        labels = self.testing_labels.cpu().numpy()
-        # repr_data = self.get_representation_data(epoch_id, test_data)
-        repr_data = self.get_epoch_test_repr_data(epoch_id)
-        pred = self.get_pred(epoch_id, repr_data).argmax(-1)
-        val = evaluate_inv_accu(labels, pred)
-        return val
-
-    def inv_nn_preserve_train(self, epoch_id, n_neighbors=15):
-        data = self.get_epoch_train_repr_data(epoch_id)
-        encoder = self.get_proj_model(epoch_id)
-        embedding = encoder(data).cpu().numpy()
-        del encoder
-        gc.collect()
-
-        decoder = self.get_inv_model(epoch_id)
-        inv_data = decoder(embedding).cpu().numpy()
-        del decoder
-        gc.collect()
-
-        val = evaluate_inv_nn(data, inv_data, n_neighbors)
-        return val
-
-    def inv_nn_preserve_test(self, epoch_id, n_neighbors=15):
-        # test_data = self.get_representation_data(epoch_id, self.testing_data)
-        test_data = self.get_epoch_test_repr_data(epoch_id)
-        train_data = self.get_epoch_train_repr_data(epoch_id)
-
-        fitting_data = np.concatenate((train_data, test_data), axis=0)
-        encoder = self.get_proj_model(epoch_id)
-        embedding = encoder(fitting_data).cpu().numpy()
-        del encoder
-        gc.collect()
-
-        decoder = self.get_inv_model(epoch_id)
-        recon = decoder(embedding).cpu().numpy()
-        del decoder
-        gc.collect()
-
-        val = evaluate_inv_nn(fitting_data, recon, n_neighbors)
-        return val
-
-    def get_new_index(self, epoch_id):
-        new_epoch = epoch_id + self.period
-        if new_epoch > self.epoch_end:
-            return list()
-
-        index_file = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "index.json")
-        index = load_labelled_data_index(index_file)
-        new_index_file = os.path.join(self.model_path, "Epoch_{:d}".format(new_epoch), "index.json")
-        new_index = load_labelled_data_index(new_index_file)
-        new_I = len(new_index) - len(index)
-
-        return new_index[-new_I:]
-
-    def noisy_data_index(self):
-        index_file = os.path.join(self.content_path, "index.json")
-        if not os.path.exists(index_file):
-            return list()
-        return load_labelled_data_index(index_file)
-
-    def get_original_labels(self):
-        index_file = os.path.join(self.content_path, "index.json")
-        if not os.path.exists(index_file):
-            return list()
-        index = load_labelled_data_index(index_file)
-        old_file = os.path.join(self.content_path, "old_labels.json")
-        old_labels = load_labelled_data_index(old_file)
-
-        labels = np.copy(self.training_labels.cpu().numpy())
-
-        labels[index] = old_labels
-
-        return labels
-
-    def get_epoch_index(self, epoch_id):
-        index_file = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "index.json")
-        index = load_labelled_data_index(index_file)
-        return index
-
     def point_inv_preserve(self, epoch_id, data):
-        data = torch.unsqueeze(data, 0)
+        """
+        get inverse confidence for a single point
+        :param epoch_id: int
+        :param data: numpy.ndarray
+        :return l: boolean, whether reconstruction data have the same prediction
+        :return conf_diff: float, (0, 1), confidence difference
+        """
+        data = np.expand_dims(data, 0)
         encoder = self.get_proj_model(epoch_id)
         embedding = encoder(data).cpu().numpy()
         del encoder
@@ -1366,17 +1357,69 @@ class MMS:
         l = old_label == new_label
 
         conf_diff = np.abs(ori_pred[old_label] - new_pred[old_label])
-        
+
         return l, conf_diff
-    
-    def training_accu_subject(self, epoch_id):
+
+    '''subject model'''
+    def training_accu(self, epoch_id):
+        train_data = self.get_epoch_train_repr_data(epoch_id)
         labels = self.get_epoch_train_labels(epoch_id)
-        pred = self.get_epoch_train_pred(epoch_id).argmax(-1)
-        
-        return np.sum(labels==pred) / len(labels)
-    
-    def testing_accu_subject(self, epoch_id):
-        labels = self.get_epoch_test_labels(epoch_id)
-        pred = self.get_epoch_test_pred(epoch_id).argmax(-1)
-        
-        return np.sum(labels==pred) / len(labels)
+        pred = self.get_pred(epoch_id, train_data).argmax(-1)
+        val = evaluate_inv_accu(labels, pred)
+        return val
+
+    def testing_accu(self, epoch_id):
+        # test_data = self.testing_data
+        labels = self.testing_labels.cpu().numpy()
+        # repr_data = self.get_representation_data(epoch_id, test_data)
+        repr_data = self.get_epoch_test_repr_data(epoch_id)
+        pred = self.get_pred(epoch_id, repr_data).argmax(-1)
+        val = evaluate_inv_accu(labels, pred)
+        return val
+
+    ############################################## Case Studies Related ###############################################
+    '''active learning'''
+    def get_new_index(self, epoch_id):
+        """get the index of new selection"""
+        new_epoch = epoch_id + self.period
+        if new_epoch > self.epoch_end:
+            return list()
+
+        index_file = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "index.json")
+        index = load_labelled_data_index(index_file)
+        new_index_file = os.path.join(self.model_path, "Epoch_{:d}".format(new_epoch), "index.json")
+        new_index = load_labelled_data_index(new_index_file)
+        new_I = len(new_index) - len(index)
+
+        return new_index[-new_I:]
+
+    def get_epoch_index(self, epoch_id):
+        """get the training data index for an epoch"""
+        index_file = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "index.json")
+        index = load_labelled_data_index(index_file)
+        return index
+
+    '''Noise data(Mislabelled data)'''
+    def noisy_data_index(self):
+        """get noise data index"""
+        index_file = os.path.join(self.content_path, "index.json")
+        if not os.path.exists(index_file):
+            return list()
+        return load_labelled_data_index(index_file)
+
+    def get_original_labels(self):
+        """
+        get original dataset label(without noise)
+        :return labels: list, shape(N,)
+        """
+        index_file = os.path.join(self.content_path, "index.json")
+        if not os.path.exists(index_file):
+            return list()
+        index = load_labelled_data_index(index_file)
+        old_file = os.path.join(self.content_path, "old_labels.json")
+        old_labels = load_labelled_data_index(old_file)
+
+        labels = np.copy(self.training_labels.cpu().numpy())
+        labels[index] = old_labels
+
+        return labels
