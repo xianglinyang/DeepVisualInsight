@@ -62,17 +62,13 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
     evaluation['bound_test_10'] = mms.proj_boundary_perseverance_knn_test(iteration, 10)
     evaluation['bound_test_15'] = mms.proj_boundary_perseverance_knn_test(iteration, 15)
     evaluation['bound_test_30'] = mms.proj_boundary_perseverance_knn_test(iteration, 30)
-    print("finish half of it")
-    evaluation['inv_nn_train_10'] = mms.inv_nn_preserve_train(iteration, 10)
-    evaluation['inv_nn_train_15'] = mms.inv_nn_preserve_train(iteration, 15)
-    evaluation['inv_nn_train_30'] = mms.inv_nn_preserve_train(iteration, 30)
-    evaluation['inv_nn_test_10'] = mms.inv_nn_preserve_test(iteration, 10)
-    evaluation['inv_nn_test_15'] = mms.inv_nn_preserve_test(iteration, 15)
-    evaluation['inv_nn_test_30'] = mms.inv_nn_preserve_test(iteration, 30)
+    print("finish proj eval")
+
     evaluation['inv_acc_train'] = mms.inv_accu_train(iteration)
     evaluation['inv_acc_test'] = mms.inv_accu_test(iteration)
     evaluation['inv_conf_train'] = mms.inv_conf_diff_train(iteration)
     evaluation['inv_conf_test'] = mms.inv_conf_diff_test(iteration)
+    print("finish inv eval")
     with open(prefix+'evaluation_'+str(iteration)+'.json', 'w') as f:
         json.dump(evaluation, f)
 
