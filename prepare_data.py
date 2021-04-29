@@ -79,7 +79,7 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
         np.save(f, prediction)
 
     # dimensionality reduction result
-    dimension_reduction_result = mms.batch_get_embedding(data, iteration)
+    dimension_reduction_result = mms.batch_embedding(data, iteration)
     with open(prefix+'dimension_reduction_'+str(iteration)+'.npy', 'wb') as f:
         np.save(f, dimension_reduction_result)
 
