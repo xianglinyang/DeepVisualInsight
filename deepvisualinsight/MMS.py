@@ -1360,6 +1360,42 @@ class MMS:
 
         return l, conf_diff
 
+    def batch_inv_preserve(self, epoch_id, data):
+        """
+        get inverse confidence for a single point
+        :param epoch_id: int
+        :param data: numpy.ndarray
+        :return l: boolean, whether reconstruction data have the same prediction
+        :return conf_diff: float, (0, 1), confidence difference
+        """
+        encoder = self.get_proj_model(epoch_id)
+        embedding = encoder(data).cpu().numpy()
+        del encoder
+        gc.collect()
+
+        decoder = self.get_inv_model(epoch_id)
+        inv_data = decoder(embedding).cpu().numpy()
+        del decoder
+        gc.collect()
+
+        ori_pred = self.get_pred(epoch_id, data)
+        new_pred = self.get_pred(epoch_id, inv_data)
+        ori_pred = softmax(ori_pred, axis=1)
+        new_pred = softmax(new_pred, axis=1)
+
+        old_label = ori_pred.argmax(-1)
+        new_label = new_pred.argmax(-1)
+        l = old_label == new_label
+
+        old_conf = [ori_pred[i, old_label[i]] for i in range(len(old_label))]
+        new_conf = [new_pred[i, old_label[i]] for i in range(len(old_label))]
+        old_conf = np.array(old_conf)
+        new_conf = np.array(new_conf)
+
+        conf_diff = old_conf - new_conf
+
+        return l, conf_diff
+
     '''subject model'''
     def training_accu(self, epoch_id):
         train_data = self.get_epoch_train_repr_data(epoch_id)

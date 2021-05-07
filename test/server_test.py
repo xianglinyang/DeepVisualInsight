@@ -40,7 +40,8 @@ class MyTestCase(unittest.TestCase):
         noisy_data = mms.noisy_data_index()
         original_label = mms.get_original_labels()
         end = time.time()
-        print("Succeed for noisy data related API, used time:"+str(end - start))
+
+        self.assertLessEqual(end - start, 2)
 
     def test_evaluation_timing(self):
         # parse request
