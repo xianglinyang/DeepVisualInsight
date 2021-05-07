@@ -564,8 +564,7 @@ export class DataSet {
         const matches = this.get_match();
         for (let i = 0; i < real_data_number; i++) {
           let dataPoint = this.points[i];
-          if (matches.length != 0 && matches.indexOf(i) == -1
-              && i < this.DVICurrentRealDataNumber) {
+          if (matches.indexOf(i) == -1 && i < this.DVICurrentRealDataNumber) {
             dataPoint.projections = {}
           }
         }
@@ -616,7 +615,7 @@ export class DataSet {
       const matches = this.get_match();
       for (let i = 0; i < validDataNumber; i++) {
         let dataPoint = this.points[i];
-        if (matches.length != 0 && matches.indexOf(i) == -1 && i < this.DVICurrentRealDataNumber) {
+        if (matches.indexOf(i) == -1 && i < this.DVICurrentRealDataNumber) {
           dataPoint.projections = {}
         }
       }
