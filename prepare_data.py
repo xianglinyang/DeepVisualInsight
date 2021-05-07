@@ -7,7 +7,7 @@ import torch
 import json
 import argparse
 
-def prepare_data(content_path, data, iteration, resolution, folder_name, direct_call=True):
+def prepare_data(content_path, data, iteration, resolution, folder_name, direct_call=True, method='active_learning'):
     sys.path.append(content_path)
     net = None
     try:
@@ -27,12 +27,13 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
               verbose=1)
 
     # active learning
-    new_index = mms.get_new_index(iteration)
-    current_index = mms.get_epoch_index(iteration)
-    with open(prefix+'new_selection_'+str(iteration)+'.json', 'w') as f:
-        json.dump(new_index, f)
-    with open(prefix+'current_training_'+str(iteration)+'.json', 'w') as f:
-        json.dump(current_index, f)
+    if method == 'active_learning':
+        new_index = mms.get_new_index(iteration)
+        current_index = mms.get_epoch_index(iteration)
+        with open(prefix + 'new_selection_' + str(iteration) + '.json', 'w') as f:
+            json.dump(new_index, f)
+        with open(prefix + 'current_training_' + str(iteration) + '.json', 'w') as f:
+            json.dump(current_index, f)
 
     # accu
     training_acc = mms.training_accu(iteration)
@@ -41,12 +42,13 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
         json.dump({'training': training_acc, 'testing':testing_acc}, f)
 
     # training with noisy data
-    noisy_data = mms.noisy_data_index()
-    with open(prefix+'noisy_data_index.json','w') as f:
-        json.dump(noisy_data, f)
-    original_label = mms.get_original_labels()
-    with open(prefix+'original_label.npy', 'wb') as f:
-        np.save(f, original_label)
+    if method == 'noisy':
+        noisy_data = mms.noisy_data_index()
+        with open(prefix + 'noisy_data_index.json', 'w') as f:
+            json.dump(noisy_data, f)
+        original_label = mms.get_original_labels()
+        with open(prefix + 'original_label.npy', 'wb') as f:
+            np.save(f, original_label)
 
     # evaluation information
     evaluation = {}
@@ -107,6 +109,7 @@ if __name__ == "__main__":
     parser.add_argument('--dir_name', type=str, default='entropy', help='dataset name')
     parser.add_argument('--iteration_number', type=int, default=6, help='number of iterations')
     parser.add_argument('--resolution', type=int, default=200, help='resolution for background')
+    parser.add_argument('--method', type=str, default='active_learning', help='normal/active_learning/noisy')
     args = parser.parse_args()
     print(args)
 
@@ -117,4 +120,5 @@ if __name__ == "__main__":
     print("start")
     for i in range(1, args.iteration_number + 1):
         print("prepare for iteration: " + str(i))
-        prepare_data(content_path, data, iteration=i, folder_name="data/"+args.dir_name, resolution=args.resolution)
+        prepare_data(content_path, data, iteration=i, folder_name="data/"+args.dir_name, resolution=args.resolution,
+                     method=parser.method)
