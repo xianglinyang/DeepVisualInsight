@@ -355,7 +355,7 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
       labelElement.innerText = this.getLabelFromIndex(neighbor.index);
       const valueElement = document.createElement('div');
       valueElement.className = 'value';
-      valueElement.innerText = neighbor.dist.toFixed(3);
+      valueElement.innerText = this.projector.dataSet.points[neighbor.index].current_inv_acc.toFixed(3);
       labelValueElement.appendChild(labelElement);
       labelValueElement.appendChild(valueElement);
       const barElement = document.createElement('div');
