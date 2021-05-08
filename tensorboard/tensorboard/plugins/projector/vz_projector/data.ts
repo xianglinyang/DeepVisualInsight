@@ -486,6 +486,9 @@ export class DataSet {
           if(dataPoint.new_selection == undefined) {
             dataPoint.new_selection = {};
           }
+          if(dataPoint.inv_acc == undefined) {
+            dataPoint.inv_acc = {};
+          }
         }
 
         for (let i = 0; i < real_data_number; i++) {
