@@ -1,3 +1,4 @@
+import pyasn1_modules.rfc6031
 import tensorflow as tf
 from deepvisualinsight.utils import *
 from deepvisualinsight.backend import *
@@ -14,7 +15,7 @@ from deepvisualinsight.VisualizationModel import ParametricModel
 class MMS:
     def __init__(self, content_path, model_structure, epoch_start, epoch_end, period, repr_num, class_num, classes,
                  low_dims=2,
-                 cmap="tab10", resolution=100, neurons=None, temporal=False, transfer_learning=True, batch_size=1000,
+                 cmap="tab10", resolution=100, neurons=None, temporal=False, transfer_learning=True, batch_size=200,
                  verbose=1, split=-1, advance_border_gen=False, attack_device="cpu"):
 
         '''
@@ -1425,9 +1426,13 @@ class MMS:
         index = load_labelled_data_index(index_file)
         new_index_file = os.path.join(self.model_path, "Epoch_{:d}".format(new_epoch), "index.json")
         new_index = load_labelled_data_index(new_index_file)
-        new_I = len(new_index) - len(index)
 
-        return new_index[-new_I:]
+        idxs = []
+        for i in new_index:
+            if i not in index:
+                idxs.append(i)
+
+        return idxs
 
     def get_epoch_index(self, epoch_id):
         """get the training data index for an epoch"""
