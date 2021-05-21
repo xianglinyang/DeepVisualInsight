@@ -114,6 +114,10 @@ export interface DataPoint {
   current_new_selection?: boolean;
   original_label?: string;
   noisy?: boolean;
+  inv_acc?: {
+    [iteration: number]: number;
+  };
+  current_inv_acc?: number;
 }
 const IS_FIREFOX = navigator.userAgent.toLowerCase().indexOf('firefox') >= 0;
 /** Controls whether nearest neighbors computation is done on the GPU or CPU. */
@@ -451,6 +455,8 @@ export class DataSet {
         const evaluation = data.evaluation;
         this.DVIEvaluation[iteration] = evaluation;
 
+        const inv_acc = data.inv_acc_list;
+
         for (let i = 0; i < real_data_number + background_point_number - current_length; i++) {
           const newDataPoint : DataPoint = {
             metadata: {label: "background"},
@@ -480,6 +486,9 @@ export class DataSet {
           if(dataPoint.new_selection == undefined) {
             dataPoint.new_selection = {};
           }
+          if(dataPoint.inv_acc == undefined) {
+            dataPoint.inv_acc = {};
+          }
         }
 
         for (let i = 0; i < real_data_number; i++) {
@@ -497,6 +506,8 @@ export class DataSet {
           dataPoint.metadata['label'] = label_list[i];
           dataPoint.prediction[iteration] = prediction_list[i];
           dataPoint.current_prediction = prediction_list[i];
+          dataPoint.inv_acc[iteration] = inv_acc[i];
+          dataPoint.current_inv_acc = inv_acc[i];
           if(prediction_list[i] == label_list[i]) {
             dataPoint.current_wrong_prediction = false;
           } else {
@@ -522,6 +533,8 @@ export class DataSet {
           dataPoint.current_testing = undefined;
           dataPoint.prediction[iteration] = "background";
           dataPoint.current_prediction = "background";
+          dataPoint.inv_acc[iteration] = 0;
+          dataPoint.current_inv_acc = 0;
           dataPoint.current_new_selection = undefined;
           dataPoint.new_selection[iteration] = undefined;
           dataPoint.current_wrong_prediction = undefined;
@@ -592,6 +605,7 @@ export class DataSet {
         dataPoint.current_training = dataPoint.training_data[iteration];
         dataPoint.current_testing = dataPoint.testing_data[iteration];
         dataPoint.current_prediction = dataPoint.prediction[iteration];
+        dataPoint.current_inv_acc = dataPoint.inv_acc[iteration];
         if(dataPoint.current_prediction == dataPoint.metadata['label'] && dataPoint.metadata['label'] != "background") {
             dataPoint.current_wrong_prediction = false;
           } else {

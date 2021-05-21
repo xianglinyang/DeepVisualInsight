@@ -74,8 +74,12 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
     with open(prefix+'evaluation_'+str(iteration)+'.json', 'w') as f:
         json.dump(evaluation, f)
 
-    # prediction result
+    # prediction result && inverse accuracy
     gap_layer_data = mms.get_representation_data(iteration, data)
+    _, conf_diff = mms.batch_inv_preserve(iteration, gap_layer_data)
+    with open(prefix + 'inv_acc_' + str(iteration) + '.npy', 'wb') as f:
+        np.save(f, conf_diff)
+
     prediction = mms.get_pred(iteration, gap_layer_data).argmax(-1)
     with open(prefix+'prediction_'+str(iteration)+'.npy', 'wb') as f:
         np.save(f, prediction)
@@ -117,4 +121,4 @@ if __name__ == "__main__":
     for i in range(1, args.iteration_number + 1):
         print("prepare for iteration: " + str(i))
         prepare_data(content_path, data, iteration=i, folder_name="data/"+args.dir_name, resolution=args.resolution,
-                     method=parser.method)
+                     method=args.method)
