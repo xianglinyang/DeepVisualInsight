@@ -35,6 +35,21 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
         with open(prefix + 'current_training_' + str(iteration) + '.json', 'w') as f:
             json.dump(current_index, f)
 
+        # uncertainty score
+        uncertainty = mms.get_uncertainty_score(iteration)
+        with open(prefix+'uncertainty_'+str(iteration)+'.json', 'w') as f:
+            json.dump(f, uncertainty)
+
+        # diversity score
+        diversity = mms.get_diversity_score(iteration)
+        with open(prefix + "diversity_"+str(iteration)+".json", 'w') as f:
+            json.dump(f, diversity)
+
+        # total score
+        tot = mms.get_total_score(iteration)
+        with open(prefix+"tot_"+str(iteration)+".json",'w') as f:
+            json.dump(f, tot)
+
     # accu
     training_acc = mms.training_accu(iteration)
     testing_acc = mms.testing_accu(iteration)
@@ -83,6 +98,7 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
     prediction = mms.get_pred(iteration, gap_layer_data).argmax(-1)
     with open(prefix+'prediction_'+str(iteration)+'.npy', 'wb') as f:
         np.save(f, prediction)
+
 
     # dimensionality reduction result
     dimension_reduction_result = mms.batch_embedding(data, iteration)

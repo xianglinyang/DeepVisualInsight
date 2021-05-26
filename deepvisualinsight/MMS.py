@@ -1478,7 +1478,9 @@ class MMS:
             uncertainty_score = train_uncertainty_score + test_uncertainty_score
             return uncertainty_score
         except FileNotFoundError:
-            return []
+            train_num = self.training_labels.shape[0]
+            test_num = self.testing_labels.shape[0]
+            return [-1 for i in range(train_num+test_num)]
 
     def get_diversity_score(self, epoch_id):
         try:
@@ -1494,7 +1496,9 @@ class MMS:
 
             return dis_score
         except FileNotFoundError:
-            return []
+            train_num = self.training_labels.shape[0]
+            test_num = self.testing_labels.shape[0]
+            return [-1 for i in range(train_num+test_num)]
 
     def get_total_score(self, epoch_id):
         try:
@@ -1510,4 +1514,6 @@ class MMS:
 
             return total_score
         except FileNotFoundError:
-            return []
+            train_num = self.training_labels.shape[0]
+            test_num = self.testing_labels.shape[0]
+            return [-1 for i in range(train_num+test_num)]
