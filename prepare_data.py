@@ -26,7 +26,8 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
     classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
 
     mms = MMS(content_path, net, 1, 11, 1, 512, 10, classes, cmap="tab10", resolution=resolution, neurons=256,
-              verbose=1)
+              advance_border_gen=True, verbose=1)
+
 
     # active learning
     if method == 'active_learning':
