@@ -20,6 +20,8 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
     prefix = folder_name + '/'
     if direct_call:
         prefix = 'server/'+folder_name + '/'
+    if not os.path.exists(prefix):
+        os.mkdir(prefix)
 
     classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
 
