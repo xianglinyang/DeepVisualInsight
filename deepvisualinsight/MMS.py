@@ -15,7 +15,7 @@ from deepvisualinsight.VisualizationModel import ParametricModel
 class MMS:
     def __init__(self, content_path, model_structure, epoch_start, epoch_end, period, repr_num, class_num, classes,
                  low_dims=2,
-                 cmap="tab10", resolution=100, neurons=None, temporal=False, transfer_learning=True, batch_size=200,
+                 cmap="tab10", resolution=100, neurons=None, temporal=False, transfer_learning=True, batch_size=1000,
                  verbose=1, split=-1, advance_border_gen=False, attack_device="cpu"):
 
         '''

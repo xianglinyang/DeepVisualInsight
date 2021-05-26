@@ -510,7 +510,7 @@ def define_autoencoder(dims, n_components, units, encoder=None, decoder=None):
         return encoder, decoder
 
 
-def define_model(dims, low_dims, encoder, decoder, temporal, stop_grad=False):
+def define_model(dims, low_dims, encoder, decoder, temporal, stop_grad=True):
     # inputs
     to_x = tf.keras.layers.Input(shape=dims, name="to_x")
     from_x = tf.keras.layers.Input(shape=dims, name="from_x")
@@ -683,7 +683,7 @@ def construct_temporal_mixed_edge_dataset(
     new_graph, new_epochs_per_sample, new_head, new_tail, new_weight, new_n_vertices = get_graph_elements(
         new_graph_, n_epochs
     )
-    new_epochs_per_sample = np.repeat(new_epochs_per_sample, 2)
+    # new_epochs_per_sample = np.repeat(new_epochs_per_sample, 2)
     ## normalize two graphs
     # new_head = new_head + cp_num
     # new_tail = new_tail + cp_num
@@ -755,39 +755,17 @@ def temporal_loss():
 
 
 # step2
-def regularize_loss():
-    '''
-    Add temporal regularization L2 loss on weights
-    '''
-
-    @tf.function
-    def loss(w_prev, w_current, to_alpha):
-        assert len(w_prev) == len(w_current)
-        # multiple layers of weights, need to add them up
-        for j in range(len(w_prev)):
-            diff = tf.reduce_sum(tf.math.square(w_current[j] - w_prev[j]))
-            diff = tf.math.multiply(to_alpha, diff)
-            if j == 0:
-                alldiff = tf.reduce_mean(diff)
-            else:
-                alldiff += tf.reduce_mean(diff)
-        return alldiff
-
-    return loss
-
-# step 3
 # def regularize_loss():
 #     '''
 #     Add temporal regularization L2 loss on weights
 #     '''
 #
 #     @tf.function
-#     def loss(w_prev, w_current, to_alpha, final_grad_result_list):
+#     def loss(w_prev, w_current, to_alpha):
 #         assert len(w_prev) == len(w_current)
-#         assert len(w_prev) == len(final_grad_result_list)
 #         # multiple layers of weights, need to add them up
 #         for j in range(len(w_prev)):
-#             diff = tf.reduce_sum(tf.math.multiply(final_grad_result_list[j], tf.math.square(w_current[j] - w_prev[j])))
+#             diff = tf.reduce_sum(tf.math.square(w_current[j] - w_prev[j]))
 #             diff = tf.math.multiply(to_alpha, diff)
 #             if j == 0:
 #                 alldiff = tf.reduce_mean(diff)
@@ -796,6 +774,28 @@ def regularize_loss():
 #         return alldiff
 #
 #     return loss
+
+# step 3
+def regularize_loss():
+    '''
+    Add temporal regularization L2 loss on weights
+    '''
+
+    @tf.function
+    def loss(w_prev, w_current, to_alpha, final_grad_result_list):
+        assert len(w_prev) == len(w_current)
+        assert len(w_prev) == len(final_grad_result_list)
+        # multiple layers of weights, need to add them up
+        for j in range(len(w_prev)):
+            diff = tf.math.multiply(final_grad_result_list[j], tf.math.square(w_current[j] - w_prev[j]))
+            # diff = tf.reduce_sum(tf.math.multiply(to_alpha, diff))
+            if j == 0:
+                alldiff = tf.reduce_mean(diff)
+            else:
+                alldiff += tf.reduce_mean(diff)
+        return alldiff
+
+    return loss
 
 
 def embedding_loss():
