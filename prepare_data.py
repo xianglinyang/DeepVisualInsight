@@ -40,17 +40,17 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
         # uncertainty score
         uncertainty = mms.get_uncertainty_score(iteration)
         with open(prefix+'uncertainty_'+str(iteration)+'.json', 'w') as f:
-            json.dump(f, uncertainty)
+            json.dump(uncertainty, f)
 
         # diversity score
         diversity = mms.get_diversity_score(iteration)
         with open(prefix + "diversity_"+str(iteration)+".json", 'w') as f:
-            json.dump(f, diversity)
+            json.dump(diversity, f)
 
         # total score
         tot = mms.get_total_score(iteration)
         with open(prefix+"tot_"+str(iteration)+".json",'w') as f:
-            json.dump(f, tot)
+            json.dump(tot, f)
 
     # accu
     training_acc = mms.training_accu(iteration)
