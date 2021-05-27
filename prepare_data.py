@@ -143,7 +143,7 @@ if __name__ == "__main__":
     testing_data = torch.load(os.path.join(content_path, "Testing_data", "testing_dataset_data.pth"))
     data = torch.cat((training_data, testing_data), 0)
     print("start")
-    for i in range(args.iteration_start, args.iteration_end + 1, args.iteration_epriod):
+    for i in range(args.iteration_start, args.iteration_end + 1, args.iteration_period):
         print("prepare for iteration: " + str(i))
         prepare_data(content_path, data, iteration=i, folder_name="data/"+args.dir_name, resolution=args.resolution,
                      method=args.method)
