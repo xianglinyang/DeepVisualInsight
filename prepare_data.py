@@ -31,10 +31,13 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
 
     # active learning
     if method == 'active_learning':
-        new_index = mms.get_new_index(iteration)
+        try:
+            new_index = mms.get_new_index(iteration)
+            with open(prefix + 'new_selection_' + str(iteration) + '.json', 'w') as f:
+                json.dump(new_index, f)
+        except FileNotFoundError:
+            print("New index does not exists!")
         current_index = mms.get_epoch_index(iteration)
-        with open(prefix + 'new_selection_' + str(iteration) + '.json', 'w') as f:
-            json.dump(new_index, f)
         with open(prefix + 'current_training_' + str(iteration) + '.json', 'w') as f:
             json.dump(current_index, f)
 

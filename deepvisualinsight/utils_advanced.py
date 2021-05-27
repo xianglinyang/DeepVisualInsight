@@ -384,10 +384,9 @@ def batch_run(model, split, data, device, batch_size=200):
 
 ###################################### I didn't change those functions ######################################
 def load_labelled_data_index(filename):
-    if not os.path.exists(filename):
-        sys.exit("data file doesn't exist!")
     with open(filename, 'r') as f:
         index = json.load(f)
+
     return index
 
 
