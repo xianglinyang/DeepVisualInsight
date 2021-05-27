@@ -124,23 +124,26 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
     with open(prefix+'color.npy', 'wb') as f:
         np.save(f, color)
 
+
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description='Information needed for prepare data')
-    parser.add_argument('--dir_path', type=str, default='/models/data/', help='path to the dataset')
+    parser = argparse.ArgumentParser(description='Information needed for preparing data')
+    parser.add_argument('--dir_path', type=str, default='/models/data/entropy', help='path to the dataset')
     parser.add_argument('--dir_name', type=str, default='entropy', help='dataset name')
-    parser.add_argument('--iteration_number', type=int, default=6, help='number of iterations')
+    parser.add_argument('--iteration_start', type=int, default=1, help='start epoch')
+    parser.add_argument('--iteration_end', type=int, default=10, help='end epoch')
+    parser.add_argument('--iteration_period', type=int, default=1, help='iteration period')
     parser.add_argument('--resolution', type=int, default=200, help='resolution for background')
     parser.add_argument('--method', type=str, default='active_learning', help='normal/active_learning/noisy')
     args = parser.parse_args()
     print(args)
 
-    content_path = args.dir_path + args.dir_name
-    training_data = torch.load(args.dir_path + args.dir_name + "/data/training_dataset_data.pth")
-    testing_data = torch.load(args.dir_path + args.dir_name + "/data/testing_dataset_data.pth")
+    content_path = args.dir_path
+    training_data = torch.load(os.path.join(content_path, "Training_data", "training_dataset_data.pth"))
+    testing_data = torch.load(os.path.join(content_path, "Testing_data", "testing_dataset_data.pth"))
     data = torch.cat((training_data, testing_data), 0)
     print("start")
-    for i in range(1, args.iteration_number + 1):
+    for i in range(args.iteration_start, args.iteration_end + 1, args.iteration_epriod):
         print("prepare for iteration: " + str(i))
         prepare_data(content_path, data, iteration=i, folder_name="data/"+args.dir_name, resolution=args.resolution,
                      method=args.method)
