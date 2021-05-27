@@ -129,8 +129,8 @@ def get_border_points(data_, target_, model, device, epsilon=.01, limit=7,):
 
 def load_labelled_data_index(filename):
     """load training data by index file"""
-    if not os.path.exists(filename):
-        sys.exit("data file doesn't exist!")
+    # if not os.path.exists(filename):
+    #     sys.exit("data file doesn't exist!")
     with open(filename, 'r') as f:
         index = json.load(f)
     return index
