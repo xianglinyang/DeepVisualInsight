@@ -59,8 +59,8 @@ class ParametricModel(keras.Model):
                 prev_trainable_variables = self.prev_trainable_variables
 
                 # embedding loss
-                embed_loss_to = self.loss["embedding_to"](_, embedding_to)
-                embed_loss_to_recon = self.loss["embedding_to_recon"](_, embedding_to_recon)
+                # embed_loss_to = self.loss["embedding_to"](_, embedding_to)
+                # embed_loss_to_recon = self.loss["embedding_to_recon"](_, embedding_to_recon)
                 #
                 # final_grad_result_list = list()
                 #
