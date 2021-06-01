@@ -379,7 +379,36 @@ def compute_cross_entropy(
     CE = attraction_term + repellant_term
     return attraction_term, repellant_term, CE
 
+def regularize_loss():
+    '''
+    Add temporal regularization L2 loss on weights
+    '''
+    @tf.function
+    def loss(w_prev, w_current, to_alpha):
+        assert len(w_prev) == len(w_current)
+        # multiple layers of weights, need to add them up
+        for j in range(len(w_prev)): 
+            diff = tf.reduce_sum(tf.math.square(w_current[j] - w_prev[j]))
+            diff = tf.math.multiply(to_alpha, diff)
+            if j == 0:
+                alldiff = tf.reduce_mean(diff)
+            else:
+                alldiff += tf.reduce_mean(diff)
+        return alldiff
+    
+    return loss
 
+def kl_loss():
+    '''
+    Add KL-divergence loss
+    '''
+    @tf.function
+    def loss(z_log_var, z_mean):
+        assert len(z_log_var) == len(z_mean)
+        kl_loss = -0.5 * (1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var))
+        kl_loss = tf.reduce_mean(tf.reduce_sum(kl_loss, axis=1))
+        return kl_loss
+    
 def convert_distance_to_probability(distances, a=1.0, b=1.0):
     return 1.0 / (1.0 + a * distances ** (2 * b))
 
@@ -467,6 +496,31 @@ def define_autoencoder(dims, n_components, units, encoder=None, decoder=None):
         ])
         return encoder, decoder
 
+def define_vae(dims, n_components, units, encoder=None, decoder=None):
+    if encoder is None:
+        encoder = tf.keras.Sequential([
+            tf.keras.layers.InputLayer(input_shape=dims),
+            tf.keras.layers.Flatten(),
+            tf.keras.layers.Dense(units=units, activation="relu"),
+            tf.keras.layers.Dense(units=units, activation="relu"),
+            tf.keras.layers.Dense(units=units, activation="relu"),
+            tf.keras.layers.Dense(units=units, activation="relu"),
+            tf.keras.layers.Dense(units=n_components + n_components), # mu and sigma
+        ])
+
+    # define the decoder
+    if decoder is None:
+        decoder = tf.keras.Sequential([
+            tf.keras.layers.InputLayer(input_shape=(n_components, )),
+            tf.keras.layers.Dense(units=units, activation="relu"),
+            tf.keras.layers.Dense(units=units, activation="relu"),
+            tf.keras.layers.Dense(units=units, activation="relu"),
+            tf.keras.layers.Dense(units=units, activation="relu"),
+            tf.keras.layers.Dense(units=np.product(dims), name="recon", activation=None),
+            tf.keras.layers.Reshape(dims),
+
+        ])
+    return encoder, decoder
 
 def define_model(dims, low_dims, encoder, decoder, temporal, stop_grad=False):
     # inputs
@@ -559,6 +613,44 @@ def define_losses(batch_size, n_epoch, tot_epochs, temporal):
     #     loss_weights["temporal"] = C
 
     return losses, loss_weights
+
+def define_vae_losses(batch_size, n_epoch, tot_epochs):
+    '''
+    Define VAE loss
+    '''
+    losses = {}
+    loss_weights = {}
+    
+    # umap loss
+    from umap.umap_ import find_ab_params
+    min_dist = 0.1
+    _a, _b = find_ab_params(1.0, min_dist)
+    negative_sample_rate = 5
+
+    umap_loss_fn = umap_loss(
+        batch_size,
+        negative_sample_rate,
+        _a,
+        _b,
+    )
+
+    losses["umap"] = umap_loss_fn
+    loss_weights["umap"] = 1.0
+
+    losses["reconstruction"] = tf.keras.losses.MeanSquaredError()
+    loss_weights["reconstruction"] = 1.0
+
+    regularize_loss_fn = regularize_loss()
+    losses["regularization"] = regularize_loss_fn
+    loss_weights["regularization"] = 1.0
+    
+    kl_loss_fn = kl_loss()
+    losses["kl"] = kl_loss_fn
+    loss_weights["kl"] = 1.0    
+
+    return losses, loss_weights
+
+
 
 
 def define_lr_schedule(epoch):
