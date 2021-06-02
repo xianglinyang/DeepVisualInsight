@@ -119,13 +119,13 @@ export interface DataPoint {
   };
   current_inv_acc?: number;
   uncertainty?: {
-    [iteration: number]: number;
+    [iteration: number]: number | string;
   };
   diversity?: {
-    [iteration: number]: number;
+    [iteration: number]: number | string;
   };
   tot?: {
-    [iteration: number]: number;
+    [iteration: number]: number | string;
   };
 }
 const IS_FIREFOX = navigator.userAgent.toLowerCase().indexOf('firefox') >= 0;
