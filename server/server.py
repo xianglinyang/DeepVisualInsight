@@ -128,9 +128,9 @@ def animation():
     with open(folder_path + '/inv_acc_' + str(iteration) + '.npy', 'rb') as f:
         inv_acc_list = np.load(f).tolist()
 
-    uncertainty_path = folder_path + 'uncertainty_' + str(iteration) + '.json'
-    diversity_path = folder_path + 'diversity_' + str(iteration) + '.json'
-    tot_path = folder_path + 'tot_' + str(iteration) + '.json'
+    uncertainty_path = folder_path + '/uncertainty_' + str(iteration) + '.json'
+    diversity_path = folder_path + '/diversity_' + str(iteration) + '.json'
+    tot_path = folder_path + '/tot_' + str(iteration) + '.json'
     is_uncertainty_diversity_tot_exist = True
     uncertainty_diversity_tot_dict = {}
     if os.path.isfile(uncertainty_path):
