@@ -1,14 +1,15 @@
 # DeepVisualInsight (DVI): A visualization platform for debugging deep neural network models
 DeepVisualInsight (DVI) is a time-travelling visualization solution for how the classification boundaries of a learned model is trained in two-dimensional space.  
 
-//TODO we need to have installation information here.  
-## Requirements
-Requirements to run DeepVisualInsight are in ```requirements.txt'''. Please run:
-```
-pip -r install requirements.txt
+## Requirement
+To start playing with DVI, please run:
+```console
+$ conda create -n DVI_newest python=3.6
+$ git clone https://github.com/xianglinyang/DeepVisualInsight.git
+$ pip -r install requirements.txt
 ```
 ## Installation
-1. Download this repository.
-2. install requirements.txt
+*Please follow [Usage Instructions](usage_instructions)* to use DVI.
+
 
 For more details, please see our [wiki](https://github.com/xianglinyang/DeepVisualInsight/wiki).
