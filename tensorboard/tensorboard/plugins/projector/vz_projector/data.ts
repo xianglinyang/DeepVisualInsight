@@ -118,6 +118,15 @@ export interface DataPoint {
     [iteration: number]: number;
   };
   current_inv_acc?: number;
+  uncertainty?: {
+    [iteration: number]: number;
+  };
+  diversity?: {
+    [iteration: number]: number;
+  };
+  tot?: {
+    [iteration: number]: number;
+  };
 }
 const IS_FIREFOX = navigator.userAgent.toLowerCase().indexOf('firefox') >= 0;
 /** Controls whether nearest neighbors computation is done on the GPU or CPU. */
@@ -194,6 +203,9 @@ export class DataSet {
   DVIAvailableIteration: Array<number> = [];
   DVIVisualizeDataPath = "";
   DVIPredicates: any[] = [];
+  is_uncertainty_diversity_tot_exist: {
+    [iteration: number]: boolean;
+  } = [];
   superviseFactor: number;
   superviseLabels: string[];
   superviseInput: string = '';
@@ -457,6 +469,9 @@ export class DataSet {
 
         const inv_acc = data.inv_acc_list;
 
+        const is_uncertainty_diversity_tot_exist = data.uncertainty_diversity_tot.is_exist;
+        this.is_uncertainty_diversity_tot_exist[iteration] = is_uncertainty_diversity_tot_exist;
+
         for (let i = 0; i < real_data_number + background_point_number - current_length; i++) {
           const newDataPoint : DataPoint = {
             metadata: {label: "background"},
@@ -489,6 +504,15 @@ export class DataSet {
           if(dataPoint.inv_acc == undefined) {
             dataPoint.inv_acc = {};
           }
+          if(dataPoint.uncertainty == undefined) {
+            dataPoint.uncertainty = {};
+          }
+          if(dataPoint.diversity == undefined) {
+            dataPoint.diversity = {};
+          }
+          if(dataPoint.tot == undefined) {
+            dataPoint.tot = {};
+          }
         }
 
         for (let i = 0; i < real_data_number; i++) {
@@ -517,6 +541,14 @@ export class DataSet {
           dataPoint.current_new_selection = false;
           dataPoint.original_label = original_label_list[i];
           dataPoint.noisy = false;
+          if(is_uncertainty_diversity_tot_exist) {
+            dataPoint.metadata['uncertainty'] = data.uncertainty_diversity_tot.uncertainty[i];
+            dataPoint.uncertainty[iteration] = dataPoint.metadata['uncertainty'];
+            dataPoint.metadata['diversity'] = data.uncertainty_diversity_tot.diversity[i];
+            dataPoint.diversity[iteration] = dataPoint.metadata['diversity'];
+            dataPoint.metadata['tot'] = data.uncertainty_diversity_tot.tot[i];
+            dataPoint.tot[iteration] = dataPoint.metadata['tot'];
+          }
         }
 
         for (let i = 0; i < background_point_number; i++) {
@@ -540,6 +572,14 @@ export class DataSet {
           dataPoint.current_wrong_prediction = undefined;
           dataPoint.original_label = "background";
           dataPoint.noisy = undefined;
+          if(is_uncertainty_diversity_tot_exist) {
+            dataPoint.metadata['uncertainty'] = -1;
+            dataPoint.uncertainty[iteration] = -1;
+            dataPoint.metadata['diversity'] = -1;
+            dataPoint.diversity[iteration] = -1;
+            dataPoint.metadata['tot'] = -1;
+            dataPoint.tot[iteration] = -1;
+          }
         }
 
         for (let i = real_data_number + background_point_number; i < this.points.length; i++) {
@@ -618,6 +658,11 @@ export class DataSet {
         dataPoint.current_new_selection = dataPoint.new_selection[iteration];
         if(dataPoint.current_new_selection) {
           newSelection.push(i);
+        }
+        if(this.is_uncertainty_diversity_tot_exist[iteration]) {
+          dataPoint.metadata['uncertainty'] = dataPoint.uncertainty[iteration];
+          dataPoint.metadata['diversity'] = dataPoint.diversity[iteration];
+          dataPoint.metadata['tot'] = dataPoint.tot[iteration];
         }
       }
       for (let i = validDataNumber; i < this.points.length; i++) {

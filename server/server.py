@@ -128,13 +128,33 @@ def animation():
     with open(folder_path + '/inv_acc_' + str(iteration) + '.npy', 'rb') as f:
         inv_acc_list = np.load(f).tolist()
 
+    uncertainty_path = folder_path + 'uncertainty_' + str(iteration) + '.json'
+    diversity_path = folder_path + 'diversity_' + str(iteration) + '.json'
+    tot_path = folder_path + 'tot_' + str(iteration) + '.json'
+    is_uncertainty_diversity_tot_exist = True
+    uncertainty_diversity_tot_dict = {}
+    if os.path.isfile(uncertainty_path):
+        with open(uncertainty_path, 'r') as f:
+            uncertainty_list = json.load(f)
+        with open(diversity_path, 'r') as f:
+            diversity_list = json.load(f)
+        with open(tot_path, 'r') as f:
+            tot_list = json.load(f)
+        uncertainty_diversity_tot_dict['uncertainty'] = uncertainty_list
+        uncertainty_diversity_tot_dict['diversity'] = diversity_list
+        uncertainty_diversity_tot_dict['tot'] = tot_list
+    else:
+        is_uncertainty_diversity_tot_exist = False
+    uncertainty_diversity_tot_dict['is_exist'] = is_uncertainty_diversity_tot_exist
+
     return make_response(jsonify({'result': result, 'grid_index': grid_index, 'grid_color': grid_color,
                                   'label_color_list':label_color_list, 'label_list':label_list,
                                   'maximum_iteration':maximum_iteration, 'training_data':current_training,
                                   'testing_data':testing_data_index, 'evaluation':evaluation_new,
                                   'prediction_list':prediction_list, 'new_selection':new_selection,
                                   'noisy_data':noisy_data, 'original_label_list':original_label_list,
-                                  'inv_acc_list':inv_acc_list}), 200)
+                                  'inv_acc_list':inv_acc_list,
+                                  'uncertainty_diversity_tot':uncertainty_diversity_tot_dict}), 200)
 
 @app.route('/', methods=["POST", "GET"])
 def index():
