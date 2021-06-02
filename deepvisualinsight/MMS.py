@@ -1467,11 +1467,11 @@ class MMS:
 
     def get_uncertainty_score(self, epoch_id):
         try:
-            uncertainty_score_path = os.path.join("..", "Model", "Epoch_{}".format(epoch_id)," train_uncertainty_score.json")
+            uncertainty_score_path = os.path.join(self.model_path, "Epoch_{}".format(epoch_id),"train_uncertainty_score.json")
             with open(uncertainty_score_path, "r") as f:
                 train_uncertainty_score = json.load(f)
 
-            uncertainty_score_path = os.path.join("..", "Model", "Epoch_{}".format(epoch_id)," test_uncertainty_score.json")
+            uncertainty_score_path = os.path.join(self.model_path, "Epoch_{}".format(epoch_id),"test_uncertainty_score.json")
             with open(uncertainty_score_path, "r") as f:
                 test_uncertainty_score = json.load(f)
 
@@ -1484,11 +1484,11 @@ class MMS:
 
     def get_diversity_score(self, epoch_id):
         try:
-            dis_score_path = os.path.join("..", "Model", "Epoch_{}".format(epoch_id), " train_dis_score.json")
+            dis_score_path = os.path.join(self.model_path, "Epoch_{}".format(epoch_id), "train_dis_score.json")
             with open(dis_score_path, "r") as f:
                 train_dis_score = json.load(f)
 
-            dis_score_path = os.path.join("..", "Model", "Epoch_{}".format(epoch_id), " test_dis_score.json")
+            dis_score_path = os.path.join(self.model_path, "Epoch_{}".format(epoch_id), "test_dis_score.json")
             with open(dis_score_path, "r") as f:
                 test_dis_score = json.load(f)
 
@@ -1502,11 +1502,11 @@ class MMS:
 
     def get_total_score(self, epoch_id):
         try:
-            total_score_path = os.path.join("..", "Model", "Epoch_{}".format(epoch_id), " train_total_score.json")
+            total_score_path = os.path.join(self.model_path, "Epoch_{}".format(epoch_id), "train_total_score.json")
             with open(total_score_path, "r") as f:
                 train_total_score = json.load(f)
 
-            total_score_path = os.path.join("..", "Model", "Epoch_{}".format(epoch_id), " test_total_score.json")
+            total_score_path = os.path.join(self.model_path, "Epoch_{}".format(epoch_id), "test_total_score.json")
             with open(total_score_path, "r") as f:
                 test_total_score = json.load(f)
 
