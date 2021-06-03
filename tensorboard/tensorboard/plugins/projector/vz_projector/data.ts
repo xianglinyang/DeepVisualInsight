@@ -127,6 +127,18 @@ export interface DataPoint {
   tot?: {
     [iteration: number]: number | string;
   };
+  uncertainty_ranking?: {
+    [iteration: number]: number;
+  };
+  current_uncertainty_ranking?: number;
+  diversity_ranking?: {
+    [iteration: number]: number;
+  };
+  current_diversity_ranking?: number;
+  tot_ranking?: {
+    [iteration: number]: number;
+  };
+  current_tot_ranking?: number;
 }
 const IS_FIREFOX = navigator.userAgent.toLowerCase().indexOf('firefox') >= 0;
 /** Controls whether nearest neighbors computation is done on the GPU or CPU. */
@@ -507,11 +519,20 @@ export class DataSet {
           if(dataPoint.uncertainty == undefined) {
             dataPoint.uncertainty = {};
           }
+          if(dataPoint.uncertainty_ranking == undefined) {
+            dataPoint.uncertainty_ranking = {};
+          }
           if(dataPoint.diversity == undefined) {
             dataPoint.diversity = {};
           }
+          if(dataPoint.diversity_ranking == undefined) {
+            dataPoint.diversity_ranking = {};
+          }
           if(dataPoint.tot == undefined) {
             dataPoint.tot = {};
+          }
+          if(dataPoint.tot_ranking == undefined) {
+            dataPoint.tot_ranking = {};
           }
         }
 
@@ -548,6 +569,12 @@ export class DataSet {
             dataPoint.diversity[iteration] = dataPoint.metadata['diversity'];
             dataPoint.metadata['tot'] = data.uncertainty_diversity_tot.tot[i];
             dataPoint.tot[iteration] = dataPoint.metadata['tot'];
+            dataPoint.uncertainty_ranking[iteration] =  data.uncertainty_diversity_tot.uncertainty_ranking[i];
+            dataPoint.current_uncertainty_ranking =  data.uncertainty_diversity_tot.uncertainty_ranking[i];
+            dataPoint.diversity_ranking[iteration] = data.uncertainty_diversity_tot.diversity_ranking[i];
+            dataPoint.current_diversity_ranking = data.uncertainty_diversity_tot.diversity_ranking[i];
+            dataPoint.tot_ranking[iteration] = data.uncertainty_diversity_tot.tot_ranking[i];
+            dataPoint.current_tot_ranking = data.uncertainty_diversity_tot.tot_ranking[i];
           }
         }
 
@@ -579,6 +606,12 @@ export class DataSet {
             dataPoint.diversity[iteration] = -1;
             dataPoint.metadata['tot'] = -1;
             dataPoint.tot[iteration] = -1;
+            dataPoint.uncertainty_ranking[iteration] = -1;
+            dataPoint.current_uncertainty_ranking =  -1;
+            dataPoint.diversity_ranking[iteration] = -1;
+            dataPoint.current_diversity_ranking = -1;
+            dataPoint.tot_ranking[iteration] = -1;
+            dataPoint.current_tot_ranking = -1;
           }
         }
 
@@ -663,6 +696,9 @@ export class DataSet {
           dataPoint.metadata['uncertainty'] = dataPoint.uncertainty[iteration];
           dataPoint.metadata['diversity'] = dataPoint.diversity[iteration];
           dataPoint.metadata['tot'] = dataPoint.tot[iteration];
+          dataPoint.current_uncertainty_ranking = dataPoint.uncertainty_ranking[iteration];
+          dataPoint.current_diversity_ranking = dataPoint.diversity_ranking[iteration];
+          dataPoint.current_tot_ranking = dataPoint.tot_ranking[iteration];
         }
       }
       for (let i = validDataNumber; i < this.points.length; i++) {

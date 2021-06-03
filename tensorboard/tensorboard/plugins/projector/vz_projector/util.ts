@@ -173,9 +173,23 @@ export function getSearchPredicate(
               searchQueryObj["noisy_type"] == "others"));
     const valid_original_or_flipped = (searchQueryObj["original_or_flipped"]!=null && !Array.isArray(searchQueryObj["original_or_flipped"]) &&
           (searchQueryObj["original_or_flipped"] == "true"));
+    const valid_uncertainty_ranking = (searchQueryObj["uncertainty_ranking"]!=null && !Array.isArray(searchQueryObj["uncertainty_ranking"]) &&
+          !isNaN(+searchQueryObj["uncertainty_ranking"]));
+    const valid_uncertainty_exceed = (searchQueryObj["uncertainty_exceed"]!=null && !Array.isArray(searchQueryObj["uncertainty_exceed"]) &&
+          !isNaN(+searchQueryObj["uncertainty_exceed"]));
+    const valid_diversity_ranking = (searchQueryObj["diversity_ranking"]!=null && !Array.isArray(searchQueryObj["diversity_ranking"]) &&
+          !isNaN(+searchQueryObj["diversity_ranking"]));
+    const valid_diversity_exceed = (searchQueryObj["diversity_exceed"]!=null && !Array.isArray(searchQueryObj["diversity_exceed"]) &&
+          !isNaN(+searchQueryObj["diversity_exceed"]));
+    const valid_tot_ranking = (searchQueryObj["tot_ranking"]!=null && !Array.isArray(searchQueryObj["tot_ranking"]) &&
+          !isNaN(+searchQueryObj["tot_ranking"]));
+    const valid_tot_exceed = (searchQueryObj["tot_exceed"]!=null && !Array.isArray(searchQueryObj["tot_exceed"]) &&
+          !isNaN(+searchQueryObj["tot_exceed"]));
     predicate = (p) => {
       if(searchQueryObj["label"]==null && searchQueryObj["prediction"]==null &&
           !valid_new_selection && !valid_active_learning && !valid_noisy && !valid_original && !valid_original_or_flipped &&
+          !valid_uncertainty_ranking && !valid_diversity_ranking && !valid_tot_ranking && !valid_uncertainty_exceed
+              && !valid_diversity_exceed && !valid_tot_exceed &&
           (searchQueryObj["is_training"]==null || Array.isArray(searchQueryObj["is_training"]) ||
               ((searchQueryObj["is_training"] != "true" && searchQueryObj["is_training"] != "false")))
           && (searchQueryObj["is_correct_prediction"]==null || Array.isArray(searchQueryObj["is_correct_prediction"]) ||
@@ -279,6 +293,48 @@ export function getSearchPredicate(
           originalOrFlipped = true;
         }
         if(!originalOrFlipped) {
+          return false;
+        }
+      }
+      if(valid_uncertainty_ranking) {
+        let queryRanking = +searchQuery["uncertainty_ranking"];
+        if(p.current_uncertainty_ranking == undefined || p.current_uncertainty_ranking == -1 ||
+            p.current_uncertainty_ranking > queryRanking) {
+          return false;
+        }
+      }
+      if(valid_diversity_ranking) {
+        let queryRanking = +searchQuery["diversity_ranking"];
+        if(p.current_diversity_ranking == undefined || p.current_diversity_ranking == -1 ||
+            p.current_diversity_ranking > queryRanking) {
+          return false;
+        }
+      }
+      if(valid_tot_ranking) {
+        let queryRanking = +searchQuery["tot_ranking"];
+        if(p.current_tot_ranking == undefined || p.current_tot_ranking == -1 ||
+            p.current_tot_ranking > queryRanking) {
+          return false;
+        }
+      }
+      if(valid_uncertainty_exceed) {
+        let queryExceed = +searchQuery["uncertainty_exceed"];
+        if(p.metadata["uncertainty"] == undefined || p.metadata["uncertainty"] == -1 ||
+            p.metadata["uncertainty"] < queryExceed) {
+          return false;
+        }
+      }
+      if(valid_diversity_exceed) {
+        let queryExceed = +searchQuery["diversity_exceed"];
+        if(p.metadata["diversity"] == undefined || p.metadata["diversity"] == -1 ||
+            p.metadata["diversity"] < queryExceed) {
+          return false;
+        }
+      }
+      if(valid_tot_exceed) {
+        let queryExceed = +searchQuery["tot_exceed"];
+        if(p.metadata["tot"] == undefined || p.metadata["tot"] == -1 ||
+            p.metadata["tot"] < queryExceed) {
           return false;
         }
       }

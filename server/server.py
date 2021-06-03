@@ -136,13 +136,19 @@ def animation():
     if os.path.isfile(uncertainty_path):
         with open(uncertainty_path, 'r') as f:
             uncertainty_list = json.load(f)
+            uncertainty_ranking_list = [i[0] for i in sorted(enumerate(uncertainty_list), key=lambda x:x[1])]
         with open(diversity_path, 'r') as f:
             diversity_list = json.load(f)
+            diversity_ranking_list = [i[0] for i in sorted(enumerate(diversity_list), key=lambda x: x[1])]
         with open(tot_path, 'r') as f:
             tot_list = json.load(f)
+            tot_ranking_list = [i[0] for i in sorted(enumerate(tot_list), key=lambda x: x[1])]
         uncertainty_diversity_tot_dict['uncertainty'] = uncertainty_list
         uncertainty_diversity_tot_dict['diversity'] = diversity_list
         uncertainty_diversity_tot_dict['tot'] = tot_list
+        uncertainty_diversity_tot_dict['uncertainty_ranking'] = uncertainty_ranking_list
+        uncertainty_diversity_tot_dict['diversity_ranking'] = diversity_ranking_list
+        uncertainty_diversity_tot_dict['tot_ranking'] = tot_ranking_list
     else:
         is_uncertainty_diversity_tot_exist = False
     uncertainty_diversity_tot_dict['is_exist'] = is_uncertainty_diversity_tot_exist
