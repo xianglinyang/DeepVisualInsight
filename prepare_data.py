@@ -17,9 +17,9 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
         from Model.model import ResNet18
         net = ResNet18()
 
-    prefix = folder_name + '/'
+    prefix = folder_name
     if direct_call:
-        prefix = 'server/'+folder_name + '/'
+        prefix = os.path.join('server', folder_name)
     if not os.path.exists(prefix):
         os.mkdir(prefix)
 
