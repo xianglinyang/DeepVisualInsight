@@ -33,42 +33,42 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
     if method == 'active_learning':
         try:
             new_index = mms.get_new_index(iteration)
-            with open(prefix + 'new_selection_' + str(iteration) + '.json', 'w') as f:
+            with open(os.path.join(prefix, 'new_selection_' + str(iteration) + '.json'), 'w') as f:
                 json.dump(new_index, f)
         except FileNotFoundError:
             print("New index does not exists!")
         current_index = mms.get_epoch_index(iteration)
-        with open(prefix + 'current_training_' + str(iteration) + '.json', 'w') as f:
+        with open(os.path.join(prefix, 'current_training_' + str(iteration) + '.json'), 'w') as f:
             json.dump(current_index, f)
 
         # uncertainty score
         uncertainty = mms.get_uncertainty_score(iteration)
-        with open(prefix+'uncertainty_'+str(iteration)+'.json', 'w') as f:
+        with open(os.path.join(prefix,'uncertainty_'+str(iteration)+'.json'), 'w') as f:
             json.dump(uncertainty, f)
 
         # diversity score
         diversity = mms.get_diversity_score(iteration)
-        with open(prefix + "diversity_"+str(iteration)+".json", 'w') as f:
+        with open(os.path.join(prefix, "diversity_"+str(iteration)+".json"), 'w') as f:
             json.dump(diversity, f)
 
         # total score
         tot = mms.get_total_score(iteration)
-        with open(prefix+"tot_"+str(iteration)+".json",'w') as f:
+        with open(os.path.join(prefix, "tot_"+str(iteration)+".json"), 'w') as f:
             json.dump(tot, f)
 
     # accu
     training_acc = mms.training_accu(iteration)
     testing_acc = mms.testing_accu(iteration)
-    with open(prefix+'acc'+str(iteration)+'.json', 'w') as f:
+    with open(os.path.join(prefix, 'acc'+str(iteration)+'.json'), 'w') as f:
         json.dump({'training': training_acc, 'testing':testing_acc}, f)
 
     # training with noisy data
     if method == 'noisy':
         noisy_data = mms.noisy_data_index()
-        with open(prefix + 'noisy_data_index.json', 'w') as f:
+        with open(os.path.join(prefix, 'noisy_data_index.json'), 'w') as f:
             json.dump(noisy_data, f)
         original_label = mms.get_original_labels()
-        with open(prefix + 'original_label.npy', 'wb') as f:
+        with open(os.path.join(prefix, 'original_label.npy'), 'wb') as f:
             np.save(f, original_label)
 
     # evaluation information
@@ -92,36 +92,36 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
     evaluation['inv_conf_train'] = mms.inv_conf_diff_train(iteration)
     evaluation['inv_conf_test'] = mms.inv_conf_diff_test(iteration)
     print("finish inv eval")
-    with open(prefix+'evaluation_'+str(iteration)+'.json', 'w') as f:
+    with open(os.path.join(prefix, 'evaluation_'+str(iteration)+'.json'), 'w') as f:
         json.dump(evaluation, f)
 
     # prediction result && inverse accuracy
     gap_layer_data = mms.get_representation_data(iteration, data)
     _, conf_diff = mms.batch_inv_preserve(iteration, gap_layer_data)
-    with open(prefix + 'inv_acc_' + str(iteration) + '.npy', 'wb') as f:
+    with open(os.path.join(prefix, 'inv_acc_' + str(iteration) + '.npy'), 'wb') as f:
         np.save(f, conf_diff)
 
     prediction = mms.get_pred(iteration, gap_layer_data).argmax(-1)
-    with open(prefix+'prediction_'+str(iteration)+'.npy', 'wb') as f:
+    with open(os.path.join(prefix, 'prediction_'+str(iteration)+'.npy'), 'wb') as f:
         np.save(f, prediction)
 
 
     # dimensionality reduction result
     dimension_reduction_result = mms.batch_embedding(data, iteration)
-    with open(prefix+'dimension_reduction_'+str(iteration)+'.npy', 'wb') as f:
+    with open(os.path.join(prefix, 'dimension_reduction_'+str(iteration)+'.npy'), 'wb') as f:
         np.save(f, dimension_reduction_result)
 
     # grid point inverse mapping
     grid, decision_view = mms.get_epoch_decision_view(iteration, resolution)
-    with open(prefix+'grid_'+str(iteration)+'.npy', 'wb') as f:
+    with open(os.path.join(prefix, 'grid_'+str(iteration)+'.npy'), 'wb') as f:
         np.save(f, grid)
 
-    with open(prefix+'decision_view_'+str(iteration)+'.npy', 'wb') as f:
+    with open(os.path.join(prefix, 'decision_view_'+str(iteration)+'.npy'), 'wb') as f:
         np.save(f, decision_view)
 
     # standard color
     color = mms.get_standard_classes_color()
-    with open(prefix+'color.npy', 'wb') as f:
+    with open(os.path.join(prefix,'color.npy'), 'wb') as f:
         np.save(f, color)
 
 
@@ -137,7 +137,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(args)
 
-    content_path = args.dir_path
+    content_path = os.path.normpath(args.dir_path)
     training_data = torch.load(os.path.join(content_path, "Training_data", "training_dataset_data.pth"))
     testing_data = torch.load(os.path.join(content_path, "Testing_data", "testing_dataset_data.pth"))
     data = torch.cat((training_data, testing_data), 0)

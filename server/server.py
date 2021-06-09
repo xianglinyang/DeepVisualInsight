@@ -21,7 +21,7 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 @cross_origin()
 def animation():
     res = request.get_json()
-    path = res['path']
+    path = os.path.normpath(res['path'])
     iteration = res['iteration']
     cache = res['cache']
     resolution = int(res['resolution'])
