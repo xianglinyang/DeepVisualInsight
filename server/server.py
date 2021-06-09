@@ -26,7 +26,7 @@ def animation():
     cache = res['cache']
     resolution = int(res['resolution'])
 
-    p_tmp = os.getcwd()
+    p_tmp = path
     l = []
     for i in range(3):
         l.append(os.path.split(p_tmp)[1])

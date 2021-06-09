@@ -142,7 +142,7 @@ if __name__ == "__main__":
     testing_data = torch.load(os.path.join(content_path, "Testing_data", "testing_dataset_data.pth"))
     data = torch.cat((training_data, testing_data), 0)
 
-    p_tmp = os.getcwd()
+    p_tmp = content_path
     l = []
     for i in range(3):
         l.append(os.path.split(p_tmp)[1])
