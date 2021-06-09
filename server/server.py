@@ -22,11 +22,18 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 def animation():
     res = request.get_json()
     path = res['path']
-    # data_path = res['data_path']
     iteration = res['iteration']
     cache = res['cache']
     resolution = int(res['resolution'])
-    folder_path = os.path.join('data', path.split('/')[-1])
+
+    p_tmp = os.getcwd()
+    l = []
+    for i in range(3):
+        l.append(os.path.split(p_tmp)[1])
+        p_tmp = os.path.split(p_tmp)[0]
+    l.reverse()
+    dir_name = "_".join(i for i in l)
+    folder_path = os.path.join('data', dir_name)
     if not os.path.isdir(folder_path):
         os.mkdir(folder_path)
     
@@ -45,8 +52,8 @@ def animation():
     data = torch.cat((training_data, testing_data), 0)
     labels = torch.cat((training_labels, testing_labels), 0).tolist()
     
-    if not res['cache']:
-        prepare_data(path, data, iteration, resolution, folder_path, False)
+    if not cache:
+        prepare_data(path, data, iteration=iteration, folder_name=folder_path, resolution=resolution, direct_call=False)
 
     with open(os.path.join(folder_path, 'dimension_reduction_'+str(iteration)+'.npy'), 'rb') as f:
         result = np.load(f).tolist()

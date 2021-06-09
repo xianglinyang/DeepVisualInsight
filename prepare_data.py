@@ -129,7 +129,6 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description='Information needed for preparing data')
     parser.add_argument('--dir_path', type=str, default='/models/data/entropy', help='path to the dataset')
-    parser.add_argument('--dir_name', type=str, default='entropy', help='dataset name')
     parser.add_argument('--iteration_start', type=int, default=1, help='start epoch')
     parser.add_argument('--iteration_end', type=int, default=10, help='end epoch')
     parser.add_argument('--iteration_period', type=int, default=1, help='iteration period')
@@ -142,8 +141,17 @@ if __name__ == "__main__":
     training_data = torch.load(os.path.join(content_path, "Training_data", "training_dataset_data.pth"))
     testing_data = torch.load(os.path.join(content_path, "Testing_data", "testing_dataset_data.pth"))
     data = torch.cat((training_data, testing_data), 0)
+
+    p_tmp = os.getcwd()
+    l = []
+    for i in range(3):
+        l.append(os.path.split(p_tmp)[1])
+        p_tmp = os.path.split(p_tmp)[0]
+    l.reverse()
+    dir_name = "_".join(i for i in l)
+
     print("start")
     for i in range(args.iteration_start, args.iteration_end + 1, args.iteration_period):
         print("prepare for iteration: " + str(i))
-        prepare_data(content_path, data, iteration=i, folder_name="data/"+args.dir_name, resolution=args.resolution,
-                     method=args.method)
+        prepare_data(content_path, data, iteration=i, folder_name=os.path.join("data", dir_name),
+                     resolution=args.resolution, method=args.method)
