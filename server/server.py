@@ -37,7 +37,7 @@ def animation():
     if not os.path.isdir(folder_path):
         os.mkdir(folder_path)
     
-    path_files = os.listdir(os.path.join(path+'Model'))
+    path_files = os.listdir(os.path.join(path, 'Model'))
     maximum_iteration = len(path_files) - 2
     
     training_data = torch.load(os.path.join(path, "Training_data", "training_dataset_data.pth"))
