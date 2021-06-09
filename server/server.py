@@ -83,8 +83,8 @@ def animation():
     classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
     label_list = []
     for label in labels:
-        label_color_list.append(standard_color[label])
-        label_list.append(classes[label])
+        label_color_list.append(standard_color[int(label)])
+        label_list.append(classes[int(label)])
     
     prediction_list = []
     with open(os.path.join(folder_path, 'prediction_'+str(iteration)+'.npy'), 'rb') as f:
