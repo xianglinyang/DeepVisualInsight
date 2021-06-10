@@ -69,7 +69,7 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
             json.dump(noisy_data, f)
         original_label = mms.get_original_labels()
         with open(os.path.join(prefix, 'original_label.npy'), 'wb') as f:
-            np.save(f, original_label)
+            np.save(f, original_label) 
 
     # evaluation information
     evaluation = {}
