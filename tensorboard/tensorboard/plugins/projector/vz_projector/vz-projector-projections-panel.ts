@@ -317,7 +317,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
           this.iterationLabelTsne.innerText = '' + iteration;
           this.totalIterationLabelDVI.innerText = '' + totalIter;
           this.updateEvaluationInformation(evaluation);
-          this.projector.notifyProjectionPositionsUpdated(newSelection);
+          this.projector.notifyProjectionPositionsUpdated(new_selection);
           this.projector.onProjectionChanged();
         } else {
           this.projector.onProjectionChanged();

@@ -6,10 +6,10 @@ import sys
 import numpy as np
 import json
 import torch
-from deepvisualinsight.MMS import MMS
 
 lib_path = os.path.abspath(os.path.join('..'))
 sys.path.append(lib_path)
+from deepvisualinsight.MMS import MMS
 
 from prepare_data import prepare_data
 
@@ -246,6 +246,8 @@ def update_projection():
     uncertainty_diversity_tot_dict['uncertainty_ranking'] = uncertainty_ranking_list
     uncertainty_diversity_tot_dict['diversity_ranking'] = diversity_ranking_list
     uncertainty_diversity_tot_dict['tot_ranking'] = tot_ranking_list
+
+    sys.path.remove(content_path)
 
 
     return make_response(jsonify({'result': embedding_2d, 'grid_index': grid, 'grid_color': decision_view,
