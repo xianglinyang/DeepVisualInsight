@@ -6,6 +6,7 @@ import sys
 import numpy as np
 import json
 import torch
+sys.path.append("..")
 from deepvisualinsight.MMS import MMS
 
 lib_path = os.path.abspath(os.path.join('..'))
