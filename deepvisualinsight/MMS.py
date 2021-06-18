@@ -1416,6 +1416,28 @@ class MMS:
 
         return l, conf_diff
 
+    def get_eval(self, epoch_id):
+        # with open(os.path.join(self.model_path, "Epoch_{}".format(epoch_id),"evaluation.json"), 'r') as f:
+        #     evaluation = json.load(f)
+        #     evaluation_new = evaluation
+        #     for item in evaluation:
+        #         value = evaluation[item]
+        #         value = round(value, 2)
+        #         evaluation_new[item] = value
+        # return evaluation_new
+        # dummy
+        evaluation = {}
+        evaluation['nn_train_15'] = 0
+        evaluation['nn_test_15'] = 0
+        evaluation['bound_train_15'] = 0
+        evaluation['bound_test_15'] = 0
+
+        evaluation['inv_acc_train'] = 0
+        evaluation['inv_acc_test'] = 0
+        evaluation['inv_conf_train'] = 0
+        evaluation['inv_conf_test'] = 0
+        return evaluation
+
     '''subject model'''
     def training_accu(self, epoch_id):
         train_data = self.get_epoch_train_repr_data(epoch_id)

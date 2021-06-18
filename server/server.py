@@ -6,6 +6,7 @@ import sys
 import numpy as np
 import json
 import torch
+from deepvisualinsight.MMS import MMS
 
 lib_path = os.path.abspath(os.path.join('..'))
 sys.path.append(lib_path)
@@ -16,6 +17,7 @@ from prepare_data import prepare_data
 app = Flask(__name__)
 cors = CORS(app, supports_credentials=True)
 app.config['CORS_HEADERS'] = 'Content-Type'
+
 
 @app.route('/animation', methods=["POST"])
 @cross_origin()
@@ -171,10 +173,90 @@ def animation():
 def index():
     return 'Index Page'
 
+@app.route('/updateProjection', methods=["POST", "GET"])
+@cross_origin()
+def update_projection():
+    res = request.get_json()
+    content_path = os.path.normpath(res['path'])
+    iteration = res['iteration']
+    cache = res['cache']
+    resolution = int(res['resolution'])
 
-@app.route('/hello')
-def hello_world():
-    return 'Hello World!'
+    sys.path.append(content_path)
+
+    try:
+        from Model.model import ResNet18
+        net = ResNet18()
+    except:
+        from Model.model import resnet18
+        net = resnet18()
+    classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
+    mms = MMS(content_path, net, 1, 20, 1, 512, 10, classes, cmap="tab10", resolution=resolution, neurons=256, verbose=1,
+              temporal=False, split=-1, advance_border_gen=True, attack_device="cpu")
+
+    train_data = mms.get_epoch_train_repr_data(iteration)
+    test_data = mms.get_epoch_test_repr_data(iteration)
+    all_data = np.concatenate((train_data, test_data),axis=0)
+    embedding_2d = mms.batch_project(all_data, iteration).tolist()
+    train_labels = mms.training_labels.cpu().numpy()
+    test_labels = mms.testing_labels.cpu().numpy()
+    labels = np.concatenate((train_labels, test_labels),axis=0).tolist()
+
+    grid, decision_view = mms.get_epoch_decision_view(iteration, resolution)
+
+    grid = grid.reshape((-1, 2)).tolist()
+    decision_view = decision_view * 255
+    decision_view = decision_view.reshape((-1, 3)).astype(int).tolist()
+
+    color = mms.get_standard_classes_color() * 255
+    color = color.astype(int).tolist()
+
+    evaluation = mms.get_eval(iteration)
+
+    label_color_list = []
+    label_list = []
+    for label in labels:
+        label_color_list.append(color[int(label)])
+        label_list.append(classes[int(label)])
+
+    prediction = mms.get_pred(iteration, all_data).argmax(-1)
+    classes_map = dict()
+    for i in range(10):
+        classes_map[i] = classes[i]
+    prediction_list = np.vectorize(classes_map.get)(prediction).tolist()
+
+    path_files = os.listdir(mms.model_path)
+    maximum_iteration = len(path_files) - 2
+
+    _, conf_diff = mms.batch_inv_preserve(iteration, all_data)
+    current_index = mms.get_epoch_index(iteration)
+    testing_data_index = list(range(len(train_labels), len(train_labels) + len(test_labels)))
+    new_index = mms.get_new_index(iteration)
+    noisy_data = []
+    original_label_list = label_list
+
+    uncertainty_diversity_tot_dict = {}
+    uncertainty_diversity_tot_dict['uncertainty'] = mms.get_uncertainty_score(iteration)
+    uncertainty_diversity_tot_dict['diversity'] = mms.get_diversity_score(iteration)
+    uncertainty_diversity_tot_dict['tot'] = mms.get_total_score(iteration)
+
+    uncertainty_ranking_list = [i[0] for i in sorted(enumerate(uncertainty_diversity_tot_dict['uncertainty']), key=lambda x: x[1])]
+    diversity_ranking_list = [i[0] for i in sorted(enumerate(uncertainty_diversity_tot_dict['diversity']), key=lambda x: x[1])]
+    tot_ranking_list = [i[0] for i in sorted(enumerate(uncertainty_diversity_tot_dict['tot']), key=lambda x: x[1])]
+    uncertainty_diversity_tot_dict['uncertainty_ranking'] = uncertainty_ranking_list
+    uncertainty_diversity_tot_dict['diversity_ranking'] = diversity_ranking_list
+    uncertainty_diversity_tot_dict['tot_ranking'] = tot_ranking_list
+
+
+    return make_response(jsonify({'result': embedding_2d, 'grid_index': grid, 'grid_color': decision_view,
+                                  'label_color_list': label_color_list, 'label_list': label_list,
+                                  'maximum_iteration': maximum_iteration, 'training_data': current_index,
+                                  'testing_data': testing_data_index, 'evaluation': evaluation,
+                                  'prediction_list': prediction_list, 'new_selection': new_index,
+                                  'noisy_data': noisy_data, 'original_label_list': original_label_list,
+                                  'inv_acc_list': conf_diff.tolist(),
+                                  'uncertainty_diversity_tot': uncertainty_diversity_tot_dict}), 200)
+
 
 
 # if this is the main thread of execution first load the model and then start the server

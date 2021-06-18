@@ -16,7 +16,13 @@ import numeric from 'numeric';
 import {UMAP} from 'umap-js';
 
 import {TSNE} from './bh_tsne';
-import {SpriteMetadata} from './data-provider';
+import {
+  DataProvider,
+  EmbeddingInfo,
+  parseTensorsFromFloat32Array, ProjectorConfig,
+  SpriteMetadata,
+  TENSORS_MSG_ID
+} from './data-provider';
 import {CameraDef} from './scatterPlot';
 import * as knn from './knn';
 import * as vector from './vector';
@@ -72,7 +78,7 @@ export interface Sequence {
 }
 export interface DataPoint {
   /** The point in the original space. */
-  vector: Float32Array;
+  vector?: Float32Array;
   /*
    * Metadata for each point. Each metadata is a set of key/value pairs
    * where the value can be a string or a number.
@@ -423,7 +429,7 @@ export class DataSet {
     }
   }
 
-  /** Runs tsne on the data. */
+  /** Runs DVI on the data. */
   async projectDVI (
       iteration: number,
       stepCallback: (iter: number|null, evaluation:any, newSelection: any[], totalIter?: number) => void
@@ -446,7 +452,8 @@ export class DataSet {
           .then(data => {
             const ip_address = data.serverIp;
 
-      fetch("http://"+ip_address+":5000/animation", {
+
+      fetch("http://"+ip_address+":5000/updateProjection", {
         method: 'POST',
         body: JSON.stringify({"cache": this.DVIUseCache, "path": this.DVIsubjectModelPath,  "iteration":iteration,
               "resolution":this.DVIResolution, "data_path": this.DVIsubjectModelPath + '/data'}),
