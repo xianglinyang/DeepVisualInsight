@@ -73,18 +73,10 @@ def prepare_data(content_path, data, iteration, resolution, folder_name, direct_
 
     # evaluation information
     evaluation = {}
-    evaluation['nn_train_10'] = mms.proj_nn_perseverance_knn_train(iteration, 10)
     evaluation['nn_train_15'] = mms.proj_nn_perseverance_knn_train(iteration, 15)
-    evaluation['nn_train_30'] = mms.proj_nn_perseverance_knn_train(iteration, 30)
-    evaluation['nn_test_10'] = mms.proj_nn_perseverance_knn_test(iteration, 10)
     evaluation['nn_test_15'] = mms.proj_nn_perseverance_knn_test(iteration, 15)
-    evaluation['nn_test_30'] = mms.proj_nn_perseverance_knn_test(iteration, 30)
-    evaluation['bound_train_10'] = mms.proj_boundary_perseverance_knn_train(iteration, 10)
     evaluation['bound_train_15'] = mms.proj_boundary_perseverance_knn_train(iteration, 15)
-    evaluation['bound_train_30'] = mms.proj_boundary_perseverance_knn_train(iteration, 30)
-    evaluation['bound_test_10'] = mms.proj_boundary_perseverance_knn_test(iteration, 10)
     evaluation['bound_test_15'] = mms.proj_boundary_perseverance_knn_test(iteration, 15)
-    evaluation['bound_test_30'] = mms.proj_boundary_perseverance_knn_test(iteration, 30)
     print("finish proj eval")
 
     evaluation['inv_acc_train'] = mms.inv_accu_train(iteration)

@@ -222,6 +222,11 @@ class MMS:
             evaluation['inv_conf_train'] = self.inv_conf_diff_train(n_epoch)
             evaluation['inv_conf_test'] = self.inv_conf_diff_test(n_epoch)
             print("finish inv eval for Epoch {}".format(n_epoch))
+
+            evaluation['acc_train'] = self.training_accu(n_epoch)
+            evaluation['acc_train'] = self.testing_accu(n_epoch)
+            print("finish subject model eval for Epoch {}".format(n_epoch))
+
             with open(save_dir, 'w') as f:
                 json.dump(evaluation, f)
 
@@ -1436,6 +1441,9 @@ class MMS:
         evaluation['inv_acc_test'] = 0
         evaluation['inv_conf_train'] = 0
         evaluation['inv_conf_test'] = 0
+
+        evaluation['acc_train'] = 0
+        evaluation['inv_acc_test'] = 0
         return evaluation
 
     '''subject model'''

@@ -174,6 +174,7 @@ def index():
 @app.route('/updateProjection', methods=["POST", "GET"])
 @cross_origin()
 def update_projection():
+
     res = request.get_json()
     content_path = os.path.normpath(res['path'])
     iteration = res['iteration']
@@ -195,10 +196,15 @@ def update_projection():
     train_data = mms.get_epoch_train_repr_data(iteration)
     test_data = mms.get_epoch_test_repr_data(iteration)
     all_data = np.concatenate((train_data, test_data),axis=0)
+
     embedding_2d = mms.batch_project(all_data, iteration).tolist()
     train_labels = mms.training_labels.cpu().numpy()
     test_labels = mms.testing_labels.cpu().numpy()
     labels = np.concatenate((train_labels, test_labels),axis=0).tolist()
+
+    training_data_number = train_data.shape[0]
+    testing_data_number = test_data.shape[0]
+    testing_data_index = list(range(training_data_number, training_data_number + testing_data_number))
 
     grid, decision_view = mms.get_epoch_decision_view(iteration, resolution)
 
@@ -217,18 +223,20 @@ def update_projection():
         label_color_list.append(color[int(label)])
         label_list.append(classes[int(label)])
 
+    prediction_list = []
     prediction = mms.get_pred(iteration, all_data).argmax(-1)
-    classes_map = dict()
-    for i in range(10):
-        classes_map[i] = classes[i]
-    prediction_list = np.vectorize(classes_map.get)(prediction).tolist()
+    # classes_map = dict()
+    # for i in range(10):
+    #     classes_map[i] = classes[i]
+    # prediction_list = np.vectorize(classes_map.get)(prediction).tolist()
+    for pred in prediction:
+        prediction_list.append(classes[pred])
 
     path_files = os.listdir(mms.model_path)
-    maximum_iteration = len(path_files) - 2
+    maximum_iteration = len(path_files) - 3
 
     _, conf_diff = mms.batch_inv_preserve(iteration, all_data)
     current_index = mms.get_epoch_index(iteration)
-    testing_data_index = list(range(len(train_labels), len(train_labels) + len(test_labels)))
     new_index = mms.get_new_index(iteration)
     noisy_data = []
     original_label_list = label_list
