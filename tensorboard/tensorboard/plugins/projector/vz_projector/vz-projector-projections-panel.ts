@@ -129,18 +129,10 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   private customProjectionYDownInput: any; // ProjectorInput; type ommited
 
   /*Evaluation Information*/
-  private nnTrain10: HTMLElement;
   private nnTrain15: HTMLElement;
-  private nnTrain30: HTMLElement;
-  private nnTest10: HTMLElement;
   private nnTest15: HTMLElement;
-  private nnTest30: HTMLElement;
-  private boundTrain10: HTMLElement;
   private boundTrain15: HTMLElement;
-  private boundTrain30: HTMLElement;
-  private boundTest10: HTMLElement;
   private boundTest15: HTMLElement;
-  private boundTest30: HTMLElement;
   /*
   private invNnTrain10: HTMLElement;
   private invNnTrain15: HTMLElement;
@@ -193,18 +185,10 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     this.runUmapButton = this.$$('#run-umap') as HTMLButtonElement;
 
     /*evaluation information*/
-    this.nnTrain10 = this.$$('.nn_train_10') as HTMLElement;
     this.nnTrain15 = this.$$('.nn_train_15') as HTMLElement;
-    this.nnTrain30 = this.$$('.nn_train_30') as HTMLElement;
-    this.nnTest10 = this.$$('.nn_test_10') as HTMLElement;
     this.nnTest15 = this.$$('.nn_test_15') as HTMLElement;
-    this.nnTest30 = this.$$('.nn_test_30') as HTMLElement;
-    this.boundTrain10 = this.$$('.bound_train_10') as HTMLElement;
     this.boundTrain15 = this.$$('.bound_train_15') as HTMLElement;
-    this.boundTrain30 = this.$$('.bound_train_30') as HTMLElement;
-    this.boundTest10 = this.$$('.bound_test_10') as HTMLElement;
     this.boundTest15 = this.$$('.bound_test_15') as HTMLElement;
-    this.boundTest30 = this.$$('.bound_test_30') as HTMLElement;
     /*
     this.invNnTrain10 = this.$$('.inv_nn_train_10') as HTMLElement;
     this.invNnTrain15 = this.$$('.inv_nn_train_15') as HTMLElement;
@@ -256,18 +240,10 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     this.dataSet.DVIResolution = this.resolutionEditorInput;
   }
   private updateEvaluationInformation(evaluation: any) {
-     this.nnTrain10.innerText = ''+evaluation.nn_train_10;
      this.nnTrain15.innerText = ''+evaluation.nn_train_15;
-     this.nnTrain30.innerText = ''+evaluation.nn_train_30;
-     this.nnTest10.innerText = ''+evaluation.nn_test_10;
      this.nnTest15.innerText = ''+evaluation.nn_test_15;
-     this.nnTest30.innerText = ''+evaluation.nn_test_30;
-     this.boundTrain10.innerText = ''+evaluation.bound_train_10;
      this.boundTrain15.innerText = ''+evaluation.bound_train_15;
-     this.boundTrain30.innerText = ''+evaluation.bound_train_30;
-     this.boundTest10.innerText = ''+evaluation.bound_test_10;
      this.boundTest15.innerText = ''+evaluation.bound_test_15;
-     this.boundTest30.innerText = ''+evaluation.bound_test_30;
      /*
      this.invNnTrain10.innerText = ''+evaluation.inv_nn_train_10;
      this.invNnTrain15.innerText = ''+evaluation.inv_nn_train_15;
@@ -336,12 +312,12 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
         this.previousDVIButton.disabled = true;
       }
       this.dataSet.projectDVI(this.dataSet.tSNEIteration - 1,
-          (iteration: number|null, evaluation:any, newSelection:any[], totalIter?: number) => {
+          (iteration: number|null, evaluation:any, new_selection:any, totalIter?: number|null) => {
         if (iteration != null) {
           this.iterationLabelTsne.innerText = '' + iteration;
           this.totalIterationLabelDVI.innerText = '' + totalIter;
           this.updateEvaluationInformation(evaluation);
-          this.projector.notifyProjectionPositionsUpdated(newSelection);
+          // this.projector.notifyProjectionPositionsUpdated(newSelection);
           this.projector.onProjectionChanged();
         } else {
           this.projector.onProjectionChanged();
