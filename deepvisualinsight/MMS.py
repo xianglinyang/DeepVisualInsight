@@ -206,6 +206,25 @@ class MMS:
 
         self.model = self.model.to(self.device)
 
+    def save_evaluation(self):
+        # evaluation information
+        for n_epoch in range(self.epoch_start, self.epoch_end + 1, self.period):
+            save_dir = os.path.join(self.model_path, "Epoch_{}".format(n_epoch), "evaluation.json")
+            evaluation = {}
+            evaluation['nn_train_15'] = self.proj_nn_perseverance_knn_train(n_epoch, 15)
+            evaluation['nn_test_15'] = self.proj_nn_perseverance_knn_test(n_epoch, 15)
+            evaluation['bound_train_15'] = self.proj_boundary_perseverance_knn_train(n_epoch, 15)
+            evaluation['bound_test_15'] = self.proj_boundary_perseverance_knn_test(n_epoch, 15)
+            print("finish proj eval for Epoch {}".format(n_epoch))
+
+            evaluation['inv_acc_train'] = self.inv_accu_train(n_epoch)
+            evaluation['inv_acc_test'] = self.inv_accu_test(n_epoch)
+            evaluation['inv_conf_train'] = self.inv_conf_diff_train(n_epoch)
+            evaluation['inv_conf_test'] = self.inv_conf_diff_test(n_epoch)
+            print("finish inv eval for Epoch {}".format(n_epoch))
+            with open(save_dir, 'w') as f:
+                json.dump(evaluation, f)
+
     def prepare_visualization_for_all(self, encoder_in=None, decoder_in=None):
         """
         conduct transfer learning to save the visualization model for each epoch
