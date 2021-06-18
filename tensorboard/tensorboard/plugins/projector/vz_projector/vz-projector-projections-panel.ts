@@ -312,12 +312,12 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
         this.previousDVIButton.disabled = true;
       }
       this.dataSet.projectDVI(this.dataSet.tSNEIteration - 1,
-          (iteration: number|null, evaluation:any, new_selection:any, totalIter?: number|null) => {
+          (iteration: number|null, evaluation:any, new_selection:any[], totalIter?: number) => {
         if (iteration != null) {
           this.iterationLabelTsne.innerText = '' + iteration;
           this.totalIterationLabelDVI.innerText = '' + totalIter;
           this.updateEvaluationInformation(evaluation);
-          // this.projector.notifyProjectionPositionsUpdated(newSelection);
+          this.projector.notifyProjectionPositionsUpdated(newSelection);
           this.projector.onProjectionChanged();
         } else {
           this.projector.onProjectionChanged();
