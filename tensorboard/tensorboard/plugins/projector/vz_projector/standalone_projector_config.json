@@ -1,48 +1,20 @@
 {
   "embeddings": [
     {
-      "tensorName": "Word2Vec 10K",
-      "tensorShape": [
-        10000,
-        200
-      ],
-      "tensorPath": "https://storage.googleapis.com/embedding-projector/data/word2vec_10000_200d_tensors.bytes",
-      "metadataPath": "https://storage.googleapis.com/embedding-projector/data/word2vec_10000_200d_labels.tsv"
-    },
-    {
-      "tensorName": "Word2Vec All",
-      "tensorShape": [
-        71291,
-        200
-      ],
-      "tensorPath": "https://storage.googleapis.com/embedding-projector/data/word2vec_full_200d_tensors.bytes",
-      "metadataPath": "https://storage.googleapis.com/embedding-projector/data/word2vec_full_200d_labels.tsv",
-      "bookmarksPath": "https://storage.googleapis.com/embedding-projector/data/word2vec_full_bookmarks.txt"
-    },
-    {
-      "tensorName": "Mnist with images",
+      "tensorName": "CIFAR10 with images",
       "tensorShape": [
         10000,
         784
       ],
       "tensorPath": "https://storage.googleapis.com/embedding-projector/data/mnist_10k_784d_tensors.bytes",
-      "metadataPath": "https://storage.googleapis.com/embedding-projector/data/mnist_10k_784d_labels.tsv",
+      "metadataPath": "https://gist.githubusercontent.com/hzf1174/3a7e85af7d09ebdfafac3d4d3ba5e71f/raw/502ad8aedc40fab7e56db917c57b48eaf0bd28fa/metadata.csv",
       "sprite": {
-        "imagePath": "https://storage.googleapis.com/embedding-projector/data/mnist_10k_sprite.png",
+        "imagePath": "https://storage.googleapis.com/dvi-cifar10/sprite_full.png",
         "singleImageDim": [
-          28,
-          28
+          32,
+          32
         ]
       }
-    },
-    {
-      "tensorName": "Iris",
-      "tensorShape": [
-        150,
-        4
-      ],
-      "tensorPath": "https://storage.googleapis.com/embedding-projector/data/iris_tensors.bytes",
-      "metadataPath": "https://storage.googleapis.com/embedding-projector/data/iris_labels.tsv"
     }
   ],
   "modelCheckpointPath": "Demo datasets",
