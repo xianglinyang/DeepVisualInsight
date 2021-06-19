@@ -127,7 +127,7 @@ def cw_l2_attack(model, split, image, label, target_cls, target_gap, device, dif
     return attack_images.detach().cpu(), successful, step
 
 
-def mixup_bi(model, image1, image2, label, target_cls, device, diff=0.1, max_iter=8, verbose=1):
+def mixup_bi(model, image1, image2, label, target_cls, device, diff=0.1, max_iter=8, alpha=0.8, verbose=1):
     '''Get BPs based on mixup method, fast
     :param model: subject model
     :param image1: images, torch.Tensor of shape (N, C, H, W)
@@ -152,7 +152,7 @@ def mixup_bi(model, image1, image2, label, target_cls, device, diff=0.1, max_ite
     # initialze upper and lower bound
     # set a limitation to upper bound
     upper = 1
-    lower = 0.80
+    lower = alpha
     successful = False
 
     for step in range(max_iter):
@@ -275,7 +275,7 @@ def get_border_points_cw(model, split, input_x, gaps, confs, kmeans_result, pred
 
 
 def get_border_points_mixup(model, split, input_x, gaps, confs, kmeans_result, predictions, device,
-                      num_adv_eg=5000, num_cls=10, n_clusters_per_cls=10, verbose=1):
+                      num_adv_eg=5000, num_cls=10, n_clusters_per_cls=10, alpha=0.8, verbose=1):
     '''Get BPs
     :param model: subject model
     :param input_x: images, torch.Tensor of shape (N, C, H, W)
@@ -332,7 +332,7 @@ def get_border_points_mixup(model, split, input_x, gaps, confs, kmeans_result, p
         image1 = input_x[data1_index[image1_idx]]
         image2 = input_x[data2_index[image2_idx]]
 
-        attack, successful, attack_step = mixup_bi(model, image1, image2, cls1, cls2, device)
+        attack, successful, attack_step = mixup_bi(model, image1, image2, cls1, cls2, device, alpha=alpha)
 
         if successful:
             adv_examples = torch.cat((adv_examples, attack), dim=0)

@@ -16,7 +16,7 @@ class MMS:
     def __init__(self, content_path, model_structure, epoch_start, epoch_end, period, repr_num, class_num, classes,
                  low_dims=2,
                  cmap="tab10", resolution=100, neurons=None, temporal=False, transfer_learning=True, batch_size=1000,
-                 verbose=1, split=-1, advance_border_gen=False, attack_device="cpu"):
+                 verbose=1, split=-1, advance_border_gen=False, alpha=0.8, attack_device="cpu"):
 
         '''
         This class contains the model management system (super DB) and provides
@@ -61,6 +61,7 @@ class MMS:
         split: int, by default -1
         advance_border_gen : boolean, by default False
             whether to use advance adversarial attack method for border points generation
+        alpha: new_image = alpha*m1+(1-alpha)*m2
         attack_device: str, by default "cpu"
             the device the perform adversatial attack
         '''
@@ -86,6 +87,7 @@ class MMS:
         self.verbose = verbose
         self.split = split
         self.advance_border_gen = advance_border_gen
+        self.alpha = alpha
         self.device = torch.device(attack_device)
         if len(tf.config.list_physical_devices('GPU')) > 0:
             self.tf_device = tf.config.list_physical_devices('GPU')[0]
@@ -153,6 +155,7 @@ class MMS:
                                                                     confs=confs,
                                                                     kmeans_result=kmeans_result,
                                                                     predictions=predictions, device=self.device,
+                                                                    alpha=self.alpha,
                                                                     num_adv_eg=n_clusters, num_cls=10,
                                                                     n_clusters_per_cls=10, verbose=0)
                 t1 = time.time()
@@ -188,10 +191,11 @@ class MMS:
                 np.save(location, ori_border_points)
 
             # training data clustering
-            train_data = training_data.to(self.device)
-            train_data_representation = batch_run(repr_model, train_data, self.repr_num)
+            data_pool = self.training_data
+            data_pool = data_pool.to(self.device)
+            data_pool_representation = batch_run(repr_model, data_pool, self.repr_num)
             location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "train_data.npy")
-            np.save(location, train_data_representation)
+            np.save(location, data_pool_representation)
 
             # test data
             test_data = testing_data.to(self.device)
@@ -205,9 +209,12 @@ class MMS:
             "Average time for generate border points: {:.4f}".format(sum(time_borders_gen) / len(time_borders_gen)))
 
         self.model = self.model.to(self.device)
+        self.save_evaluation()
 
     def save_evaluation(self):
         # evaluation information
+        t0 = time.time()
+        epoch_num = int((self.epoch_end - self.epoch_start) / self.period + 1)
         for n_epoch in range(self.epoch_start, self.epoch_end + 1, self.period):
             save_dir = os.path.join(self.model_path, "Epoch_{}".format(n_epoch), "evaluation.json")
             evaluation = {}
@@ -229,6 +236,9 @@ class MMS:
 
             with open(save_dir, 'w') as f:
                 json.dump(evaluation, f)
+        t1 = time.time()
+        if self.verbose > 0 :
+            print("Average evaluation time for 1 epoch is {:.2f} seconds".format((t1-t0) / epoch_num))
 
     def prepare_visualization_for_all(self, encoder_in=None, decoder_in=None):
         """
@@ -284,6 +294,8 @@ class MMS:
 
             try:
                 train_data = np.load(train_data_loc)
+                current_index = self.get_epoch_index(n_epoch)
+                train_data = train_data[current_index]
             except Exception as e:
                 print("no train data saved for Epoch {}".format(n_epoch))
                 continue
@@ -315,6 +327,8 @@ class MMS:
                 prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch-self.period), "train_data.npy")
                 if os.path.exists(prev_data_loc) and self.epoch_start != n_epoch:
                     prev_data = np.load(prev_data_loc)
+                    prev_index = self.get_epoch_index(n_epoch-self.period)
+                    prev_data = prev_data[prev_index]
                 else:
                     prev_data = None
                 if prev_data is None:
@@ -607,6 +621,8 @@ class MMS:
         location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "train_data.npy")
         if os.path.exists(location):
             train_data = np.load(location)
+            current_index = self.get_epoch_index(epoch_id)
+            train_data = train_data[current_index]
             return train_data
         else:
             print("No data!")
@@ -1176,7 +1192,9 @@ class MMS:
         for n_epoch in range(self.epoch_start+self.period, self.epoch_end+1, self.period):
 
             prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch - self.period), "train_data.npy")
-            prev_data = np.load(prev_data_loc)
+            prev_index = self.get_epoch_index(n_epoch - self.period)
+            prev_data = np.load(prev_data_loc)[prev_index]
+
             encoder = self.get_proj_model(n_epoch - self.period)
             prev_embedding = encoder(prev_data).cpu().numpy()
 
