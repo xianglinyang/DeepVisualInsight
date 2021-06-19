@@ -182,18 +182,19 @@ def update_projection():
     resolution = int(res['resolution'])
 
     sys.path.append(content_path)
-
     try:
         from Model.model import ResNet18
         net = ResNet18()
     except:
         from Model.model import resnet18
         net = resnet18()
+
     classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
     mms = MMS(content_path, net, 1, 20, 1, 512, 10, classes, cmap="tab10", resolution=resolution, neurons=256, verbose=1,
               temporal=False, split=-1, advance_border_gen=True, attack_device="cpu")
 
-    train_data = mms.get_epoch_train_repr_data(iteration)
+    train_data = mms.get_representation_data(iteration, mms.training_data)
+    # train_data = mms.get_epoch_train_repr_data(iteration)
     test_data = mms.get_epoch_test_repr_data(iteration)
     all_data = np.concatenate((train_data, test_data),axis=0)
 

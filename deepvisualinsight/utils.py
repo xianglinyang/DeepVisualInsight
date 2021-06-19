@@ -7,6 +7,7 @@ import json
 import os
 import sys
 import math
+import tqdm
 
 
 def clustering(data, n_clusters, verbose=0):
@@ -151,7 +152,7 @@ def batch_run(model, data, output_shape, batch_size=200):
     data = data.to(dtype=torch.float)
     input_X = np.zeros([len(data), output_shape])
     n_batches = max(math.ceil(len(data) / batch_size), 1)
-    for b in range(n_batches):
+    for b in tqdm.tqdm(range(n_batches)):
         r1, r2 = b * batch_size, (b + 1) * batch_size
         inputs = data[r1:r2]
         with torch.no_grad():
