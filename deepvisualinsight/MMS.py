@@ -546,6 +546,16 @@ class MMS:
         representation_data = batch_run(repr_model, data, self.repr_num)
         return representation_data
 
+    def get_data_pool_repr(self, epoch_id):
+        """get representations of data pool"""
+        location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "train_data.npy")
+        if os.path.exists(location):
+            train_data = np.load(location)
+            return train_data
+        else:
+            print("No data!")
+            return None
+
     def get_pred(self, epoch_id, data):
         '''
         get the prediction score for data in epoch_id

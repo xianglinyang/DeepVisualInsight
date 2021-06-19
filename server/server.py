@@ -4,6 +4,7 @@ from flask_cors import CORS, cross_origin
 import os
 import sys
 import numpy as np
+import time
 import json
 import torch
 sys.path.append("..")
@@ -180,8 +181,8 @@ def update_projection():
     iteration = res['iteration']
     cache = res['cache']
     resolution = int(res['resolution'])
-
     sys.path.append(content_path)
+
     try:
         from Model.model import ResNet18
         net = ResNet18()
@@ -193,7 +194,7 @@ def update_projection():
     mms = MMS(content_path, net, 1, 20, 1, 512, 10, classes, cmap="tab10", resolution=resolution, neurons=256, verbose=1,
               temporal=False, split=-1, advance_border_gen=True, attack_device="cpu")
 
-    train_data = mms.get_representation_data(iteration, mms.training_data)
+    train_data = mms.get_data_pool_repr(iteration)
     # train_data = mms.get_epoch_train_repr_data(iteration)
     test_data = mms.get_epoch_test_repr_data(iteration)
     all_data = np.concatenate((train_data, test_data),axis=0)
@@ -233,14 +234,23 @@ def update_projection():
     for pred in prediction:
         prediction_list.append(classes[pred])
 
+    max_iter = 0
     path_files = os.listdir(mms.model_path)
-    maximum_iteration = len(path_files) - 3
+    for file in path_files:
+        if "Epoch" in file:
+            max_iter += 1
 
     _, conf_diff = mms.batch_inv_preserve(iteration, all_data)
     current_index = mms.get_epoch_index(iteration)
+
     new_index = mms.get_new_index(iteration)
-    noisy_data = []
-    original_label_list = label_list
+
+    noisy_data = mms.noisy_data_index()
+
+    original_labels = mms.get_original_labels()
+    original_label_list = []
+    for label in original_labels:
+        original_label_list.append(classes[label])
 
     uncertainty_diversity_tot_dict = {}
     uncertainty_diversity_tot_dict['uncertainty'] = mms.get_uncertainty_score(iteration)
@@ -259,13 +269,21 @@ def update_projection():
 
     return make_response(jsonify({'result': embedding_2d, 'grid_index': grid, 'grid_color': decision_view,
                                   'label_color_list': label_color_list, 'label_list': label_list,
-                                  'maximum_iteration': maximum_iteration, 'training_data': current_index,
+                                  'maximum_iteration': max_iter, 'training_data': current_index,
                                   'testing_data': testing_data_index, 'evaluation': evaluation,
                                   'prediction_list': prediction_list, 'new_selection': new_index,
                                   'noisy_data': noisy_data, 'original_label_list': original_label_list,
                                   'inv_acc_list': conf_diff.tolist(),
                                   'uncertainty_diversity_tot': uncertainty_diversity_tot_dict}), 200)
 
+
+@app.route('/test', methods=["POST", "GET"])
+@cross_origin()
+def test():
+    time.sleep(5)
+    data = request.get_json()
+    print(data)
+    return make_response(jsonify({"test":"succefully!"}), 200)
 
 
 # if this is the main thread of execution first load the model and then start the server
