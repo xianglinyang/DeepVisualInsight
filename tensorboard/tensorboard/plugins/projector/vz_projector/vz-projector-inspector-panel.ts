@@ -70,14 +70,19 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
   private displayContexts: string[];
   private projector: any; // Projector; type omitted b/c LegacyElement
   private selectedPointIndices: number[];
-  private currentPredicate: any;
   private neighborsOfFirstPoint: knn.NearestEntry[];
   private searchBox: any; // ProjectorInput; type omitted b/c LegacyElement
   private resetFilterButton: HTMLButtonElement;
   private setFilterButton: HTMLButtonElement;
   private clearSelectionButton: HTMLButtonElement;
+  private searchButton: HTMLButtonElement;
   private limitMessage: HTMLDivElement;
   private _currentNeighbors: any;
+  // save current predicates
+  private currentPredicate: {[key:string]: any}; // dictionary
+  private queryIndices: number[]
+  private searchPredicate: string;
+  private searchInRegexMode: boolean;
 
   ready() {
     super.ready();
@@ -86,9 +91,12 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
     this.clearSelectionButton = this.$$(
       '.clear-selection'
     ) as HTMLButtonElement;
+    this.searchButton = this.$$('.search') as HTMLButtonElement;
     this.limitMessage = this.$$('.limit-msg') as HTMLDivElement;
     this.searchBox = this.$$('#search-box') as any; // ProjectorInput
     this.displayContexts = [];
+    this.currentPredicate = {}
+    this.queryIndices = []
   }
   initialize(projector: any, projectorEventContext: ProjectorEventContext) {
     this.projector = projector;
@@ -440,47 +448,98 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
       this.updateNeighborsList(neighbors);
     };
     // Called whenever the search text input changes.
-    const updateInput = (value: string, inRegexMode: boolean) => {
-      if (value == null || value.trim() === '') {
-        this.searchBox.message = '';
-        this.projectorEventContext.notifySelectionChanged([]);
-        return;
-      }
-      const result = projector.dataSet.query(
-        value,
-        inRegexMode,
-        this.selectedMetadataField
-      );
-      const indices = result[1];
-      this.currentPredicate = result[0];
-      if (indices.length === 0) {
-        this.searchBox.message = '0 matches.';
-      } else {
-        this.searchBox.message = `${indices.length} matches.`;
-      }
-      this.projectorEventContext.notifySelectionChanged(indices);
-    };
-    this.searchBox.registerInputChangedListener((value, inRegexMode) => {
-      updateInput(value, inRegexMode);
-    });
+    // const updateInput = (value: string, inRegexMode: boolean) => {
+    //   if (value == null || value.trim() === '') {
+    //     this.searchBox.message = '';
+    //     this.projectorEventContext.notifySelectionChanged([]);
+    //     return;
+    //   }
+    //   projector.query(
+    //     value,
+    //     inRegexMode,
+    //     this.selectedMetadataField,
+    //     this.currentPredicate,
+    //     (currPredicates:{[key:string]: any}, indices:any)=>{
+    //       console.log("callback")
+    //       console.log(indices)
+    //       console.log(currPredicates)
+    //       this.currentPredicate = currPredicates;
+    //       this.queryIndices = indices;
+    //   }
+    //   );
+    //   console.log("outside")
+    //   console.log(this.currentPredicate)
+    //   console.log(this.queryIndices)
+    //
+    //   if (this.queryIndices.length == 0) {
+    //     this.searchBox.message = '0 matches.';
+    //   } else {
+    //     this.searchBox.message = `${this.queryIndices.length} matches.`;
+    //   }
+    //   this.projectorEventContext.notifySelectionChanged(this.queryIndices);
+    // };
+    // this.searchBox.registerInputChangedListener((value, inRegexMode) => {
+    //   updateInput(value, inRegexMode);
+    // });
     // Filtering dataset.
     this.setFilterButton.onclick = () => {
-      const indices = this.selectedPointIndices.concat(
-        this.neighborsOfFirstPoint.map((n) => n.index)
-      );
-      projector.filterDataset(indices, this.currentPredicate);
+      // const indices = this.selectedPointIndices.concat(
+      //   this.neighborsOfFirstPoint.map((n) => n.index)
+      // );
+      let indices = this.selectedPointIndices.concat(this.queryIndices);
+      indices = indices.sort()
+      this.selectedPointIndices = indices
+
+      projector.filterDataset(indices);
       this.enableResetFilterButton(true);
       this.updateFilterButtons(0);
     };
     this.resetFilterButton.onclick = () => {
       projector.resetFilterDataset();
+      this.queryIndices = [];
+      this.currentPredicate = {};
       this.enableResetFilterButton(false);
     };
     this.clearSelectionButton.onclick = () => {
       projector.adjustSelectionAndHover([]);
-      this.currentPredicate = undefined;
+      this.currentPredicate = {};
+      this.queryIndices = []
     };
     this.enableResetFilterButton(false);
+
+    const updateInput = (value: string, inRegexMode: boolean) => {
+      this.searchPredicate = value;
+      this.searchInRegexMode = inRegexMode
+    };
+    this.searchBox.registerInputChangedListener((value, inRegexMode) => {
+      updateInput(value, inRegexMode);
+    });
+    this.searchButton.onclick=()=>{
+      // read search box input and update indices
+
+      if (this.searchPredicate == null || this.searchPredicate.trim() === '') {
+        this.searchBox.message = '';
+        this.projectorEventContext.notifySelectionChanged([]);
+        return;
+      }
+      projector.query(
+        this.searchPredicate,
+        this.searchInRegexMode,
+        this.selectedMetadataField,
+        this.currentPredicate,
+        (currPredicates:{[key:string]: any}, indices:any)=>{
+          this.currentPredicate = currPredicates;
+          this.queryIndices = indices;
+
+          if (this.queryIndices.length == 0) {
+            this.searchBox.message = '0 matches.';
+          } else {
+            this.searchBox.message = `${this.queryIndices.length} matches.`;
+          }
+          this.projectorEventContext.notifySelectionChanged(this.queryIndices);
+        }
+      );
+    }
   }
   private updateNumNN() {
     if (this.selectedPointIndices != null) {

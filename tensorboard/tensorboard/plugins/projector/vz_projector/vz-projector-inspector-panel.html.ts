@@ -47,6 +47,15 @@ export const template = html`
     .button:last-child {
       margin-right: 0;
     }
+    
+    .search-button{
+        display: flex;
+        margin-right: 10px;
+        width: 60px;
+        height: 30px;
+        font-size: 13px;
+    }
+    }
 
     .nn,
     .metadata-info {
@@ -137,7 +146,12 @@ export const template = html`
 
     .search-by paper-dropdown-menu {
       margin-left: 10px;
-      width: 100px;
+      width: 120px;
+    }
+    
+    .search-by button {
+        margin-right: 10px;
+        width: 60px;
     }
 
     .distance .options {
@@ -226,9 +240,10 @@ export const template = html`
       <button class="button set-filter">Filter selection</button>
       <button class="button clear-selection">Clear selection</button>
     </div>
+    
     <div class="search-by">
       <vz-projector-input id="search-box" label="Search"></vz-projector-input>
-      <paper-dropdown-menu hidden$="[[!noShow]]" no-animations label="by">
+      <paper-dropdown-menu no-animations label="by">
         <paper-listbox
           attr-for-selected="value"
           class="dropdown-content"
@@ -242,8 +257,13 @@ export const template = html`
           </template>
         </paper-listbox>
       </paper-dropdown-menu>
+      <button class="search-button search">search</button>
+
+    <div>
     </div>
+      
   </div>
+
   <div class="results">
     <div class="nn" style="display: none">
       <div class="neighbors">
