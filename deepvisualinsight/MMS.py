@@ -1,3 +1,4 @@
+import numpy as np
 import pyasn1_modules.rfc6031
 import tensorflow as tf
 from deepvisualinsight.utils import *
@@ -231,7 +232,7 @@ class MMS:
             print("finish inv eval for Epoch {}".format(n_epoch))
 
             evaluation['acc_train'] = self.training_accu(n_epoch)
-            evaluation['acc_train'] = self.testing_accu(n_epoch)
+            evaluation['acc_test'] = self.testing_accu(n_epoch)
             print("finish subject model eval for Epoch {}".format(n_epoch))
 
             with open(save_dir, 'w') as f:
@@ -1450,29 +1451,14 @@ class MMS:
         return l, conf_diff
 
     def get_eval(self, epoch_id):
-        # with open(os.path.join(self.model_path, "Epoch_{}".format(epoch_id),"evaluation.json"), 'r') as f:
-        #     evaluation = json.load(f)
-        #     evaluation_new = evaluation
-        #     for item in evaluation:
-        #         value = evaluation[item]
-        #         value = round(value, 2)
-        #         evaluation_new[item] = value
-        # return evaluation_new
-        # dummy
-        evaluation = {}
-        evaluation['nn_train_15'] = 0
-        evaluation['nn_test_15'] = 0
-        evaluation['bound_train_15'] = 0
-        evaluation['bound_test_15'] = 0
-
-        evaluation['inv_acc_train'] = 0
-        evaluation['inv_acc_test'] = 0
-        evaluation['inv_conf_train'] = 0
-        evaluation['inv_conf_test'] = 0
-
-        evaluation['acc_train'] = 0
-        evaluation['inv_acc_test'] = 0
-        return evaluation
+        with open(os.path.join(self.model_path, "Epoch_{}".format(epoch_id),"evaluation.json"), 'r') as f:
+            evaluation = json.load(f)
+            evaluation_new = evaluation
+            for item in evaluation:
+                value = evaluation[item]
+                value = round(value, 2)
+                evaluation_new[item] = value
+        return evaluation_new
 
     '''subject model'''
     def training_accu(self, epoch_id):
@@ -1490,6 +1476,9 @@ class MMS:
         pred = self.get_pred(epoch_id, repr_data).argmax(-1)
         val = evaluate_inv_accu(labels, pred)
         return val
+
+    def get_dataset_length(self):
+        return len(self.training_labels) + len(self.testing_labels)
 
     ############################################## Case Studies Related ###############################################
     '''active learning'''
@@ -1594,3 +1583,15 @@ class MMS:
             train_num = self.training_labels.shape[0]
             test_num = self.testing_labels.shape[0]
             return [-1 for i in range(train_num+test_num)]
+    ############################# DVI tensorboard frontend #################################
+    def filter_label(self, label):
+        try:
+            index = self.classes.index(label)
+        except:
+            index = -1
+        train_labels = self.training_labels.cpu().numpy()
+        test_labels = self.testing_labels.cpu().numpy()
+        labels = np.concatenate((train_labels, test_labels), 0)
+        idxs = np.argwhere(labels == index)
+        idxs = np.squeeze(idxs)
+        return idxs
