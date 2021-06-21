@@ -33,14 +33,14 @@ import {
   Projection,
   SpriteAndMetadataInfo,
   State,
-  stateGetAccessorDimensions,
+  stateGetAccessorDimensions, Sequence,
 } from './data';
 import './vz-projector-metadata-card';
 import {
   ServingMode,
   DataProvider,
   analyzeMetadata,
-  EmbeddingInfo,
+  EmbeddingInfo, ProjectorConfig,
 } from './data-provider';
 import {DemoDataProvider} from './data-provider-demo';
 import {ProtoDataProvider} from './data-provider-proto';
@@ -100,7 +100,13 @@ class Projector
   @property({type: Boolean})
   eventLogging: boolean;
 
-  // The working subset of the data source's original data set.
+  /**
+   * DVI properties
+   */
+  @property({type: String})
+  DVIServer: string
+
+      // The working subset of the data source's original data set.
   dataSet: DataSet;
   private selectionChangedListeners: SelectionChangedListener[];
   private hoverListeners: HoverListener[];
@@ -164,7 +170,15 @@ class Projector
     this.bookmarkPanel.initialize(this, this as ProjectorEventContext);
     this.setupUIControls();
     this.initializeDataProvider();
-  }
+
+    let headers = new Headers();
+    headers.append('Content-Type', 'application/json');
+    headers.append('Accept', 'application/json');
+    await fetch("standalone_projector_config.json", {method: 'GET'})
+        .then(response => response.json())
+        .then(data => {this.DVIServer = data.DVIServerIP+":"+data.DVIServerPort;})
+  };
+
   setSelectedLabelOption(labelOption: string) {
     this.selectedLabelOption = labelOption;
     this.metadataCard.setLabelOption(this.selectedLabelOption);
@@ -282,14 +296,15 @@ class Projector
   registerSelectionChangedListener(listener: SelectionChangedListener) {
     this.selectionChangedListeners.push(listener);
   }
-  filterDataset(pointIndices: number[], predicate: any) {
+  filterDataset(pointIndices: number[]) {
     const selectionSize = this.selectedPointIndices.length;
     /*
     if (this.dataSetBeforeFilter == null) {
       this.dataSetBeforeFilter = this.dataSet;
     }*/
-    this.dataSet.setDVIFilteredData(pointIndices, predicate);
-    //this.setCurrentDataSet(this.dataSet.getSubset(pointIndices));
+    // this.dataSet.setDVIFilteredData(pointIndices, predicate);
+
+    this.setCurrentDataSet(this.dataSet.getSubset(pointIndices));
     this.dataSetFilterIndices = pointIndices;
     this.projectorScatterPlotAdapter.updateScatterPlotPositions();
     this.projectorScatterPlotAdapter.updateScatterPlotAttributes();
@@ -712,4 +727,29 @@ class Projector
     }
     this.notifySelectionChanged(state.selectedPoints);
   }
+
+  /**
+   * query for indices in inspector panel
+   */
+  query(query: string, inRegexMode: boolean, fieldName: string, currPredicates:{[key:string]: any},
+              callback:(currPredicates:{[key:string]: any}, indices:any)=>void){
+    currPredicates[fieldName] = query;
+    // const msgId = logging.setModalMessage('Querying...');
+    let headers = new Headers();
+    headers.append('Content-Type', 'application/json');
+    headers.append('Accept', 'application/json');
+    fetch(`http://${this.DVIServer}/query`, {
+        method: 'POST',
+        body: JSON.stringify({"predicates": currPredicates, "content_path":this.dataSet.DVIsubjectModelPath}),
+        headers: headers,
+        mode: 'cors'
+      }).then(response => response.json()).then(data => {
+        const indices = data.selectedPoints
+        callback(currPredicates, indices)
+    }).catch(error => {
+        logging.setErrorMessage('querying for indices');
+        callback(null,null)
+    });
+  }
+
 }
