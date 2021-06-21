@@ -24,7 +24,6 @@ def animation():
     res = request.get_json()
     path = os.path.normpath(res['path'])
     iteration = res['iteration']
-    cache = res['cache']
     resolution = int(res['resolution'])
 
     p_tmp = path
@@ -179,7 +178,6 @@ def update_projection():
     res = request.get_json()
     content_path = os.path.normpath(res['path'])
     iteration = res['iteration']
-    cache = res['cache']
     resolution = int(res['resolution'])
     sys.path.append(content_path)
 
@@ -276,6 +274,40 @@ def update_projection():
                                   'inv_acc_list': conf_diff.tolist(),
                                   'uncertainty_diversity_tot': uncertainty_diversity_tot_dict}), 200)
 
+@app.route('/query', methods=["POST"])
+@cross_origin()
+def filter():
+    res = request.get_json()
+    predicates = res["predicates"]
+    content_path = os.path.normpath(res['content_path'])
+    sys.path.append(content_path)
+    try:
+        from Model.model import ResNet18
+        net = ResNet18()
+    except:
+        from Model.model import resnet18
+        net = resnet18()
+
+    classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
+    mms = MMS(content_path, net, 1, 20, 1, 512, 10, classes, cmap="tab10", neurons=256,verbose=1,
+              temporal=False, split=-1, advance_border_gen=True, attack_device="cpu")
+
+    selected_points = np.arange(mms.get_dataset_length())
+    for key in predicates.keys():
+        if key == "new_selection":
+            tmp = np.array(mms.get_new_index(predicates[key]))
+        elif key == "label":
+            print(predicates[key])
+            tmp = np.array(mms.filter_label(predicates[key]))
+        else:
+            pass
+        selected_points = np.intersect1d(selected_points, tmp)
+    sys.path.remove(content_path)
+    print(selected_points)
+
+    return make_response(jsonify({"selectedPoints":selected_points.tolist()}), 200)
+
+
 
 @app.route('/test', methods=["POST", "GET"])
 @cross_origin()
@@ -289,5 +321,7 @@ def test():
 # if this is the main thread of execution first load the model and then start the server
 if __name__ == "__main__":
     with open('../tensorboard/tensorboard/plugins/projector/vz_projector/standalone_projector_config.json', 'r') as f:
-        ip_adress = json.load(f)["serverIp"]
-    app.run(host=ip_adress)
+        config = json.load(f)
+        ip_adress = config["DVIServerIP"]
+        port = config["DVIServerPort"]
+    app.run(host=ip_adress, port=int(port))
