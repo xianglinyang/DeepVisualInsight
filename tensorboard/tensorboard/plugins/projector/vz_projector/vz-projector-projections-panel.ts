@@ -84,12 +84,11 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   // Custom projection.
   @property({type: String})
   customSelectedSearchByMetadataOption: string;
-  @property({type: Boolean})
-  DVINotCache: boolean = false;
+
   @property({type: String})
-  subjectModelPathEditorInput: string = "/models/data/entropy";
+  subjectModelPathEditorInput: string = "/Users/yangxianglin/DVI_data/active_learning/random/resnet18/CIFAR10/";
   @property({type: String})
-  resolutionEditorInput: number;
+  resolutionEditorInput: number = 20;
 
   private projector: any; // Projector; type omitted b/c LegacyElement
 
@@ -189,14 +188,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     this.nnTest15 = this.$$('.nn_test_15') as HTMLElement;
     this.boundTrain15 = this.$$('.bound_train_15') as HTMLElement;
     this.boundTest15 = this.$$('.bound_test_15') as HTMLElement;
-    /*
-    this.invNnTrain10 = this.$$('.inv_nn_train_10') as HTMLElement;
-    this.invNnTrain15 = this.$$('.inv_nn_train_15') as HTMLElement;
-    this.invNnTrain30 = this.$$('.inv_nn_train_30') as HTMLElement;
-    this.invNnTest10 = this.$$('.inv_nn_test_10') as HTMLElement;
-    this.invNnTest15 = this.$$('.inv_nn_test_15') as HTMLElement;
-    this.invNnTest30 = this.$$('.inv_nn_test_30') as HTMLElement;
-    */
+
     this.invAccTrain = this.$$('.inv_acc_train') as HTMLElement;
     this.invAccTest = this.$$('.inv_acc_test') as HTMLElement;
     this.invConfTrain = this.$$('.inv_conf_train') as HTMLElement;
@@ -546,13 +538,6 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     this.beginProjection(this.currentProjection);
   }
 
-  @observe('DVINotCache')
-  _DVICacheToggleObserver() {
-    if(this.dataSet != null) {
-      this.dataSet.DVIUseCache = !this.DVINotCache;
-    }
-  }
-
   @observe('umapIs3d')
   _umapDimensionToggleObserver() {
     this.beginProjection(this.currentProjection);
@@ -626,7 +611,6 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     if (dataSet == null) {
       return;
     }
-    this.dataSet.DVIUseCache = !this.DVINotCache;
     const accessors = getProjectionComponents('tsne', [
       0,
       1,

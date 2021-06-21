@@ -235,23 +235,14 @@ export const template = html`
         </div>
         <!-- TSNE Controls -->
         <div data-panel="tsne" class="ink-panel-content">
-           <div class="slider">
-            <label>Cache</label>
-            <div class="two-way-toggle">
-              <span>Yes</span>
-              <paper-toggle-button id="DVI-toggle" checked="{{DVINotCache}}"
-                >No</paper-toggle-button
-              >
-            </div>
-          </div>
           <!-- Subject Model Path -->
-    <div class="subject-model-path-editor">
-        <paper-input
-          value="{{subjectModelPathEditorInput}}"
-          label="Model Path"
-          on-input="subjectModelPathEditorInputChange"
-        >
-        </paper-input>
+        <div class="subject-model-path-editor">
+            <paper-input
+              value="{{subjectModelPathEditorInput}}"
+              label="Model Path"
+              on-input="subjectModelPathEditorInputChange"
+            >
+            </paper-input>
     </div>
     <!-- Misc Setting -->
     <div class="misc-setting-editor">
