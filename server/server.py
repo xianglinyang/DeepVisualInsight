@@ -280,6 +280,7 @@ def filter():
     res = request.get_json()
     predicates = res["predicates"]
     content_path = os.path.normpath(res['content_path'])
+    iteration = res["iteration"]
     sys.path.append(content_path)
     try:
         from Model.model import ResNet18
@@ -295,15 +296,15 @@ def filter():
     selected_points = np.arange(mms.get_dataset_length())
     for key in predicates.keys():
         if key == "new_selection":
-            tmp = np.array(mms.get_new_index(predicates[key]))
+            tmp = np.array(mms.get_new_index(int(predicates[key])))
         elif key == "label":
-            print(predicates[key])
             tmp = np.array(mms.filter_label(predicates[key]))
+        elif key == "type":
+            tmp = np.array(mms.filter_type(predicates[key], int(iteration)))
         else:
             pass
         selected_points = np.intersect1d(selected_points, tmp)
     sys.path.remove(content_path)
-    print(selected_points)
 
     return make_response(jsonify({"selectedPoints":selected_points.tolist()}), 200)
 

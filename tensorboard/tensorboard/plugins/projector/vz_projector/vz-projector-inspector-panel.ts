@@ -80,9 +80,11 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
   private _currentNeighbors: any;
   // save current predicates
   private currentPredicate: {[key:string]: any}; // dictionary
-  private queryIndices: number[]
+  private queryIndices: number[];
   private searchPredicate: string;
   private searchInRegexMode: boolean;
+  private filterIndices:number[];
+  private searchFields:string[];
 
   ready() {
     super.ready();
@@ -95,8 +97,10 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
     this.limitMessage = this.$$('.limit-msg') as HTMLDivElement;
     this.searchBox = this.$$('#search-box') as any; // ProjectorInput
     this.displayContexts = [];
+
     this.currentPredicate = {}
     this.queryIndices = []
+    this.filterIndices = []
   }
   initialize(projector: any, projectorEventContext: ProjectorEventContext) {
     this.projector = projector;
@@ -105,6 +109,7 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
     projectorEventContext.registerSelectionChangedListener(
       (selection, neighbors) => this.updateInspectorPane(selection, neighbors)
     );
+    this.searchFields = ["type", "label", "new_selection"]
   }
   /** Updates the nearest neighbors list in the inspector. */
   private updateInspectorPane(
@@ -113,7 +118,8 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
   ) {
     this.neighborsOfFirstPoint = neighbors;
     this.selectedPointIndices = indices;
-    this.updateFilterButtons(indices.length + neighbors.length);
+    // this.updateFilterButtons(indices.length + neighbors.length);
+    this.updateFilterButtons(indices.length);
     this.updateNeighborsList(neighbors);
     if (neighbors.length === 0) {
       this.updateSearchResults(indices);
@@ -460,16 +466,10 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
     //     this.selectedMetadataField,
     //     this.currentPredicate,
     //     (currPredicates:{[key:string]: any}, indices:any)=>{
-    //       console.log("callback")
-    //       console.log(indices)
-    //       console.log(currPredicates)
     //       this.currentPredicate = currPredicates;
     //       this.queryIndices = indices;
     //   }
     //   );
-    //   console.log("outside")
-    //   console.log(this.currentPredicate)
-    //   console.log(this.queryIndices)
     //
     //   if (this.queryIndices.length == 0) {
     //     this.searchBox.message = '0 matches.';
@@ -483,16 +483,14 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
     // });
     // Filtering dataset.
     this.setFilterButton.onclick = () => {
-      // const indices = this.selectedPointIndices.concat(
+      // var indices = this.selectedPointIndices.concat(
       //   this.neighborsOfFirstPoint.map((n) => n.index)
       // );
-      let indices = this.selectedPointIndices.concat(this.queryIndices);
-      indices = indices.sort()
-      this.selectedPointIndices = indices
-
-      projector.filterDataset(indices);
+      this.currentPredicate[this.selectedMetadataField] = this.searchPredicate;
+      this.filterIndices = this.queryIndices.sort()
+      projector.filterDataset(this.filterIndices);
       this.enableResetFilterButton(true);
-      this.updateFilterButtons(0);
+      this.updateFilterButtons(this.filterIndices.length);
     };
     this.resetFilterButton.onclick = () => {
       projector.resetFilterDataset();
@@ -503,7 +501,7 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
     this.clearSelectionButton.onclick = () => {
       projector.adjustSelectionAndHover([]);
       this.currentPredicate = {};
-      this.queryIndices = []
+      this.queryIndices = [];
     };
     this.enableResetFilterButton(false);
 
@@ -527,16 +525,17 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
         this.searchInRegexMode,
         this.selectedMetadataField,
         this.currentPredicate,
-        (currPredicates:{[key:string]: any}, indices:any)=>{
-          this.currentPredicate = currPredicates;
-          this.queryIndices = indices;
-
-          if (this.queryIndices.length == 0) {
-            this.searchBox.message = '0 matches.';
-          } else {
-            this.searchBox.message = `${this.queryIndices.length} matches.`;
+        this.projector.iteration,
+        (indices:any)=>{
+          if(indices != null){
+            this.queryIndices = indices;
+            if (this.queryIndices.length == 0) {
+              this.searchBox.message = '0 matches.';
+            } else {
+              this.searchBox.message = `${this.queryIndices.length} matches.`;
+            }
+            this.projectorEventContext.notifySelectionChanged(this.queryIndices);
           }
-          this.projectorEventContext.notifySelectionChanged(this.queryIndices);
         }
       );
     }

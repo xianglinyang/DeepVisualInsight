@@ -250,7 +250,8 @@ export const template = html`
           selected="{{selectedMetadataField}}"
           slot="dropdown-content"
         >
-          <template is="dom-repeat" items="[[metadataFields]]">
+<!--          <template is="dom-repeat" items="[[metadataFields]]">-->
+          <template is="dom-repeat" items="[[searchFields]]">
             <paper-item value="[[item]]" label="[[item]]">
               [[item]]
             </paper-item>

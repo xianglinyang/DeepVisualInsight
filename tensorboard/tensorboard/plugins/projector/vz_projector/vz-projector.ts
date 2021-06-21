@@ -108,6 +108,7 @@ class Projector
 
       // The working subset of the data source's original data set.
   dataSet: DataSet;
+  iteration: number;
   private selectionChangedListeners: SelectionChangedListener[];
   private hoverListeners: HoverListener[];
   private projectionChangedListeners: ProjectionChangedListener[];
@@ -135,6 +136,7 @@ class Projector
   private metadataCard: any;
   private statusBar: HTMLDivElement;
   private analyticsLogger: AnalyticsLogger;
+
   async ready() {
     super.ready();
     logging.setDomContainer(this as HTMLElement);
@@ -170,6 +172,7 @@ class Projector
     this.bookmarkPanel.initialize(this, this as ProjectorEventContext);
     this.setupUIControls();
     this.initializeDataProvider();
+    this.iteration = 0;
 
     let headers = new Headers();
     headers.append('Content-Type', 'application/json');
@@ -178,6 +181,9 @@ class Projector
         .then(response => response.json())
         .then(data => {this.DVIServer = data.DVIServerIP+":"+data.DVIServerPort;})
   };
+  onIterationChange(num:number){
+    this.iteration = this.iteration + num;
+  }
 
   setSelectedLabelOption(labelOption: string) {
     this.selectedLabelOption = labelOption;
@@ -302,9 +308,9 @@ class Projector
     if (this.dataSetBeforeFilter == null) {
       this.dataSetBeforeFilter = this.dataSet;
     }*/
-    // this.dataSet.setDVIFilteredData(pointIndices, predicate);
+    this.dataSet.setDVIFilteredData(pointIndices);
 
-    this.setCurrentDataSet(this.dataSet.getSubset(pointIndices));
+    // this.setCurrentDataSet(this.dataSet.getSubset(pointIndices));
     this.dataSetFilterIndices = pointIndices;
     this.projectorScatterPlotAdapter.updateScatterPlotPositions();
     this.projectorScatterPlotAdapter.updateScatterPlotAttributes();
@@ -320,7 +326,7 @@ class Projector
       this.projection.dataSet = this.dataSetBeforeFilter;
     }
     this.dataSetBeforeFilter = null;*/
-    this.dataSet.setDVIFilteredData([], undefined);
+    this.dataSet.setDVIFilteredData([]);
     this.projectorScatterPlotAdapter.updateScatterPlotPositions();
     this.projectorScatterPlotAdapter.updateScatterPlotAttributes();
     this.dataSetFilterIndices = [];
@@ -689,7 +695,7 @@ class Projector
         this.resetFilterDataset();
       }
       if (state.filteredPoints != null) {
-        this.filterDataset(state.filteredPoints, undefined);
+        this.filterDataset(state.filteredPoints);
       }
       this.projectionsPanel.enablePolymerChangesTriggerReprojection();
     }
@@ -731,24 +737,30 @@ class Projector
   /**
    * query for indices in inspector panel
    */
-  query(query: string, inRegexMode: boolean, fieldName: string, currPredicates:{[key:string]: any},
-              callback:(currPredicates:{[key:string]: any}, indices:any)=>void){
-    currPredicates[fieldName] = query;
+  query(query: string, inRegexMode: boolean, fieldName: string, currPredicates:{[key:string]: any},iteration:number,
+              callback:(indices:any)=>void){
+
+    var dummyCurrPredicates: {[key:string]:any}={};
+    Object.keys(currPredicates).forEach((key) => {
+      dummyCurrPredicates[key] = currPredicates[key]
+    });
+    dummyCurrPredicates[fieldName] = query;
     // const msgId = logging.setModalMessage('Querying...');
     let headers = new Headers();
     headers.append('Content-Type', 'application/json');
     headers.append('Accept', 'application/json');
     fetch(`http://${this.DVIServer}/query`, {
         method: 'POST',
-        body: JSON.stringify({"predicates": currPredicates, "content_path":this.dataSet.DVIsubjectModelPath}),
+        body: JSON.stringify({"predicates": dummyCurrPredicates, "content_path":this.dataSet.DVIsubjectModelPath,
+        "iteration":iteration}),
         headers: headers,
         mode: 'cors'
       }).then(response => response.json()).then(data => {
         const indices = data.selectedPoints
-        callback(currPredicates, indices)
+        callback(indices)
     }).catch(error => {
         logging.setErrorMessage('querying for indices');
-        callback(null,null)
+        callback(null)
     });
   }
 

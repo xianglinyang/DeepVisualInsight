@@ -177,6 +177,27 @@ function getSequenceNextPointIndex(
   }
   return +sequenceAttr;
 }
+
+/**
+ * Test http request
+ */
+function retrieveIPAddress(callback: (ip: any) => void): void {
+  const msgId = logging.setModalMessage('Fetching Server IP...');
+  const xhr = new XMLHttpRequest();
+  xhr.open('GET',`localhost:5000/test`, true)
+  xhr.setRequestHeader('Content-type', 'application/json');
+  xhr.setRequestHeader('Accept', 'application/json')
+
+  xhr.onerror = (err) => {
+    logging.setErrorMessage(xhr.responseText, 'fetching test error');
+  };
+  xhr.onload = () => {
+    const ip = JSON.parse(xhr.responseText);
+    logging.setModalMessage(null, msgId);
+    callback(ip);
+  };
+  xhr.send();
+  }
 /**
  * Dataset contains a DataPoints array that should be treated as immutable. This
  * acts as a working subset of the original data, with cached properties
@@ -205,8 +226,10 @@ export class DataSet {
   tSNEShouldKill = false;
   tSNEJustPause = false;
   tSNETotalIter: number = 0;
-  DVIsubjectModelPath = "/models/data/entropy";
-  DVIUseCache = true;
+  /**
+   * This part contains information for DVI visualization
+   */
+  DVIsubjectModelPath = "/Users/yangxianglin/DVI_data/active_learning/random/resnet18/CIFAR10";
   DVIResolution = 400;
   DVIValidPointNumber: {
     [iteration: number]: number;
@@ -219,11 +242,14 @@ export class DataSet {
     [iteration: number]: any;
   } = [];
   DVIAvailableIteration: Array<number> = [];
-  DVIVisualizeDataPath = "";
   DVIPredicates: any[] = [];
   is_uncertainty_diversity_tot_exist: {
     [iteration: number]: boolean;
   } = [];
+  filterIndices: number[]
+  selectIndices: number[]
+
+
   superviseFactor: number;
   superviseLabels: string[];
   superviseInput: string = '';
@@ -409,7 +435,9 @@ export class DataSet {
       }
     });
   }
-  setDVIFilteredData(pointIndices: number[], predicate: any) {
+  setDVIFilteredData(pointIndices: number[]) {
+    // TODO refactor
+    // input to be the filter indices
     if(pointIndices.length > 0) {
       for (let i = 0; i < this.points.length; i++) {
         if (pointIndices.indexOf(i) == -1 && i < this.DVICurrentRealDataNumber) {
@@ -417,7 +445,7 @@ export class DataSet {
           dataPoint.projections = {};
         }
       }
-      this.DVIPredicates.push(predicate);
+
     } else {
       for (let i = 0; i < this.points.length; i++) {
         let dataPoint = this.points[i];
@@ -425,9 +453,9 @@ export class DataSet {
         dataPoint.projections['tsne-1'] = dataPoint.DVI_projections[this.tSNEIteration][1];
         dataPoint.projections['tsne-2'] = 0;
       }
-      this.DVIPredicates = [];
     }
   }
+
 
   /** Runs DVI on the data. */
   async projectDVI (
@@ -443,19 +471,22 @@ export class DataSet {
     function rgbToHex(r:number, g:number, b:number) {
       return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
     }
+
+
     if(this.DVIAvailableIteration.indexOf(iteration) == -1) {
+
       let headers = new Headers();
       headers.append('Content-Type', 'application/json');
       headers.append('Accept', 'application/json');
       await fetch("standalone_projector_config.json", {method: 'GET'})
           .then(response => response.json())
           .then(data => {
-            const ip_address = data.serverIp;
+            const ip_address = data.DVIServerIP+":"+data.DVIServerPort;
 
 
-      fetch("http://"+ip_address+":5000/updateProjection", {
+      fetch("http://"+ip_address+"/updateProjection", {
         method: 'POST',
-        body: JSON.stringify({"cache": this.DVIUseCache, "path": this.DVIsubjectModelPath,  "iteration":iteration,
+        body: JSON.stringify({"path": this.DVIsubjectModelPath,  "iteration":iteration,
               "resolution":this.DVIResolution, "data_path": this.DVIsubjectModelPath + '/data'}),
         headers: headers,
         mode: 'cors'
@@ -469,6 +500,7 @@ export class DataSet {
         const prediction_list = data.prediction_list;
 
         const background_point_number = grid_index.length;
+        console.log("grid_index type",typeof(grid_index))
         const real_data_number = label_color_list.length;
         this.tSNETotalIter = data.maximum_iteration;
 
@@ -495,7 +527,6 @@ export class DataSet {
           const newDataPoint : DataPoint = {
             metadata: {label: "background"},
             index: current_length + i,
-            vector: new Float32Array(),
             projections: {
               'tsne-0': 0,
               'tsne-1': 0,
@@ -1107,7 +1138,7 @@ export class DataSet {
     return result;
   }
   /**
-   * Search the dataset based on a metadata field.
+   * Search the dataset based on a metadata field and save all the predicates.
    */
   query(query: string, inRegexMode: boolean, fieldName: string): [any, number[]] {
     let predicate = util.getSearchPredicate(query, inRegexMode, fieldName);

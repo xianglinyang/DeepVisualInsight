@@ -1595,3 +1595,29 @@ class MMS:
         idxs = np.argwhere(labels == index)
         idxs = np.squeeze(idxs)
         return idxs
+
+    def filter_type(self,type, epoch_id):
+        if type == "train":
+            res = self.get_epoch_index(epoch_id)
+        elif type == "test":
+            train_num = self.training_labels.cpu().numpy().shape[0]
+            test_num = self.testing_labels.cpu().numpy().shape[0]
+            res = list(range(train_num, test_num, 1))
+        elif type == "unlabel":
+            labeled = np.array(self.get_epoch_index(epoch_id))
+            train_num = self.training_labels.cpu().numpy().shape[0]
+            all_data = np.arange(train_num)
+            unlabeled = np.setdiff1d(all_data, labeled)
+            res = unlabeled.tolist()
+        else:
+            # all data
+            train_num = self.training_labels.cpu().numpy().shape[0]
+            test_num = self.testing_labels.cpu().numpy().shape[0]
+            res = list(range(0, train_num + test_num, 1))
+        return res
+
+
+    def filter_prediction(self, pred):
+        pass
+
+    # uncertainty or diversity
