@@ -87,8 +87,15 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
 
   @property({type: String})
   subjectModelPathEditorInput: string = "/Users/yangxianglin/DVI_data/active_learning/random/resnet18/CIFAR10/";
+
   @property({type: String})
   resolutionEditorInput: number = 20;
+
+  @property({type: Boolean})
+  keepSearchPredicate: boolean = true;
+  // Decide wether to keep indices or search predicates, true represents search predicates
+
+  temporalStatus: boolean = true; //true for keepSearchPredicate
 
   private projector: any; // Projector; type omitted b/c LegacyElement
 
@@ -305,6 +312,21 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
       }
       this.dataSet.projectDVI(this.dataSet.tSNEIteration - 1,
           (iteration: number|null, evaluation:any, new_selection:any[], totalIter?: number) => {
+        /**
+         * get filter index
+         */
+        //get search predicates or indices
+        var filterIndices:number[];
+        filterIndices = []
+        if(this.temporalStatus){
+          //search predicate
+          this.projector.simpleQuery(this.projector.inspectorPanel.currentPredicate,iteration);
+        }
+        //indices
+        filterIndices = this.projector.inspectorPanel.filterIndices;
+        console.log(filterIndices)
+        // TODO initilize dataset, set inspector filter indices to be all
+        this.projector.dataSet.setDVIFilteredData(filterIndices);
         if (iteration != null) {
           this.iterationLabelTsne.innerText = '' + iteration;
           this.totalIterationLabelDVI.innerText = '' + totalIter;
@@ -323,6 +345,20 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
       this.previousDVIButton.disabled = true;
       this.dataSet.projectDVI(this.dataSet.tSNEIteration + 1,
           (iteration: number|null, evaluation:any, newSelection:any[], totalIter?: number) => {
+        /**
+         * get filter index
+         */
+        //get search predicates or indices
+        var filterIndices:number[];
+        filterIndices = []
+        if(this.temporalStatus){
+          //search predicate
+          this.projector.simpleQuery(this.projector.inspectorPanel.currentPredicate,iteration);
+        }
+        //indices
+        filterIndices = this.projector.inspectorPanel.filterIndices;
+        this.projector.dataSet.setDVIFilteredData(filterIndices);
+
         if (iteration != null) {
           this.iterationLabelTsne.innerText = '' + iteration;
           this.totalIterationLabelDVI.innerText = '' + totalIter;
@@ -543,6 +579,11 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   @observe('umapIs3d')
   _umapDimensionToggleObserver() {
     this.beginProjection(this.currentProjection);
+  }
+
+  @observe('temporalStatus')
+  _DVITemporalStatusObserver(){
+
   }
   metadataChanged(spriteAndMetadata: SpriteAndMetadataInfo) {
     // Project by options for custom projections.
@@ -865,4 +906,5 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   getUmapSampleSizeText() {
     return UMAP_SAMPLE_SIZE.toLocaleString();
   }
+
 }

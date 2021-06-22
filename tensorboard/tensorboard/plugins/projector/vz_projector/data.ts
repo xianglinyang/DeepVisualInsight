@@ -436,22 +436,10 @@ export class DataSet {
     });
   }
   setDVIFilteredData(pointIndices: number[]) {
-    // TODO refactor
-    // input to be the filter indices
-    if(pointIndices.length > 0) {
-      for (let i = 0; i < this.points.length; i++) {
-        if (pointIndices.indexOf(i) == -1 && i < this.DVICurrentRealDataNumber) {
-          let dataPoint = this.points[i];
-          dataPoint.projections = {};
-        }
-      }
-
-    } else {
-      for (let i = 0; i < this.points.length; i++) {
+    for (let i = 0; i < this.points.length; i++) {
+      if (pointIndices.indexOf(i) == -1 && i < this.DVICurrentRealDataNumber) {
         let dataPoint = this.points[i];
-        dataPoint.projections['tsne-0'] = dataPoint.DVI_projections[this.tSNEIteration][0];
-        dataPoint.projections['tsne-1'] = dataPoint.DVI_projections[this.tSNEIteration][1];
-        dataPoint.projections['tsne-2'] = 0;
+        dataPoint.projections = {};
       }
     }
   }
@@ -685,13 +673,15 @@ export class DataSet {
           dataPoint.noisy = true;
         }
 
-        const matches = this.get_match();
-        for (let i = 0; i < real_data_number; i++) {
-          let dataPoint = this.points[i];
-          if (matches.indexOf(i) == -1 && i < this.DVICurrentRealDataNumber) {
-            dataPoint.projections = {}
-          }
-        }
+        // const matches = this.get_match();
+        //
+        // for (let i = 0; i < real_data_number; i++) {
+        //   let dataPoint = this.points[i];
+        //   if (indices.indexOf(i) == -1 && i < this.DVICurrentRealDataNumber) {
+        //     dataPoint.projections = {}
+        //   }
+        // }
+
         this.DVICurrentRealDataNumber = real_data_number;
         this.DVIRealDataNumber[iteration] = real_data_number;
         stepCallback(this.tSNEIteration, evaluation, new_selection, this.tSNETotalIter);
@@ -745,13 +735,13 @@ export class DataSet {
           dataPoint.current_testing = false;
           dataPoint.current_training = false;
       }
-      const matches = this.get_match();
-      for (let i = 0; i < validDataNumber; i++) {
-        let dataPoint = this.points[i];
-        if (matches.indexOf(i) == -1 && i < this.DVICurrentRealDataNumber) {
-          dataPoint.projections = {}
-        }
-      }
+      // const matches = this.get_match();
+      // for (let i = 0; i < validDataNumber; i++) {
+      //   let dataPoint = this.points[i];
+      //   if (matches.indexOf(i) == -1 && i < this.DVICurrentRealDataNumber) {
+      //     dataPoint.projections = {}
+      //   }
+      // }
       this.DVICurrentRealDataNumber = this.DVIRealDataNumber[iteration];
       stepCallback(this.tSNEIteration, evaluation, newSelection, this.tSNETotalIter);
     }

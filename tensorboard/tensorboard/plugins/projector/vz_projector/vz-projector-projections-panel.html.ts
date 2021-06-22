@@ -44,7 +44,7 @@ export const template = html`
       }
 
       .two-way-toggle span {
-        padding-right: 7px;
+        padding-right: 15px;
       }
 
       .has-border {
@@ -254,6 +254,15 @@ export const template = html`
         >
         </paper-input>
     </div>
+        <div class="slider">
+            <label>Status</label>
+            <div class="two-way-toggle">
+              <span>Indices</span>
+              <paper-toggle-button id="DVI-toggle" checked="{{temporalStatus}}">
+                  Search Predicates
+              </paper-toggle-button>
+            </div>
+          </div>
           <!--
            <div class="two-rows">
               <div class="row">
