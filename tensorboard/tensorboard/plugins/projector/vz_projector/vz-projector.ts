@@ -326,7 +326,13 @@ class Projector
       this.projection.dataSet = this.dataSetBeforeFilter;
     }
     this.dataSetBeforeFilter = null;*/
-    this.dataSet.setDVIFilteredData([]);
+    // setDVIfilter all data
+    var indices:number[];
+    indices = [];
+    for(let i = 0;i<this.dataSet.DVICurrentRealDataNumber;i++){
+      indices.push(i);
+    }
+    this.dataSet.setDVIFilteredData(indices);
     this.projectorScatterPlotAdapter.updateScatterPlotPositions();
     this.projectorScatterPlotAdapter.updateScatterPlotAttributes();
     this.dataSetFilterIndices = [];
@@ -756,11 +762,32 @@ class Projector
         headers: headers,
         mode: 'cors'
       }).then(response => response.json()).then(data => {
-        const indices = data.selectedPoints
-        callback(indices)
+        const indices = data.selectedPoints;
+        callback(indices);
     }).catch(error => {
         logging.setErrorMessage('querying for indices');
-        callback(null)
+        callback(null);
+    });
+  }
+
+  /**
+   * query for predicates
+   */
+  simpleQuery(predicates:{[key:string]: any},iteration:number){
+    let headers = new Headers();
+    headers.append('Content-Type', 'application/json');
+    headers.append('Accept', 'application/json');
+    fetch(`http://${this.DVIServer}/query`, {
+        method: 'POST',
+        body: JSON.stringify({"predicates": predicates, "content_path":this.dataSet.DVIsubjectModelPath,
+        "iteration":iteration}),
+        headers: headers,
+        mode: 'cors'
+      }).then(response => response.json()).then(data => {
+        const indices = data.selectedPoints;
+        this.inspectorPanel.filteredPoints = indices;
+    }).catch(error => {
+        logging.setErrorMessage('querying for indices');
     });
   }
 

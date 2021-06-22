@@ -602,7 +602,7 @@ export const template = html`
         <div class="dismiss-dialog-note">Click outside to dismiss.</div>
       </paper-dialog>
     </div>
-    <paper-checkbox id="normalize-data-checkbox" checked="{{normalizeData}}">
+    <paper-checkbox id="normalize-data-checkbox" hidden$="[[!showNormalizeDataCheckbox]]" checked="{{normalizeData}}">
       Sphereize data
       <paper-icon-button icon="help" class="help-icon"></paper-icon-button>
       <paper-tooltip
