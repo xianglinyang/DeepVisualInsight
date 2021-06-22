@@ -302,7 +302,7 @@ def filter():
         elif key == "type":
             tmp = np.array(mms.filter_type(predicates[key], int(iteration)))
         else:
-            pass
+            tmp = np.arange(mms.get_dataset_length())
         selected_points = np.intersect1d(selected_points, tmp)
     sys.path.remove(content_path)
 
