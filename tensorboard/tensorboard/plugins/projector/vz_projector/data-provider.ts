@@ -59,7 +59,7 @@ export interface ProjectorConfig {
   embeddings: EmbeddingInfo[];
   modelCheckpointPath?: string;
 }
-export type ServingMode = 'demo' | 'server' | 'proto';
+export type ServingMode = 'demo' | 'server' | 'proto' | 'DVI'; // Add DVI as servingmode
 /** Interface between the data storage and the UI. */
 export interface DataProvider {
   /** Returns a list of run names that have embedding config files. */
