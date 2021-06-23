@@ -315,6 +315,7 @@ class Projector
     this.projectorScatterPlotAdapter.updateScatterPlotPositions();
     this.projectorScatterPlotAdapter.updateScatterPlotAttributes();
     this.adjustSelectionAndHover(util.range(selectionSize));
+
   }
   resetFilterDataset() {
     const originalPointIndices = this.selectedPointIndices.map(
@@ -329,14 +330,14 @@ class Projector
     // setDVIfilter all data
     var indices:number[];
     indices = [];
-    for(let i = 0;i<this.dataSet.DVICurrentRealDataNumber;i++){
+    for(let i = 0;i<this.dataSet.DVIValidPointNumber[this.dataSet.tSNEIteration];i++){
       indices.push(i);
     }
+    this.dataSetFilterIndices = indices;
     this.dataSet.setDVIFilteredData(indices);
     this.projectorScatterPlotAdapter.updateScatterPlotPositions();
     this.projectorScatterPlotAdapter.updateScatterPlotAttributes();
-    this.dataSetFilterIndices = [];
-    this.adjustSelectionAndHover(originalPointIndices);
+
   }
   /**
    * Used by clients to indicate that a selection has occurred.

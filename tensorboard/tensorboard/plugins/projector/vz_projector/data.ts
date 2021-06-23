@@ -436,6 +436,13 @@ export class DataSet {
     });
   }
   setDVIFilteredData(pointIndices: number[]) {
+    // reset first
+    for (let i = 0; i < this.points.length; i++) {
+      let dataPoint = this.points[i];
+      dataPoint.projections['tsne-0'] = dataPoint.DVI_projections[this.tSNEIteration][0];
+      dataPoint.projections['tsne-1'] = dataPoint.DVI_projections[this.tSNEIteration][1];
+      dataPoint.projections['tsne-2'] = 0;
+    }
     for (let i = 0; i < this.points.length; i++) {
       if (pointIndices.indexOf(i) == -1 && i < this.DVICurrentRealDataNumber) {
         let dataPoint = this.points[i];

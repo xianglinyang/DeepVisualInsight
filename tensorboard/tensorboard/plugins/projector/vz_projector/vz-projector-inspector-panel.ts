@@ -98,9 +98,9 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
     this.searchBox = this.$$('#search-box') as any; // ProjectorInput
     this.displayContexts = [];
 
-    this.currentPredicate = {}
-    this.queryIndices = []
-    this.filterIndices = []
+    this.currentPredicate = {};
+    this.queryIndices = [];
+    this.filterIndices = [];
   }
   initialize(projector: any, projectorEventContext: ProjectorEventContext) {
     this.projector = projector;
@@ -110,6 +110,10 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
       (selection, neighbors) => this.updateInspectorPane(selection, neighbors)
     );
     this.searchFields = ["type", "label", "new_selection"]
+    // TODO read real points length from dataSet
+    for(let i=0;i<60000;i++){
+      this.filterIndices.push(i);
+    }
   }
   /** Updates the nearest neighbors list in the inspector. */
   private updateInspectorPane(
@@ -493,9 +497,13 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
       this.updateFilterButtons(this.filterIndices.length);
     };
     this.resetFilterButton.onclick = () => {
-      projector.resetFilterDataset();
       this.queryIndices = [];
       this.currentPredicate = {};
+      this.filterIndices = [];
+      for(let i=0;i<projector.dataSet.DVICurrentRealDataNumber;i++){
+        this.filterIndices.push(i);
+      }
+      projector.resetFilterDataset();
       this.enableResetFilterButton(false);
     };
     this.clearSelectionButton.onclick = () => {
