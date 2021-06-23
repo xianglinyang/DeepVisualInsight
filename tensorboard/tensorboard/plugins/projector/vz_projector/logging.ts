@@ -88,6 +88,10 @@ export function setModalMessage(
 export function setErrorMessage(errMsg: string, task?: string) {
   setModalMessage(errMsg, null, 'Error ' + (task != null ? task : ''), true);
 }
+
+export function setWarnMessage(Msg: string, task?: string) {
+  setModalMessage(Msg, null, (task != null ? task : ''), true);
+}
 /**
  * Shows a warning message to the user for a certain amount of time.
  */
