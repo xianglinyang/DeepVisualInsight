@@ -331,7 +331,8 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
           this.iterationLabelTsne.innerText = '' + iteration;
           this.totalIterationLabelDVI.innerText = '' + totalIter;
           this.updateEvaluationInformation(evaluation);
-          this.projector.notifyProjectionPositionsUpdated(new_selection);
+          // this.projector.notifyProjectionPositionsUpdated(new_selection);
+          this.projector.notifyProjectionPositionsUpdated();
           this.projector.onProjectionChanged();
           this.projector.onIterationChange(-1);
         } else {
@@ -363,7 +364,8 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
           this.iterationLabelTsne.innerText = '' + iteration;
           this.totalIterationLabelDVI.innerText = '' + totalIter;
           this.updateEvaluationInformation(evaluation);
-          this.projector.notifyProjectionPositionsUpdated(newSelection);
+          // this.projector.notifyProjectionPositionsUpdated(newSelection);
+          this.projector.notifyProjectionPositionsUpdated();
           this.projector.onProjectionChanged();
           this.projector.onIterationChange(1);
           if(this.dataSet.tSNEIteration > 1) {

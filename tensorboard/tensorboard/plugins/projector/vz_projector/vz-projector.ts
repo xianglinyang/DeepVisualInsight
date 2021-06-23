@@ -660,8 +660,11 @@ class Projector
     }
     this.notifyProjectionChanged(projection);
   }
-  notifyProjectionPositionsUpdated(newSelection?: any[]) {
-    this.projectorScatterPlotAdapter.notifyProjectionPositionsUpdated(newSelection);
+  // notifyProjectionPositionsUpdated(newSelection?: any[]) {
+  //   this.projectorScatterPlotAdapter.notifyProjectionPositionsUpdated(newSelection);
+  // }
+  notifyProjectionPositionsUpdated() {
+    this.projectorScatterPlotAdapter.notifyProjectionPositionsUpdated();
   }
   /**
    * Gets the current view of the embedding and saves it as a State object.

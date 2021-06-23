@@ -89,7 +89,7 @@ export class ProjectorScatterPlotAdapter {
   private projection: Projection;
   private hoverPointIndex: number;
   private selectedPointIndices: number[];
-  private newSelectionIndices: any[];
+  // private newSelectionIndices: any[];
   private neighborsOfFirstSelectedPoint: knn.NearestEntry[];
   private renderLabelsIn3D: boolean = false;
   private labelPointAccessor: string;
@@ -134,10 +134,11 @@ export class ProjectorScatterPlotAdapter {
     );
     this.createVisualizers(false);
   }
-  notifyProjectionPositionsUpdated(newSelection?: any[]) {
-    if(newSelection != undefined) {
-      this.newSelectionIndices = newSelection;
-    }
+  // notifyProjectionPositionsUpdated(newSelection?: any[]) {
+  notifyProjectionPositionsUpdated() {
+    // if(newSelection != undefined) {
+    //   this.newSelectionIndices = newSelection;
+    // }
     this.updateScatterPlotPositions();
     this.updateScatterPlotAttributes();
     this.scatterPlot.render();
@@ -227,7 +228,7 @@ export class ProjectorScatterPlotAdapter {
     }
     const dataSet = this.projection.dataSet;
     const selectedSet = this.selectedPointIndices;
-    const newSelectionSet = this.newSelectionIndices;
+    // const newSelectionSet = this.newSelectionIndices;
     const hoverIndex = this.hoverPointIndex;
     const neighbors = this.neighborsOfFirstSelectedPoint;
     const pointColorer = this.legendPointColorer;
@@ -244,7 +245,7 @@ export class ProjectorScatterPlotAdapter {
     const pointScaleFactors = this.generatePointScaleFactorArray(
       dataSet,
       selectedSet,
-      newSelectionSet,
+      // newSelectionSet,
       neighbors,
       hoverIndex
     );
@@ -453,7 +454,7 @@ export class ProjectorScatterPlotAdapter {
   generatePointScaleFactorArray(
     ds: DataSet,
     selectedPointIndices: number[],
-    newSelectionIndices: any[],
+    // newSelectionIndices: any[],
     neighborsOfFirstPoint: knn.NearestEntry[],
     hoverPointIndex: number
   ): Float32Array {
@@ -466,16 +467,16 @@ export class ProjectorScatterPlotAdapter {
       selectedPointIndices == null ? 0 : selectedPointIndices.length;
     const neighborCount =
       neighborsOfFirstPoint == null ? 0 : neighborsOfFirstPoint.length;
-    const newSelectionCount =
-      newSelectionIndices == null ? 0 : newSelectionIndices.length;
-    const selectedNewSelectionIndices =
-        (selectedPointIndices == null || newSelectionIndices == null) ? null :
-            selectedPointIndices.filter(value => {newSelectionIndices.includes(value)});
-    const selectedNewSelectionCount =
-        selectedNewSelectionIndices == null ? 0 : selectedPointIndices.length;
-    const hoverNewSelectionPointIndex =
-        (hoverPointIndex == null || newSelectionIndices == null || newSelectionIndices.indexOf(hoverPointIndex) == -1) ?
-            null : hoverPointIndex;
+    // const newSelectionCount =
+    //   newSelectionIndices == null ? 0 : newSelectionIndices.length;
+    // const selectedNewSelectionIndices =
+    //     (selectedPointIndices == null || newSelectionIndices == null) ? null :
+    //         selectedPointIndices.filter(value => {newSelectionIndices.includes(value)});
+    // const selectedNewSelectionCount =
+    //     selectedNewSelectionIndices == null ? 0 : selectedPointIndices.length;
+    // const hoverNewSelectionPointIndex =
+    //     (hoverPointIndex == null || newSelectionIndices == null || newSelectionIndices.indexOf(hoverPointIndex) == -1) ?
+    //         null : hoverPointIndex;
     // Scale up all selected points.
     {
       const n = selectedPointCount;
@@ -492,27 +493,27 @@ export class ProjectorScatterPlotAdapter {
         scale[p] = POINT_SCALE_NEIGHBOR;
       }
     }
-    {
-      const n = newSelectionCount;
-      for (let i = 0; i < n; ++i) {
-        const p = newSelectionIndices[i];
-        scale[p] = POINT_SCALE_NEW_SELECTION;
-      }
-    }
-    {
-      const n = selectedNewSelectionCount;
-      for (let i = 0; i < n; ++i) {
-        const p = selectedNewSelectionIndices[i];
-        scale[p] = POINT_SCALE_SELECTED_NEW_SELECTION;
-      }
-    }
+    // {
+    //   const n = newSelectionCount;
+    //   for (let i = 0; i < n; ++i) {
+    //     const p = newSelectionIndices[i];
+    //     scale[p] = POINT_SCALE_NEW_SELECTION;
+    //   }
+    // }
+    // {
+    //   const n = selectedNewSelectionCount;
+    //   for (let i = 0; i < n; ++i) {
+    //     const p = selectedNewSelectionIndices[i];
+    //     scale[p] = POINT_SCALE_SELECTED_NEW_SELECTION;
+    //   }
+    // }
     // Scale up the hover point.
     if (hoverPointIndex != null) {
       scale[hoverPointIndex] = POINT_SCALE_HOVER;
     }
-    if (hoverNewSelectionPointIndex != null) {
-      scale[hoverNewSelectionPointIndex] = POINT_SCALE_HOVER_NEW_SELECTION;
-    }
+    // if (hoverNewSelectionPointIndex != null) {
+    //   scale[hoverNewSelectionPointIndex] = POINT_SCALE_HOVER_NEW_SELECTION;
+    // }
     return scale;
   }
   generateLineSegmentColorMap(
