@@ -505,6 +505,7 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
       }
       projector.resetFilterDataset();
       this.enableResetFilterButton(false);
+      this.searchBox.setValue("", false);
     };
     this.clearSelectionButton.onclick = () => {
       projector.adjustSelectionAndHover([]);
