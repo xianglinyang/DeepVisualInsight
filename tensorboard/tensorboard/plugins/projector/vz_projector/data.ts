@@ -231,6 +231,7 @@ export class DataSet {
    */
   DVIsubjectModelPath = "/Users/yangxianglin/DVI_data/active_learning/random/resnet18/CIFAR10";
   DVIResolution = 400;
+  DVIServer = "";
   DVIValidPointNumber: {
     [iteration: number]: number;
   } = [];
@@ -456,8 +457,8 @@ export class DataSet {
 
   /** Runs DVI on the data. */
   async projectDVI (
-      iteration: number,
-      stepCallback: (iter: number|null, evaluation:any, newSelection: any[], totalIter?: number) => void
+      iteration: number,predicates:{[key:string]: any},
+      stepCallback: (iter: number|null, evaluation:any, newSelection: any[], filterIndices:number[], totalIter?: number) => void
   ) {
     this.projections['tsne'] = true;
     function componentToHex(c: number) {
@@ -479,12 +480,13 @@ export class DataSet {
           .then(response => response.json())
           .then(data => {
             const ip_address = data.DVIServerIP+":"+data.DVIServerPort;
+            this.DVIServer = ip_address;
 
 
-      fetch("http://"+ip_address+"/updateProjection", {
+      fetch("http://"+this.DVIServer+"/updateProjection", {
         method: 'POST',
         body: JSON.stringify({"path": this.DVIsubjectModelPath,  "iteration":iteration,
-              "resolution":this.DVIResolution, "data_path": this.DVIsubjectModelPath + '/data'}),
+              "resolution":this.DVIResolution, "predicates":predicates}),
         headers: headers,
         mode: 'cors'
       }).then(response => response.json()).then(data => {
@@ -519,6 +521,8 @@ export class DataSet {
 
         const is_uncertainty_diversity_tot_exist = data.uncertainty_diversity_tot.is_exist;
         this.is_uncertainty_diversity_tot_exist[iteration] = is_uncertainty_diversity_tot_exist;
+
+        const filterIndices = data.selectedPoints;
 
         for (let i = 0; i < real_data_number + background_point_number - current_length; i++) {
           const newDataPoint : DataPoint = {
@@ -697,10 +701,10 @@ export class DataSet {
         for(let i=0;i<real_data_number+background_point_number;i++){
           this.DVIfilterIndices.push(i);
         }
-        stepCallback(this.tSNEIteration, evaluation, new_selection, this.tSNETotalIter);
+        stepCallback(this.tSNEIteration, evaluation, new_selection, filterIndices, this.tSNETotalIter);
     }).catch(error => {
         console.log(error);
-        stepCallback(null, null, null);
+        stepCallback(null, null, null, null, null);
     });
 
           });
@@ -760,7 +764,23 @@ export class DataSet {
         for(let i=0;i<this.DVICurrentRealDataNumber+Math.pow(this.DVIResolution,2);i++){
           this.DVIfilterIndices.push(i);
         }
-      stepCallback(this.tSNEIteration, evaluation, newSelection, this.tSNETotalIter);
+      let headers = new Headers();
+      headers.append('Content-Type', 'application/json');
+      headers.append('Accept', 'application/json');
+      await fetch(`http://${this.DVIServer}/query`, {
+          method: 'POST',
+          body: JSON.stringify({"predicates": predicates, "content_path":this.DVIsubjectModelPath,
+          "iteration":iteration}),
+          headers: headers,
+          mode: 'cors'
+        }).then(response => response.json()).then(data => {
+          const indices = data.selectedPoints;
+          console.log("response",indices.length);
+          stepCallback(this.tSNEIteration, evaluation, newSelection, indices, this.tSNETotalIter);
+      }).catch(error => {
+          logging.setErrorMessage('querying for indices');
+          stepCallback(null, null, null, null, null);
+      });
     }
   }
 

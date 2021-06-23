@@ -179,6 +179,7 @@ def update_projection():
     content_path = os.path.normpath(res['path'])
     iteration = res['iteration']
     resolution = int(res['resolution'])
+    predicates = res["predicates"]
     sys.path.append(content_path)
 
     try:
@@ -237,6 +238,7 @@ def update_projection():
     for file in path_files:
         if "Epoch" in file:
             max_iter += 1
+    max_iter -= 1
 
     _, conf_diff = mms.batch_inv_preserve(iteration, all_data)
     current_index = mms.get_epoch_index(iteration)
@@ -262,6 +264,18 @@ def update_projection():
     uncertainty_diversity_tot_dict['diversity_ranking'] = diversity_ranking_list
     uncertainty_diversity_tot_dict['tot_ranking'] = tot_ranking_list
 
+    selected_points = np.arange(mms.get_dataset_length())
+    for key in predicates.keys():
+        if key == "new_selection":
+            tmp = np.array(mms.get_new_index(int(predicates[key])))
+        elif key == "label":
+            tmp = np.array(mms.filter_label(predicates[key]))
+        elif key == "type":
+            tmp = np.array(mms.filter_type(predicates[key], int(iteration)))
+        else:
+            tmp = np.arange(mms.get_dataset_length())
+        selected_points = np.intersect1d(selected_points, tmp)
+
     sys.path.remove(content_path)
 
 
@@ -272,7 +286,8 @@ def update_projection():
                                   'prediction_list': prediction_list, 'new_selection': new_index,
                                   'noisy_data': noisy_data, 'original_label_list': original_label_list,
                                   'inv_acc_list': conf_diff.tolist(),
-                                  'uncertainty_diversity_tot': uncertainty_diversity_tot_dict}), 200)
+                                  'uncertainty_diversity_tot': uncertainty_diversity_tot_dict,
+                                  "selectedPoints":selected_points.tolist()}), 200)
 
 @app.route('/query', methods=["POST"])
 @cross_origin()

@@ -310,8 +310,8 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
       if(this.dataSet.tSNEIteration <= 2) {
         this.previousDVIButton.disabled = true;
       }
-      this.dataSet.projectDVI(this.dataSet.tSNEIteration - 1,
-          (iteration: number|null, evaluation:any, new_selection:any[], totalIter?: number) => {
+      this.dataSet.projectDVI(this.dataSet.tSNEIteration - 1,this.projector.inspectorPanel.currentPredicate,
+          (iteration: number|null, evaluation:any, new_selection:any[], indices:number[],totalIter?: number) => {
         /**
          * get filter index
          */
@@ -320,11 +320,10 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
         filterIndices = []
         if(this.temporalStatus){
           //search predicate
-          this.projector.simpleQuery(this.projector.inspectorPanel.currentPredicate,iteration);
+          this.projector.inspectorPanel.filterIndices = indices;
         }
         //indices
         filterIndices = this.projector.inspectorPanel.filterIndices;
-        console.log(filterIndices)
         // TODO initilize dataset, set inspector filter indices to be all
         this.projector.dataSet.setDVIFilteredData(filterIndices);
         if (iteration != null) {
@@ -344,8 +343,8 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     this.nextDVIButton.addEventListener('click', ()=> {
       this.nextDVIButton.disabled = true;
       this.previousDVIButton.disabled = true;
-      this.dataSet.projectDVI(this.dataSet.tSNEIteration + 1,
-          (iteration: number|null, evaluation:any, newSelection:any[], totalIter?: number) => {
+      this.dataSet.projectDVI(this.dataSet.tSNEIteration + 1,this.projector.inspectorPanel.currentPredicate,
+          (iteration: number|null, evaluation:any, newSelection:any[], indices:number[], totalIter?: number) => {
         /**
          * get filter index
          */
@@ -354,10 +353,11 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
         filterIndices = []
         if(this.temporalStatus){
           //search predicate
-          this.projector.simpleQuery(this.projector.inspectorPanel.currentPredicate,iteration);
+          this.projector.inspectorPanel.filterIndices = indices;
         }
         //indices
         filterIndices = this.projector.inspectorPanel.filterIndices;
+        console.log(filterIndices.length);
         this.projector.dataSet.setDVIFilteredData(filterIndices);
 
         if (iteration != null) {

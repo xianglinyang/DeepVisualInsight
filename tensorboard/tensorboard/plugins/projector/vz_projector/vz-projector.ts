@@ -813,6 +813,7 @@ class Projector
         mode: 'cors'
       }).then(response => response.json()).then(data => {
         const indices = data.selectedPoints;
+        console.log("response",indices.length);
         this.inspectorPanel.filteredPoints = indices;
     }).catch(error => {
         logging.setErrorMessage('querying for indices');

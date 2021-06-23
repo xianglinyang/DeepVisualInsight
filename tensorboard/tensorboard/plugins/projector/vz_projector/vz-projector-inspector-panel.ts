@@ -580,7 +580,7 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
     this.sentButton.onclick=()=>{
       this.projector.saveDVISelection(this.boundingBoxSelection,(msg:string)=>{
         this.selectinMessage.innerText = msg;
-        logging.setWarningMessage(msg);
+        logging.setWarnMessage(msg, null);
       });
     }
     this.showButton.onclick=()=>{

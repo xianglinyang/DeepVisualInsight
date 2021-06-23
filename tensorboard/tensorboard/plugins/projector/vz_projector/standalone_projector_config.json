@@ -19,5 +19,5 @@
   ],
   "modelCheckpointPath": "Demo datasets",
   "DVIServerIP": "localhost",
-  "DVIServerPort": "5000"
+  "DVIServerPort": "5001"
 }
