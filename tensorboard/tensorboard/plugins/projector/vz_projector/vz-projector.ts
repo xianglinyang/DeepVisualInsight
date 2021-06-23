@@ -342,7 +342,7 @@ class Projector
   /**
    * Used by clients to indicate that a selection has occurred.
    */
-  notifySelectionChanged(newSelectedPointIndices: number[]) {
+  notifySelectionChanged(newSelectedPointIndices: number[], selectMode?:boolean) {
     let neighbors: knn.NearestEntry[] = [];
     if (
       this.editMode && // point selection toggle in existing selection
@@ -402,7 +402,31 @@ class Projector
           this.metadataCard.updateMetadata(null); // clear metadata
         }
       }
-    } else {
+    } else if(selectMode == true){
+      // for bounding box selection
+      // multiple selections
+      let updatedSelectedPointIndices = this.selectedPointIndices.filter(
+        (n) => newSelectedPointIndices.filter((p) => p == n).length == 0
+      ); // deselect
+      newSelectedPointIndices.forEach((p) => {
+        // add additional selections
+        if (this.selectedPointIndices.filter((s) => s == p).length == 0)
+          // unselected
+          updatedSelectedPointIndices.push(p);
+      });
+      this.selectedPointIndices = updatedSelectedPointIndices; // update selection
+      if (this.selectedPointIndices.length > 0) {
+        // at least one selected point
+        this.metadataCard.updateMetadata(
+          // show metadata for first selected point
+          this.dataSet.points[this.selectedPointIndices[0]].metadata
+        );
+      } else {
+        // no points selected
+        this.metadataCard.updateMetadata(null); // clear metadata
+      }
+      this.inspectorPanel.updateBoundingBoxSelection(newSelectedPointIndices);
+    }else {
       // normal selection mode
       this.selectedPointIndices = newSelectedPointIndices;
       if (newSelectedPointIndices.length === 1 && this.dataSet.points[newSelectedPointIndices[0]].metadata.label != "background") {
@@ -792,6 +816,23 @@ class Projector
         this.inspectorPanel.filteredPoints = indices;
     }).catch(error => {
         logging.setErrorMessage('querying for indices');
+    });
+  }
+  saveDVISelection(indices:number[],callback:(msg:string)=>void){
+    let headers = new Headers();
+    headers.append('Content-Type', 'application/json');
+    headers.append('Accept', 'application/json');
+    fetch(`http://${this.DVIServer}/saveDVIselections`, {
+        method: 'POST',
+        body: JSON.stringify({"newIndices": indices, "content_path":this.dataSet.DVIsubjectModelPath,
+        "iteration":this.iteration}),
+        headers: headers,
+        mode: 'cors'
+      }).then(response => response.json()).then(data => {
+        const msg = data.message;
+        callback(msg);
+    }).catch(error => {
+        logging.setErrorMessage('saving indices');
     });
   }
 

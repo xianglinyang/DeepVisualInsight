@@ -441,7 +441,14 @@ export class ScatterPlot {
   }
   private selectBoundingBox(boundingBox: ScatterBoundingBox) {
     let pointIndices = this.getPointIndicesFromPickingTexture(boundingBox);
-    this.projectorEventContext.notifySelectionChanged(pointIndices);
+    // remove backgound
+    let validIndices = [];
+    for(let i=0;i<pointIndices.length;i++){
+      if(pointIndices[i]<this.realDataNumber){
+        validIndices.push(pointIndices[i]);
+      }
+    }
+    this.projectorEventContext.notifySelectionChanged(validIndices, true);
   }
   private setNearestPointToMouse(e: MouseEvent) {
     if (this.pickingTexture == null) {

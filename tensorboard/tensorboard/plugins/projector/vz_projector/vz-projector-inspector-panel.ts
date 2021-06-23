@@ -26,6 +26,7 @@ import {ProjectorEventContext} from './projectorEventContext';
 import * as knn from './knn';
 import * as vector from './vector';
 import * as util from './util';
+import * as logging from './logging';
 
 const LIMIT_RESULTS = 100;
 const DEFAULT_NEIGHBORS = 100;
@@ -76,6 +77,12 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
   private setFilterButton: HTMLButtonElement;
   private clearSelectionButton: HTMLButtonElement;
   private searchButton: HTMLButtonElement;
+  private addButton: HTMLButtonElement;
+  private resetButton: HTMLButtonElement;
+  private sentButton: HTMLButtonElement;
+  private showButton: HTMLButtonElement;
+  private selectinMessage: HTMLElement;
+
   private limitMessage: HTMLDivElement;
   private _currentNeighbors: any;
   // save current predicates
@@ -85,6 +92,8 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
   private searchInRegexMode: boolean;
   private filterIndices:number[];
   private searchFields:string[];
+  private boundingBoxSelection:number[];
+  private currentBoundingBoxSelection:number[];
 
   ready() {
     super.ready();
@@ -94,6 +103,12 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
       '.clear-selection'
     ) as HTMLButtonElement;
     this.searchButton = this.$$('.search') as HTMLButtonElement;
+    this.addButton = this.$$('.add') as HTMLButtonElement;
+    this.resetButton = this.$$('.reset') as HTMLButtonElement;
+    this.sentButton = this.$$('.sent') as HTMLButtonElement;
+    this.showButton = this.$$('.show') as HTMLButtonElement;
+    this.selectinMessage = this.$$('.boundingBoxSelection') as HTMLElement;
+
     this.limitMessage = this.$$('.limit-msg') as HTMLDivElement;
     this.searchBox = this.$$('#search-box') as any; // ProjectorInput
     this.displayContexts = [];
@@ -101,6 +116,9 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
     this.currentPredicate = {};
     this.queryIndices = [];
     this.filterIndices = [];
+    this.boundingBoxSelection= [];
+    this.currentBoundingBoxSelection = [];
+    this.selectinMessage.innerText = "0 seleted.";
   }
   initialize(projector: any, projectorEventContext: ProjectorEventContext) {
     this.projector = projector;
@@ -310,7 +328,7 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
     }
 
     const stringMetaData = metadata !== undefined ? String(metadata) : `Unknown #${pointIndex}`;
-    return "Label: " + stringMetaData + " Prediction: " + prediction + " Original label: " + original_label;
+    return String(pointIndex) + "Label: " + stringMetaData + " Prediction: " + prediction + " Original label: " + original_label;
   }
   private spriteImageRenderer() {
     const spriteImagePath = this.spriteMeta.imagePath;
@@ -509,7 +527,6 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
     };
     this.clearSelectionButton.onclick = () => {
       projector.adjustSelectionAndHover([]);
-      this.currentPredicate = {};
       this.queryIndices = [];
     };
     this.enableResetFilterButton(false);
@@ -548,6 +565,31 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
         }
       );
     }
+    this.addButton.onclick=()=>{
+      for(let i=0;i<this.currentBoundingBoxSelection.length;i++){
+        if(this.boundingBoxSelection.indexOf(this.currentBoundingBoxSelection[i])<0){
+          this.boundingBoxSelection.push(this.currentBoundingBoxSelection[i]);
+        }
+      }
+      this.selectinMessage.innerText =  String(this.boundingBoxSelection.length)+ " seleted.";
+    }
+    this.resetButton.onclick=()=>{
+      this.boundingBoxSelection = [];
+      this.selectinMessage.innerText = "0 seleted.";
+    }
+    this.sentButton.onclick=()=>{
+      this.projector.saveDVISelection(this.boundingBoxSelection,(msg:string)=>{
+        this.selectinMessage.innerText = msg;
+        logging.setWarningMessage(msg);
+      });
+    }
+    this.showButton.onclick=()=>{
+      this.projectorEventContext.notifySelectionChanged(this.boundingBoxSelection, true);
+    }
+  }
+
+  updateBoundingBoxSelection(indices:number[]){
+    this.currentBoundingBoxSelection = indices;
   }
   private updateNumNN() {
     if (this.selectedPointIndices != null) {

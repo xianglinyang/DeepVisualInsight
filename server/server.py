@@ -310,13 +310,30 @@ def filter():
 
 
 
-@app.route('/test', methods=["POST", "GET"])
+@app.route('/saveDVIselections', methods=["POST"])
 @cross_origin()
-def test():
-    time.sleep(5)
+def save_DVI_selections():
     data = request.get_json()
-    print(data)
-    return make_response(jsonify({"test":"succefully!"}), 200)
+    indices = data["newIndices"]
+
+    content_path = os.path.normpath(data['content_path'])
+    iteration = data["iteration"]
+    sys.path.append(content_path)
+    try:
+        from Model.model import ResNet18
+        net = ResNet18()
+    except:
+        from Model.model import resnet18
+        net = resnet18()
+
+    classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
+    mms = MMS(content_path, net, 1, 20, 1, 512, 10, classes, cmap="tab10", neurons=256, verbose=1,
+              temporal=False, split=-1, advance_border_gen=True, attack_device="cpu")
+    mms.save_DVI_seletion(iteration, indices)
+
+    sys.path.remove(content_path)
+
+    return make_response(jsonify({"message":"Save DVI selection succefully!"}), 200)
 
 
 # if this is the main thread of execution first load the model and then start the server

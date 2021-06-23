@@ -246,8 +246,8 @@ export class DataSet {
   is_uncertainty_diversity_tot_exist: {
     [iteration: number]: boolean;
   } = [];
-  filterIndices: number[]
-  selectIndices: number[]
+  DVIfilterIndices: number[];
+  selectIndices: number[];
 
 
   superviseFactor: number;
@@ -268,6 +268,7 @@ export class DataSet {
     this.sequences = this.computeSequences(points);
     this.dim = [this.points.length, this.points[0].vector.length];
     this.spriteAndMetadataInfo = spriteAndMetadataInfo;
+    this.DVIfilterIndices = [];
   }
   private computeSequences(points: DataPoint[]) {
     // Keep a list of indices seen so we don't compute sequences for a given
@@ -449,6 +450,7 @@ export class DataSet {
         dataPoint.projections = {};
       }
     }
+    this.DVIfilterIndices = pointIndices;
   }
 
 
@@ -691,6 +693,10 @@ export class DataSet {
 
         this.DVICurrentRealDataNumber = real_data_number;
         this.DVIRealDataNumber[iteration] = real_data_number;
+        this.DVIfilterIndices = [];
+        for(let i=0;i<real_data_number+background_point_number;i++){
+          this.DVIfilterIndices.push(i);
+        }
         stepCallback(this.tSNEIteration, evaluation, new_selection, this.tSNETotalIter);
     }).catch(error => {
         console.log(error);
@@ -750,6 +756,10 @@ export class DataSet {
       //   }
       // }
       this.DVICurrentRealDataNumber = this.DVIRealDataNumber[iteration];
+      this.DVIfilterIndices = [];
+        for(let i=0;i<this.DVICurrentRealDataNumber+Math.pow(this.DVIResolution,2);i++){
+          this.DVIfilterIndices.push(i);
+        }
       stepCallback(this.tSNEIteration, evaluation, newSelection, this.tSNETotalIter);
     }
   }

@@ -39,7 +39,7 @@ export interface ProjectorEventContext {
    * Notify the selection system that a client has changed the selected point
    * set.
    */
-  notifySelectionChanged(newSelectedPointIndices: number[]);
+  notifySelectionChanged(newSelectedPointIndices: number[], selectMode?:boolean);
   /** Registers a callback to be invoked when the projection changes. */
   registerProjectionChangedListener(listener: ProjectionChangedListener);
   /** Notify listeners that a reprojection occurred. */

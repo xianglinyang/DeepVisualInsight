@@ -1583,6 +1583,11 @@ class MMS:
             train_num = self.training_labels.shape[0]
             test_num = self.testing_labels.shape[0]
             return [-1 for i in range(train_num+test_num)]
+
+    def save_DVI_seletion(self, epoch_id, indices):
+        save_location = os.path.join(self.model_path, "Epoch_{}".format(epoch_id),"DVISelection.json")
+        with open(save_location, "w") as f:
+            json.dump(indices, f)
     ############################# DVI tensorboard frontend #################################
     def filter_label(self, label):
         try:

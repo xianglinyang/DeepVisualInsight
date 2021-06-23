@@ -118,6 +118,7 @@ export class ProjectorScatterPlotAdapter {
         this.updateScatterPlotPositions();
         this.updateScatterPlotAttributes();
         this.scatterPlot.render();
+        console.log(this.selectedPointIndices);
       }
     );
     projectorEventContext.registerHoverListener((hoverPointIndex) => {

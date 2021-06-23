@@ -55,7 +55,14 @@ export const template = html`
         height: 30px;
         font-size: 13px;
     }
+    .boundingbox-button{
+        display: flex;
+        margin-right: 10px;
+        width: 60px;
+        height: 30px;
+        font-size: 13px;
     }
+
 
     .nn,
     .metadata-info {
@@ -262,7 +269,13 @@ export const template = html`
 
     <div>
     </div>
-      
+  </div>
+  <div>
+      <button class="boundingbox-button add">add</button>
+      <button class="boundingbox-button reset">reset</button>
+      <button class="boundingbox-button sent">sent</button>
+      <button class="boundingbox-button show">show</button>
+      <p>Current <span class="boundingBoxSelection">NA</span></p>
   </div>
 
   <div class="results">
