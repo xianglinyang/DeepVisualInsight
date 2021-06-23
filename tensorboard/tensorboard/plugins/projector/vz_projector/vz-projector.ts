@@ -182,7 +182,7 @@ class Projector
         .then(data => {this.DVIServer = data.DVIServerIP+":"+data.DVIServerPort;})
   };
   onIterationChange(num:number){
-    this.iteration = this.iteration + num;
+    this.iteration = num;
   }
 
   setSelectedLabelOption(labelOption: string) {

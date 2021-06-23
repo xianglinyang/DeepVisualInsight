@@ -150,6 +150,11 @@ export const template = html`
       #total-variance {
         color: rgba(0, 0, 0, 0.7);
       }
+      table, th, td {
+        border: 1px solid black;
+        padding: 15px;
+        border-collapse: collapse;
+      }
       
     </style>
     <div id="main">
@@ -290,13 +295,54 @@ export const template = html`
               Next
             </button>
           </div>
+            <div class="row">  -- </div>
+            
+            <div class="row">
+                <div class="iteration-editor">
+                    <paper-input
+                      value="{{iterationEditorInput}}"
+                      label="Iteration"
+                      on-input="iterationEditorInputChange"
+                    ></paper-input>
+                </div>
+                <button class="jump-dvi ink-button" title="Jump DVI">Jump</button>
+            </div>
           <p>Iteration: <span class="run-tsne-iter">0</span></p>
           <div>
-          <p>Projection nn perseverance knn: (train,15): <span class="nn_train_15">NA</span> (test,15): <span class="nn_test_15">NA</span></p>
-          <p>Projection boundary perserverance knn: (train,15): <span class="bound_train_15">NA</span> (test,15): <span class="bound_test_15">NA</span></p>
-          <p>PPR: train: <span class="inv_acc_train">NA</span> test: <span class="inv_acc_test">NA</span></p>
-          <p>CCR: train: <span class="inv_conf_train">NA</span> test: <span class="inv_conf_test">NA</span></p>
-          <p>Accuracy: train: <span class="acc_train">NA</span> test: <span class="acc_test">NA</span></p>
+              <table>
+                  <caption>Visualization Confidence</caption>
+                <tr>
+                  <td></td>
+                  <td>train</td>
+                  <td>test</td>
+                </tr>
+                <tr>
+                  <td>nn</td>
+                  <td><span class="nn_train_15">NA</span> </td>
+                  <td><span class="nn_test_15">NA</span></td>
+                </tr>
+                  <tr>
+                      <td>boundary</td>
+                      <td><span class="bound_train_15">NA</span></td>
+                      <td><span class="bound_test_15">NA</span></td>
+                  </tr>
+                <tr>
+                  <td>PPR</td>
+                  <td><span class="inv_acc_train">NA</span> </td>
+                  <td> <span class="inv_acc_test">NA</span></td>
+                </tr>
+                <tr>
+                  <td>CCR</td>
+                  <td><span class="inv_conf_train">NA</span></td>
+                  <td><span class="inv_conf_test">NA</span></td>
+                </tr>
+              </table>
+<!--          <p>Projection nn perseverance knn: (train,15): <span class="nn_train_15">NA</span> (test,15): <span class="nn_test_15">NA</span></p>-->
+<!--          <p>Projection boundary perserverance knn: (train,15): <span class="bound_train_15">NA</span> (test,15): <span class="bound_test_15">NA</span></p>-->
+<!--          <p>PPR: train: <span class="inv_acc_train">NA</span> test: <span class="inv_acc_test">NA</span></p>-->
+<!--          <p>CCR: train: <span class="inv_conf_train">NA</span> test: <span class="inv_conf_test">NA</span></p>-->
+          <p>Task Model Accuracy:</p>
+          <p>train: <span class="acc_train">NA</span> test: <span class="acc_test">NA</span></p>
           </div>
            <p>Total iteration number: <span class="dvi-total-iter">0</span></p>
           <p id="tsne-sampling" class="notice">

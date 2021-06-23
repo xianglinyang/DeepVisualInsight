@@ -35,6 +35,7 @@ import {
 } from './data';
 import * as vector from './vector';
 import * as util from './util';
+import * as logging from './logging';
 
 const NUM_PCA_COMPONENTS = 10;
 
@@ -89,7 +90,10 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   subjectModelPathEditorInput: string = "/Users/yangxianglin/DVI_data/active_learning/random/resnet18/CIFAR10/";
 
   @property({type: String})
-  resolutionEditorInput: number = 20;
+  resolutionEditorInput: number;
+
+  @property({type:Number})
+  iterationEditorInput:number;
 
   @property({type: Boolean})
   keepSearchPredicate: boolean = true;
@@ -122,6 +126,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   //private perturbTsneButton: HTMLButtonElement;
   private previousDVIButton: HTMLButtonElement;
   private nextDVIButton: HTMLButtonElement;
+  private jumpDVIButton: HTMLButtonElement;
   //private perplexitySlider: HTMLInputElement;
   //private learningRateInput: HTMLInputElement;
   //private superviseFactorInput: HTMLInputElement;
@@ -154,6 +159,8 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   private accTrain: HTMLElement;
   private accTest: HTMLElement;
 
+  private iterationInput:number;
+
   initialize(projector: any) {
     this.polymerChangesTriggerReprojection = true;
     this.projector = projector;
@@ -177,6 +184,8 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     this.previousDVIButton = this.$$('.previous-dvi') as HTMLButtonElement;
     this.previousDVIButton.disabled = true;
     this.nextDVIButton = this.$$('.next-dvi') as HTMLButtonElement;
+    this.jumpDVIButton = this.$$('.jump-dvi') as HTMLButtonElement;
+    this.jumpDVIButton.disabled = true;
     //this.nextDVIButton.disabled = true;
     //this.perplexitySlider = this.$$('#perplexity-slider') as HTMLInputElement;
     /*
@@ -237,6 +246,10 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   }
   private resolutionEditorInputChange(){
     this.dataSet.DVIResolution = this.resolutionEditorInput;
+  }
+  private iterationEditorInputChange(){
+    this.iterationInput = Number(this.iterationEditorInput);
+    console.log(this.iterationInput);
   }
   private updateEvaluationInformation(evaluation: any) {
      this.nnTrain15.innerText = ''+evaluation.nn_train_15;
@@ -307,6 +320,9 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
       }
     });*/
     this.previousDVIButton.addEventListener('click', () => {
+      this.nextDVIButton.disabled = true;
+      this.previousDVIButton.disabled = true;
+      this.jumpDVIButton.disabled = true;
       if(this.dataSet.tSNEIteration <= 2) {
         this.previousDVIButton.disabled = true;
       }
@@ -333,16 +349,21 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
           // this.projector.notifyProjectionPositionsUpdated(new_selection);
           this.projector.notifyProjectionPositionsUpdated();
           this.projector.onProjectionChanged();
-          this.projector.onIterationChange(-1);
+          this.projector.onIterationChange(iteration);
         } else {
           this.projector.onProjectionChanged();
         }
+        if(this.dataSet.tSNEIteration > 1) {
+            this.previousDVIButton.disabled = false;
+          }
+        this.nextDVIButton.disabled = false;
+        this.jumpDVIButton.disabled = false;
       });
-      this.nextDVIButton.disabled = false;
     });
     this.nextDVIButton.addEventListener('click', ()=> {
       this.nextDVIButton.disabled = true;
       this.previousDVIButton.disabled = true;
+      this.jumpDVIButton.disabled = true;
       this.dataSet.projectDVI(this.dataSet.tSNEIteration + 1,this.projector.inspectorPanel.currentPredicate,
           (iteration: number|null, evaluation:any, newSelection:any[], indices:number[], totalIter?: number) => {
         /**
@@ -367,7 +388,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
           // this.projector.notifyProjectionPositionsUpdated(newSelection);
           this.projector.notifyProjectionPositionsUpdated();
           this.projector.onProjectionChanged();
-          this.projector.onIterationChange(1);
+          this.projector.onIterationChange(iteration);
           if(this.dataSet.tSNEIteration > 1) {
             this.previousDVIButton.disabled = false;
           }
@@ -378,6 +399,58 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
           this.nextDVIButton.disabled = false;
           this.projector.onProjectionChanged();
         }
+        this.jumpDVIButton.disabled = false;
+      });
+    });
+    this.jumpDVIButton.addEventListener('click', ()=> {
+      this.nextDVIButton.disabled = true;
+      this.previousDVIButton.disabled = true;
+      this.jumpDVIButton.disabled = true;
+      if(this.iterationInput > this.dataSet.tSNETotalIter||this.iterationInput<1){
+        logging.setErrorMessage("Invaild Input!", null);
+        return;
+      }else if(this.iterationInput == this.dataSet.tSNEIteration){
+        logging.setWarningMessage("current iteration!");
+        return;
+      }
+      this.nextDVIButton.disabled = true;
+      this.previousDVIButton.disabled = true;
+      this.dataSet.projectDVI(this.iterationInput,this.projector.inspectorPanel.currentPredicate,
+          (iteration: number|null, evaluation:any, newSelection:any[], indices:number[], totalIter?: number) => {
+        /**
+         * get filter index
+         */
+        //get search predicates or indices
+        var filterIndices:number[];
+        filterIndices = []
+        if(this.temporalStatus){
+          //search predicate
+          this.projector.inspectorPanel.filterIndices = indices;
+        }
+        //indices
+        filterIndices = this.projector.inspectorPanel.filterIndices;
+        console.log(filterIndices.length);
+        this.projector.dataSet.setDVIFilteredData(filterIndices);
+
+        if (iteration != null) {
+          this.iterationLabelTsne.innerText = '' + iteration;
+          this.totalIterationLabelDVI.innerText = '' + totalIter;
+          this.updateEvaluationInformation(evaluation);
+          // this.projector.notifyProjectionPositionsUpdated(newSelection);
+          this.projector.notifyProjectionPositionsUpdated();
+          this.projector.onProjectionChanged();
+          this.projector.onIterationChange(iteration);
+          if(this.dataSet.tSNEIteration > 1) {
+            this.previousDVIButton.disabled = false;
+          }
+          if(this.dataSet.tSNETotalIter != this.dataSet.tSNEIteration) {
+            this.nextDVIButton.disabled = false;
+          }
+        } else {
+          this.nextDVIButton.disabled = false;
+          this.projector.onProjectionChanged();
+        }
+        this.jumpDVIButton.disabled = false;
       });
     });
 

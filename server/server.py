@@ -177,7 +177,8 @@ def update_projection():
 
     res = request.get_json()
     content_path = os.path.normpath(res['path'])
-    iteration = res['iteration']
+    iteration = int(res['iteration'])
+    print(iteration)
     resolution = int(res['resolution'])
     predicates = res["predicates"]
     sys.path.append(content_path)
@@ -295,7 +296,7 @@ def filter():
     res = request.get_json()
     predicates = res["predicates"]
     content_path = os.path.normpath(res['content_path'])
-    iteration = res["iteration"]
+    iteration = int(res["iteration"])
     sys.path.append(content_path)
     try:
         from Model.model import ResNet18

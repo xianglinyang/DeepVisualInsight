@@ -45,6 +45,7 @@ export const template = html`
     .dirs table tr td {
       padding-bottom: 10px;
     }
+    
 
     paper-item {
       --paper-item-disabled: {
