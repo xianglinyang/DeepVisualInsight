@@ -210,7 +210,6 @@ class MMS:
             "Average time for generate border points: {:.4f}".format(sum(time_borders_gen) / len(time_borders_gen)))
 
         self.model = self.model.to(self.device)
-        self.save_evaluation()
 
     def save_evaluation(self):
         # evaluation information
