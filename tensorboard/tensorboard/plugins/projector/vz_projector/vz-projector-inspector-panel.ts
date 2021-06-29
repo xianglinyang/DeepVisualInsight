@@ -127,6 +127,7 @@ class InspectorPanel extends LegacyElementMixin(PolymerElement) {
     projectorEventContext.registerSelectionChangedListener(
       (selection, neighbors) => this.updateInspectorPane(selection, neighbors)
     );
+    // TODO change them based on metadata fields
     this.searchFields = ["type", "label", "new_selection"]
     // TODO read real points length from dataSet
     for(let i=0;i<60000;i++){

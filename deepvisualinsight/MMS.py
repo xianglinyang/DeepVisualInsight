@@ -1613,13 +1613,14 @@ class MMS:
             all_data = np.arange(train_num)
             unlabeled = np.setdiff1d(all_data, labeled)
             res = unlabeled.tolist()
+        elif type == "noisy":
+            res = self.noisy_data_index()
         else:
             # all data
             train_num = self.training_labels.cpu().numpy().shape[0]
             test_num = self.testing_labels.cpu().numpy().shape[0]
             res = list(range(0, train_num + test_num, 1))
         return res
-
 
     def filter_prediction(self, pred):
         pass
