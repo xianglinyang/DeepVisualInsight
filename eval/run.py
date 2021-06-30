@@ -70,3 +70,4 @@ if __name__ == "__main__":
 
     mms.data_preprocessing()
     mms.prepare_visualization_for_all()
+    mms.save_evaluation()

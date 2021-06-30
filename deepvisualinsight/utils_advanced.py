@@ -292,6 +292,8 @@ def get_border_points_mixup(model, split, input_x, gaps, confs, kmeans_result, p
     ct = 0
     adv_examples = torch.tensor([])
     attack_steps_ct = []
+    classes = []
+
 
     t0 = time.time()
     while ct < num_adv_eg:
@@ -338,6 +340,7 @@ def get_border_points_mixup(model, split, input_x, gaps, confs, kmeans_result, p
             adv_examples = torch.cat((adv_examples, attack), dim=0)
             ct += 1
             attack_steps_ct.append(attack_step)
+            classes.append(cls1)
 
         if verbose:
             if ct % 1000 == 0:
@@ -347,7 +350,7 @@ def get_border_points_mixup(model, split, input_x, gaps, confs, kmeans_result, p
     if verbose:
         print('Total time {:2f}'.format(t1 - t0))
 
-    return adv_examples, attack_steps_ct
+    return adv_examples, attack_steps_ct, classes
 
 
 def batch_run(model, split, data, device, batch_size=200):

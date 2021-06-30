@@ -150,7 +150,7 @@ class MMS:
                 kmeans_result, predictions = utils_advanced.clustering(gaps.numpy(), preds.numpy(),
                                                                        n_clusters_per_cls=10)
                 # Adversarial attacks
-                border_points, _ = utils_advanced.get_border_points_mixup(model=self.model,
+                border_points, _, border_cls = utils_advanced.get_border_points_mixup(model=self.model,
                                                                     split=self.split,
                                                                     input_x=training_data, gaps=gaps,
                                                                     confs=confs,
@@ -170,6 +170,9 @@ class MMS:
 
                 location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "ori_advance_border_centers.npy")
                 np.save(location, border_points.cpu().numpy())
+
+                location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "advance_border_labels.npy")
+                np.save(location, np.array(border_cls))
             else:
                 # border points gen
                 t0 = time.time()
@@ -1615,6 +1618,7 @@ class MMS:
             res = unlabeled.tolist()
         elif type == "noisy":
             res = self.noisy_data_index()
+            print(res)
         else:
             # all data
             train_num = self.training_labels.cpu().numpy().shape[0]

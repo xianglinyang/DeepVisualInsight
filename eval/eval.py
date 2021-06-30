@@ -1,3 +1,4 @@
+import os.path
 import sys
 import argparse
 import time
@@ -20,7 +21,7 @@ def get_arguments():
     parser.add_argument("--cuda", type=bool, default=False)
     parser.add_argument("--num_classes", type=int, default=10)
     parser.add_argument("--split", type=int, default=-1)
-    parser.add_argument("--output", type=str)
+    parser.add_argument("--output_dir", type=str)
 
     return parser.parse_args()
 
@@ -38,7 +39,7 @@ if __name__ == "__main__":
     dataset = args.dataset
     cuda = args.cuda
     split = args.split
-    output = args.output
+    output_dir = args.output
     if cuda:
         attack_device = "cuda:0"
     else:
@@ -70,7 +71,7 @@ if __name__ == "__main__":
 
     '''evaluate all properties'''
     res_dict = dict()
-    k_neighbors = [10, 15, 30]
+    k_neighbors = [15, 20, 30]
     for i in range(epoch_start, epoch_end+1, epoch_period):
         res_dict["time"] = dict()
 
@@ -122,6 +123,7 @@ if __name__ == "__main__":
     res_dict["proj_t"]["train"] = mms.proj_temporal_perseverance_train(k_neighbors[1])
     res_dict["proj_t"]["test"] = mms.proj_temporal_perseverance_test(k_neighbors[1])
 
-    f = open(output+".json", "w")
+    output_name = dataset+"_"+str(i)+".json"
+    f = open(os.path.join(output_dir, output_name), "w")
     json.dump(res_dict, f)
 
