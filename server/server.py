@@ -191,7 +191,7 @@ def update_projection():
         net = resnet18()
 
     classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
-    mms = MMS(content_path, net, 1, 20, 1, 512, 10, classes, cmap="tab10", resolution=resolution, neurons=256, verbose=1,
+    mms = MMS(content_path, net, 1, 200, 1, 512, 10, classes, cmap="tab10", resolution=resolution, neurons=256, verbose=1,
               temporal=False, split=-1, advance_border_gen=True, attack_device="cpu")
 
     train_data = mms.get_data_pool_repr(iteration)
@@ -239,7 +239,8 @@ def update_projection():
     for file in path_files:
         if "Epoch" in file:
             max_iter += 1
-    max_iter -= 1
+        if "Epoch_0" in file:
+            max_iter -= 1
 
     _, conf_diff = mms.batch_inv_preserve(iteration, all_data)
     current_index = mms.get_epoch_index(iteration)
@@ -306,7 +307,7 @@ def filter():
         net = resnet18()
 
     classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
-    mms = MMS(content_path, net, 1, 20, 1, 512, 10, classes, cmap="tab10", neurons=256,verbose=1,
+    mms = MMS(content_path, net, 1, 200, 1, 512, 10, classes, cmap="tab10", neurons=256,verbose=1,
               temporal=False, split=-1, advance_border_gen=True, attack_device="cpu")
 
     selected_points = np.arange(mms.get_dataset_length())
