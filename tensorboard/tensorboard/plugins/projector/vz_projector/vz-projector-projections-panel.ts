@@ -403,14 +403,14 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
       });
     });
     this.jumpDVIButton.addEventListener('click', ()=> {
-      this.nextDVIButton.disabled = true;
-      this.previousDVIButton.disabled = true;
       this.jumpDVIButton.disabled = true;
       if(this.iterationInput > this.dataSet.tSNETotalIter||this.iterationInput<1){
         logging.setErrorMessage("Invaild Input!", null);
+        this.jumpDVIButton.disabled = false;
         return;
       }else if(this.iterationInput == this.dataSet.tSNEIteration){
         logging.setWarningMessage("current iteration!");
+        this.jumpDVIButton.disabled = false;
         return;
       }
       this.nextDVIButton.disabled = true;
