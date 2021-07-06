@@ -992,6 +992,7 @@ class MMS:
     def customize_visualize(self, epoch_id, train_data, train_labels, test_data, test_labels, path, highlight_index):
         '''
         Shows the current plot.
+        training data in small dot, test data in larger triangle, highlight in red
         '''
         # if not hasattr(self, 'fig'):
         #     self._s()
@@ -1035,8 +1036,8 @@ class MMS:
         for c in range(self.class_num):
             data = test_embedding[test_labels == c]
             self.sample_plots[self.class_num + c].set_data(data.transpose())
-        data = embedding[highlight_index]
-        self.sample_plots[2*self.class_num].set_data(data.transpose())
+        # data = embedding[highlight_index]
+        # self.sample_plots[2*self.class_num].set_data(data.transpose())
 
         if os.name == 'posix':
             self.fig.canvas.manager.window.raise_()
