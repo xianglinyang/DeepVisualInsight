@@ -86,7 +86,7 @@ def make_balance_per_sample(edges_to_exp, edges_from_exp, cp_num, centers_num, b
 
 
 def construct_edge_dataset(
-    X_input, graph_, n_epochs, batch_size, parametric_embedding, parametric_reconstruction,
+    X, graph_, n_epochs, batch_size, parametric_embedding, parametric_reconstruction,
 ):
     """
     Construct a tf.data.Dataset of edges, sampled by edge weight.
@@ -111,9 +111,8 @@ def construct_edge_dataset(
     """
 
     def gather_X(edge_to, edge_from, weight):
-        fitting_data = np.concatenate((X, dbp), axis=0)
-        edge_to_batch = tf.gather(fitting_data, edge_to)
-        edge_from_batch = tf.gather(fitting_data, edge_from)
+        edge_to_batch = tf.gather(X, edge_to)
+        edge_from_batch = tf.gather(X, edge_from)
 
         outputs = {"umap": 0}
         if parametric_reconstruction:
@@ -123,9 +122,6 @@ def construct_edge_dataset(
 
         return (edge_to_batch, edge_from_batch, weight), outputs
 
-    X, dbp = X_input
-    tp_num = len(X)
-    dbp_num = len(dbp)
 
     # get data from graph
     graph, epochs_per_sample, head, tail, weight, n_vertices = get_graph_elements(

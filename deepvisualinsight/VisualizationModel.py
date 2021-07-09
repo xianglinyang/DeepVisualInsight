@@ -42,13 +42,15 @@ class ParametricModel(keras.Model):
             embedding_to = self.encoder(to_x)  # embedding for instance 1
             embedding_from = self.encoder(from_x)  # embedding for instance 1
             embedding_to_recon = self.decoder(embedding_to)  # reconstruct instance 1
+            embedding_from_recon = self.decoder(embedding_from)  # reconstruct instance 1
 
             # concatenate embedding1 and embedding2 to prepare for umap loss
             embedding_to_from = tf.concat((embedding_to, embedding_from, tf.cast(weight, dtype=tf.float32, name=None)),
                                           axis=1)
 
             # reconstruction loss
-            reconstruct_loss = self.loss["reconstruction"](y_true=to_x, y_pred=embedding_to_recon)
+            reconstruct_loss = self.loss["reconstruction"](y_true=to_x, y_pred=embedding_to_recon) + \
+                               self.loss["reconstruction"](y_true=from_x, y_pred=embedding_from_recon)
 
             # umap loss
             umap_loss = self.loss["umap"](None, embed_to_from=embedding_to_from)  # w_(t-1), no gradient
