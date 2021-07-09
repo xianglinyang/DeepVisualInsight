@@ -180,7 +180,10 @@ def mixup_bi(model, image1, image2, label, target_cls, device, diff=0.1, max_ite
 
         # reach the decision boundary, and
         # abs(upper-lower) < 0.1 or step>1
-        if torch.abs(normalized[0, label] - normalized[0, target_cls]).item() < diff and (upper-lower) < 0.1:
+        sorted, _ = torch.sort(normalized[0])
+        curr_diff = sorted[-1] - sorted[-2]
+        if curr_diff < diff and (upper-lower) < 0.1:
+        # if torch.abs(normalized[0, label] - normalized[0, target_cls]).item() < diff and (upper-lower) < 0.1:
             successful = True
             break
 
