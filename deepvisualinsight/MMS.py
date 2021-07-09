@@ -17,7 +17,7 @@ class MMS:
     def __init__(self, content_path, model_structure, epoch_start, epoch_end, period, repr_num, class_num, classes,
                  low_dims=2,
                  cmap="tab10", resolution=100, neurons=None, temporal=False, transfer_learning=True, batch_size=1000,
-                 verbose=1, split=-1, advance_border_gen=False, alpha=0.8, attack_device="cpu"):
+                 verbose=1, split=-1, advance_border_gen=False, alpha=0.8, withoutB=False, attack_device="cpu"):
 
         '''
         This class contains the model management system (super DB) and provides
@@ -63,6 +63,8 @@ class MMS:
         advance_border_gen : boolean, by default False
             whether to use advance adversarial attack method for border points generation
         alpha: new_image = alpha*m1+(1-alpha)*m2
+        withoutB: boolean, by default False
+            whether to add boundary preserving property
         attack_device: str, by default "cpu"
             the device the perform adversatial attack
         '''
@@ -89,6 +91,7 @@ class MMS:
         self.split = split
         self.advance_border_gen = advance_border_gen
         self.alpha = alpha
+        self.withoutB = withoutB
         self.device = torch.device(attack_device)
         if len(tf.config.list_physical_devices('GPU')) > 0:
             self.tf_device = tf.config.list_physical_devices('GPU')[0]
@@ -310,53 +313,71 @@ class MMS:
 
             complex, sigmas, rhos = fuzzy_complex(train_data, 15)
             bw_complex, _, _ = boundary_wise_complex(train_data, border_centers, 15)
-            if not self.temporal:
+            if self.withoutB:
+                # from umap.parametric_umap import construct_edge_dataset
                 (
                     edge_dataset,
                     _batch_size,
                     n_edges,
+                    _head,
+                    _tail,
                     _edge_weight,
-                ) = construct_mixed_edge_dataset(
-                    (train_data, border_centers),
+                ) = construct_edge_dataset(
+                    train_data,
                     complex,
-                    bw_complex,
                     20,
                     batch_size,
                     parametric_embedding=True,
-                    parametric_reconstruction=True,
+                    parametric_reconstruction=False,
                 )
             else:
+                if not self.temporal:
+                    (
+                        edge_dataset,
+                        _batch_size,
+                        n_edges,
+                        _edge_weight,
+                    ) = construct_mixed_edge_dataset(
+                        (train_data, border_centers),
+                        complex,
+                        bw_complex,
+                        20,
+                        batch_size,
+                        parametric_embedding=True,
+                        parametric_reconstruction=True,
+                    )
+                else:
 
-                prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch-self.period), "train_data.npy")
-                if os.path.exists(prev_data_loc) and self.epoch_start != n_epoch:
-                    prev_data = np.load(prev_data_loc)
-                    prev_index = self.get_epoch_index(n_epoch-self.period)
-                    prev_data = prev_data[prev_index]
-                else:
-                    prev_data = None
-                if prev_data is None:
-                    prev_embedding = np.zeros((len(train_data), self.low_dims))
-                else:
-                    encoder = self.get_proj_model(n_epoch-self.period)
-                    prev_embedding = encoder(prev_data).cpu().numpy()
-                alpha = find_alpha(prev_data, train_data, n_neighbors=15)
-                alpha[alpha < 0.3] = 0.0 # alpha >=0.5 is convincing
-                (
-                    edge_dataset,
-                    batch_size,
-                    n_edges,
-                    edge_weight,
-                ) = construct_temporal_mixed_edge_dataset(
-                    (train_data, border_centers),
-                    complex,
-                    bw_complex,
-                    20,
-                    batch_size,
-                    parametric_embedding=True,
-                    parametric_reconstruction=True,
-                    alpha=alpha,
-                    prev_embedding=prev_embedding
-                )
+                    prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch-self.period), "train_data.npy")
+                    if os.path.exists(prev_data_loc) and self.epoch_start != n_epoch:
+                        prev_data = np.load(prev_data_loc)
+                        prev_index = self.get_epoch_index(n_epoch-self.period)
+                        prev_data = prev_data[prev_index]
+                    else:
+                        prev_data = None
+                    if prev_data is None:
+                        prev_embedding = np.zeros((len(train_data), self.low_dims))
+                    else:
+                        encoder = self.get_proj_model(n_epoch-self.period)
+                        prev_embedding = encoder(prev_data).cpu().numpy()
+                    alpha = find_alpha(prev_data, train_data, n_neighbors=15)
+                    alpha[alpha < 0.3] = 0.0 # alpha >=0.5 is convincing
+                    (
+                        edge_dataset,
+                        batch_size,
+                        n_edges,
+                        edge_weight,
+                    ) = construct_temporal_mixed_edge_dataset(
+                        (train_data, border_centers),
+                        complex,
+                        bw_complex,
+                        20,
+                        batch_size,
+                        parametric_embedding=True,
+                        parametric_reconstruction=True,
+                        alpha=alpha,
+                        prev_embedding=prev_embedding
+                    )
 
             steps_per_epoch = int(
                 n_edges / batch_size / 10
@@ -372,8 +393,10 @@ class MMS:
             # save for later use
             parametric_model.prev_trainable_variables = weights_dict["prev"]
             flag = ""
-            if self.advance_border_gen:
-                flag = "_advance"
+            if self.withoutB:
+                flag += "_withoutB"
+            elif self.advance_border_gen:
+                flag += "_advance"
 
             if self.temporal:
                 encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder_temporal"+flag))
@@ -400,8 +423,11 @@ class MMS:
         :return: encoder of epoch epoch_id
         '''
         flag = ""
-        if self.advance_border_gen:
+        if self.withoutB:
+            flag += "_withoutB"
+        elif self.advance_border_gen:
             flag = "_advance"
+
         if self.temporal:
             encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "encoder_temporal"+flag)
         elif self.transfer_learning:
@@ -424,8 +450,11 @@ class MMS:
         :return: decoder model of epoch_id
         '''
         flag = ""
-        if self.advance_border_gen:
-            flag = "_advance"
+        if self.withoutB:
+            flag += "_withoutB"
+        elif self.advance_border_gen:
+            flag += "_advance"
+
         if self.temporal:
             decoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "decoder_temporal"+flag)
         elif self.transfer_learning:
@@ -1015,7 +1044,7 @@ class MMS:
 
         proj_encoder = self.get_proj_model(epoch_id)
         embedding = proj_encoder(train_data).cpu().numpy()
-        test_embedding = proj_encoder(test_data).cpu().numpy()
+        # test_embedding = proj_encoder(test_data).cpu().numpy()
         # for c in range(self.class_num):
         #     data = embedding[np.logical_and(train_labels == c, train_labels == pred)]
         #     self.sample_plots[c].set_data(data.transpose())
@@ -1030,14 +1059,14 @@ class MMS:
         #
         # data = embedding[highlight_index]
         # self.sample_plots[3 * self.class_num].set_data(data.transpose())
-        for c in range(self.class_num):
-            data = embedding[train_labels == c]
-            self.sample_plots[c].set_data(data.transpose())
-        for c in range(self.class_num):
-            data = test_embedding[test_labels == c]
-            self.sample_plots[self.class_num + c].set_data(data.transpose())
-        # data = embedding[highlight_index]
-        # self.sample_plots[2*self.class_num].set_data(data.transpose())
+        # for c in range(self.class_num):
+        #     data = embedding[train_labels == c]
+        #     self.sample_plots[c].set_data(data.transpose())
+        # for c in range(self.class_num):
+        #     data = test_embedding[test_labels == c]
+        #     self.sample_plots[self.class_num + c].set_data(data.transpose())
+        data = embedding[highlight_index]
+        self.sample_plots[2*self.class_num].set_data(data.transpose())
 
         if os.name == 'posix':
             self.fig.canvas.manager.window.raise_()
