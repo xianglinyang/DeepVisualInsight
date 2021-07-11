@@ -148,20 +148,33 @@ class MMS:
 
             if self.advance_border_gen:
                 t0 = time.time()
-                gaps, preds, confs = utils_advanced.batch_run(self.model, self.split, training_data, self.device, batch_size=200)
+                # gaps, preds, confs = utils_advanced.batch_run(self.model, self.split, training_data, self.device, batch_size=200)
                 # Kmeans clustering
-                kmeans_result, predictions = utils_advanced.clustering(gaps.numpy(), preds.numpy(),
-                                                                       n_clusters_per_cls=10)
+                # kmeans_result, predictions = utils_advanced.clustering(gaps.numpy(), preds.numpy(),
+                #                                                        n_clusters_per_cls=10)
                 # Adversarial attacks
-                border_points, _, border_cls = utils_advanced.get_border_points_mixup(model=self.model,
-                                                                    split=self.split,
-                                                                    input_x=training_data, gaps=gaps,
-                                                                    confs=confs,
-                                                                    kmeans_result=kmeans_result,
-                                                                    predictions=predictions, device=self.device,
-                                                                    alpha=self.alpha,
-                                                                    num_adv_eg=n_clusters, num_cls=10,
-                                                                    n_clusters_per_cls=10, verbose=0)
+                # border_points, _, border_cls = utils_advanced.get_border_points_mixup(model=self.model,
+                #                                                     split=self.split,
+                #                                                     input_x=training_data, gaps=gaps,
+                #                                                     confs=confs,
+                #                                                     kmeans_result=kmeans_result,
+                #                                                     predictions=predictions, device=self.device,
+                #                                                     alpha=self.alpha,
+                #                                                     num_adv_eg=n_clusters, num_cls=10,
+                #                                                     n_clusters_per_cls=10, verbose=0)
+                training_data = training_data.to(self.device)
+                confs = batch_run(self.model, training_data, 10)
+                preds = np.argmax(confs, axis=1).squeeze()
+                border_points, curr_samples, tot_num = utils_advanced.get_border_points_exp2(model=self.model,
+                                                                                             input_x=training_data,
+                                                                                             confs=confs,
+                                                                                             predictions=preds,
+                                                                                             device=self.device,
+                                                                                             alpha=self.alpha,
+                                                                                             num_adv_eg=5000,
+                                                                                             num_cls=10,
+                                                                                             lambd=0.05,
+                                                                                             verbose=0)
                 t1 = time.time()
                 time_borders_gen.append(round(t1 - t0, 4))
 
@@ -174,6 +187,8 @@ class MMS:
                 location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "ori_advance_border_centers.npy")
                 np.save(location, border_points.cpu().numpy())
 
+                confs = batch_run(self.model, border_points, 10)
+                border_cls = np.argmax(confs, axis=1).squeeze()
                 location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "advance_border_labels.npy")
                 np.save(location, np.array(border_cls))
             else:
@@ -774,8 +789,11 @@ class MMS:
         sort_preds = np.sort(mesh_preds)
         diff = (sort_preds[:, -1] - sort_preds[:, -2]) / (sort_preds[:, -1] - sort_preds[:, 0])
         border = np.zeros(len(diff), dtype=np.uint8) + 0.05
-        border[diff < 0.1] = 1
-        diff[border == 0] = 0
+        border[diff < 0.15] = 1
+        diff[border == 1] = 0
+
+        diff = diff/diff.max()
+        diff = diff*0.9
 
         mesh_classes = mesh_preds.argmax(axis=1)
         mesh_max_class = max(mesh_classes)
@@ -785,7 +803,7 @@ class MMS:
 
         color = color[:, 0:3]
         # color = diff * 0.5 * color + (1 - diff) * np.ones(color.shape, dtype=np.uint8)
-        color = diff * 0.6 * color + (1 - diff) * np.ones(color.shape, dtype=np.uint8)
+        color = diff * 0.5 * color + (1 - diff) * np.ones(color.shape, dtype=np.uint8)
         decision_view = color.reshape(resolution, resolution, 3)
         grid_view = grid.reshape(resolution, resolution, 2)
         return grid_view, decision_view
@@ -1009,8 +1027,8 @@ class MMS:
 
         # highlight
         color = (0.0, 0.0, 0.0, 1.0)
-        plot = self.ax.plot([], [], 'o', markeredgecolor=color,
-                            fillstyle='full', ms=2.0, mew=2.0, zorder=3)
+        plot = self.ax.plot([], [], '.', markeredgecolor=color,
+                            fillstyle='full', ms=0.5, mew=0.5, zorder=3)
         self.sample_plots.append(plot[0])
 
         # set the mouse-event listeners
