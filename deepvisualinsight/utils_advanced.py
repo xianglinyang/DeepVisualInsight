@@ -356,6 +356,231 @@ def get_border_points_mixup(model, split, input_x, gaps, confs, kmeans_result, p
     return adv_examples, attack_steps_ct, classes
 
 
+def get_border_points_exp(model, input_x, confs, predictions, device, num_adv_eg=5000, num_cls=10, alpha=0.8, verbose=1):
+    '''Get BPs, 500 points per class
+    :param model: subject model
+    :param input_x: images, torch.Tensor of shape (N, C, H, W)
+    :param predictions: class prediction, numpy.ndarray of shape (N,)
+    :param num_adv_eg: number of adversarial examples to be generated, int
+    :param num_cls: number of classes, int eg 10 for CIFAR10
+    :return adv_examples: adversarial images, torch.Tensor of shape (N, C, H, W)
+    :return attack_steps_ct: attacking steps
+    '''
+
+    adv_examples = torch.tensor([]).to(device)
+    num_adv_per_class = num_adv_eg / num_cls
+
+    curr_samples = np.zeros(int(num_cls*(num_cls-1)/2))
+    tot_num = np.zeros(int(num_cls*(num_cls-1)/2))
+
+    index_dict = dict()
+    idx = 0
+    for i in range(num_cls):
+        for j in range(i+1, num_cls):
+            index_dict[(i, j)] = idx
+            idx += 1
+
+    t0 = time.time()
+    for cls in tqdm(range(num_cls)):
+        num_adv = 0
+        data1_index = np.argwhere(predictions == cls).squeeze()
+        conf1 = confs[data1_index]
+        # randomly select a targeted class
+        while num_adv < num_adv_per_class:
+            cls_target = np.random.choice(range(num_cls), 1)[0]
+            while cls_target == cls:
+                cls_target = np.random.choice(range(num_cls), 1)[0]
+
+            data2_index = np.argwhere(predictions == cls_target).squeeze()
+
+            # probability to be sampled is inversely proportinal to the distance to "targeted" decision boundary
+            # smaller class1-class2 is preferred
+            pvec1 = (1 / (conf1[:, cls] - conf1[:, cls_target] + 1e-4)) / np.sum(
+                (1 / (conf1[:, cls] - conf1[:, cls_target] + 1e-4)))
+            conf2 = confs[data2_index]
+            pvec2 = (1 / (conf2[:, cls_target] - conf2[:, cls] + 1e-4)) / np.sum(
+                (1 / (conf2[:, cls_target] - conf2[:, cls] + 1e-4)))
+
+            image1_idx = np.random.choice(range(len(data1_index)), size=1, p=pvec1)
+            image2_idx = np.random.choice(range(len(data2_index)), size=1, p=pvec2)
+
+            image1 = input_x[data1_index[image1_idx]]
+            image2 = input_x[data2_index[image2_idx]]
+
+            attack, successful, attack_step = mixup_bi(model, image1, image2, cls, cls_target, device, alpha=alpha)
+
+            i = min(cls, cls_target)
+            j = max(cls, cls_target)
+            tot_num[index_dict[(i,j)]] += 1
+            if successful:
+                adv_examples = torch.cat((adv_examples, attack), dim=0)
+                num_adv += 1
+                curr_samples[index_dict[(i, j)]] += 1
+
+    t1 = time.time()
+    if verbose:
+        print('Total time {:2f}'.format(t1 - t0))
+
+    return adv_examples, curr_samples, tot_num
+
+
+# pure random
+def get_border_points_exp1(model, input_x, confs, predictions, device, num_adv_eg=5000, num_cls=10, alpha=0.8, verbose=1):
+    '''Get BPs, 500 points per class
+    :param model: subject model
+    :param input_x: images, torch.Tensor of shape (N, C, H, W)
+    :param predictions: class prediction, numpy.ndarray of shape (N,)
+    :param num_adv_eg: number of adversarial examples to be generated, int
+    :param num_cls: number of classes, int eg 10 for CIFAR10
+    :return adv_examples: adversarial images, torch.Tensor of shape (N, C, H, W)
+    :return attack_steps_ct: attacking steps
+    '''
+
+    adv_examples = torch.tensor([]).to(device)
+    num_adv = 0
+
+    curr_samples = np.zeros(int(num_cls*(num_cls-1)/2))
+    tot_num = np.zeros(int(num_cls*(num_cls-1)/2))
+
+    index_dict = dict()
+    idx = 0
+    for i in range(num_cls):
+        for j in range(i+1, num_cls):
+            index_dict[(i, j)] = idx
+            idx += 1
+
+    t0 = time.time()
+    # for cls in tqdm(range(num_cls)):
+    while num_adv < num_adv_eg:
+        cls1 = np.random.choice(num_cls, size=1)[0]
+        cls2 = np.random.choice(num_cls, size=1)[0]
+        while cls2 == cls1:
+            cls2 = np.random.choice(num_cls, size=1)[0]
+
+        data1_index = np.argwhere(predictions == cls1).squeeze()
+        conf1 = confs[data1_index]
+        data2_index = np.argwhere(predictions == cls2).squeeze()
+        conf2 = confs[data2_index]
+        # randomly select a targeted class
+
+        # probability to be sampled is inversely proportinal to the distance to "targeted" decision boundary
+        # smaller class1-class2 is preferred
+        pvec1 = (1 / (conf1[:, cls1] - conf1[:, cls2] + 1e-4)) / np.sum(
+            (1 / (conf1[:, cls1] - conf1[:, cls2] + 1e-4)))
+        conf2 = confs[data2_index]
+        pvec2 = (1 / (conf2[:, cls2] - conf2[:, cls1] + 1e-4)) / np.sum(
+            (1 / (conf2[:, cls2] - conf2[:, cls1] + 1e-4)))
+
+        image1_idx = np.random.choice(range(len(data1_index)), size=1, p=pvec1)
+        image2_idx = np.random.choice(range(len(data2_index)), size=1, p=pvec2)
+
+        image1 = input_x[data1_index[image1_idx]]
+        image2 = input_x[data2_index[image2_idx]]
+
+        attack, successful, attack_step = mixup_bi(model, image1, image2, cls1, cls2, device, alpha=alpha)
+
+        i = min(cls1, cls2)
+        j = max(cls1, cls2)
+        tot_num[index_dict[(i,j)]] += 1
+        if successful:
+            adv_examples = torch.cat((adv_examples, attack), dim=0)
+            num_adv += 1
+            curr_samples[index_dict[(i, j)]] += 1
+
+    t1 = time.time()
+    if verbose:
+        print('Total time {:2f}'.format(t1 - t0))
+
+    return adv_examples, curr_samples, tot_num
+
+
+def get_border_points_exp2(model, input_x, confs, predictions, device, num_adv_eg=5000, num_cls=10, alpha=0.8,
+                           lambd=0.2, verbose=1):
+    '''Get BPs, 500 points per class
+    :param model: subject model
+    :param input_x: images, torch.Tensor of shape (N, C, H, W)
+    :param predictions: class prediction, numpy.ndarray of shape (N,)
+    :param num_adv_eg: number of adversarial examples to be generated, int
+    :param num_cls: number of classes, int eg 10 for CIFAR10
+    :return adv_examples: adversarial images, torch.Tensor of shape (N, C, H, W)
+    :return attack_steps_ct: attacking steps
+    '''
+
+    adv_examples = torch.tensor([]).to(device)
+    num_adv = 0
+    a = lambd
+
+    succ_rate = np.ones(int(num_cls*(num_cls-1)/2))
+    tot_num = np.zeros(int(num_cls*(num_cls-1)/2))
+    curr_samples = np.zeros(int(num_cls*(num_cls-1)/2))
+
+    # record index dictionary for query index pair
+    idx = 0
+    index_dict = dict()
+    for i in range(num_cls):
+        for j in range(i+1, num_cls):
+            index_dict[idx] = (i, j)
+            idx += 1
+
+    t0 = time.time()
+    while num_adv < num_adv_eg:
+        idxs = np.argwhere(tot_num != 0).squeeze()
+        succ = curr_samples[idxs] / tot_num[idxs]
+        succ_rate[idxs] = succ
+
+        curr_mean = np.mean(curr_samples)
+        curr_rate = curr_mean - curr_samples
+        curr_rate[curr_rate < 0] = 0
+        if np.std(curr_rate) == 0:
+            curr_rate = 1. / len(curr_rate)
+        else:
+            curr_rate = curr_rate / (1e-4 + np.sum(curr_rate))
+        p = a*succ_rate + (1-a)*curr_rate
+        p = p/(np.sum(p))
+
+        selected = np.random.choice(range(len(curr_samples)), size=1, p=p)[0]
+        (cls1, cls2) = index_dict[selected]
+        data1_index = np.argwhere(predictions == cls1).squeeze()
+        data2_index = np.argwhere(predictions == cls2).squeeze()
+        conf1 = confs[data1_index]
+        conf2 = confs[data2_index]
+
+        # probability to be sampled is inversely proportinal to the distance to "targeted" decision boundary
+        # smaller class1-class2 is preferred
+        pvec1 = (1 / (conf1[:, cls1] - conf1[:, cls2] + 1e-4)) / np.sum(
+            (1 / (conf1[:, cls1] - conf1[:, cls2] + 1e-4)))
+        pvec2 = (1 / (conf2[:, cls2] - conf2[:, cls1] + 1e-4)) / np.sum(
+            (1 / (conf2[:, cls2] - conf2[:, cls1] + 1e-4)))
+
+        image1_idx = np.random.choice(range(len(data1_index)), size=1, p=pvec1)
+        image2_idx = np.random.choice(range(len(data2_index)), size=1, p=pvec2)
+
+        image1 = input_x[data1_index[image1_idx]]
+        image2 = input_x[data2_index[image2_idx]]
+
+        attack1, successful1, _ = mixup_bi(model, image1, image2, cls1, cls2, device, alpha=alpha)
+        if successful1:
+            adv_examples = torch.cat((adv_examples, attack1), dim=0)
+            num_adv += 1
+            curr_samples[selected] += 1
+        tot_num[selected] += 1
+
+        if num_adv < num_adv_eg:
+            attack2, successful2, _ = mixup_bi(model, image2, image1, cls2, cls1, device, alpha=alpha)
+            tot_num[selected] += 1
+            if successful2:
+                adv_examples = torch.cat((adv_examples, attack2), dim=0)
+                num_adv += 1
+                curr_samples[selected] += 1
+
+
+    t1 = time.time()
+    if verbose:
+        print('Total time {:2f}'.format(t1 - t0))
+
+    return adv_examples, curr_samples, tot_num
+
+
 def batch_run(model, split, data, device, batch_size=200):
     '''Get GAP layers and predicted labels for data
     :param model: subject model
