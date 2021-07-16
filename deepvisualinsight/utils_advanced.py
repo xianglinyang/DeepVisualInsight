@@ -494,7 +494,7 @@ def get_border_points_exp1(model, input_x, confs, predictions, device, num_adv_e
     return adv_examples, curr_samples, tot_num
 
 
-def get_border_points_exp2(model, input_x, confs, predictions, device, num_adv_eg=5000, num_cls=10, alpha=0.8,
+def get_border_points_exp2(model, input_x, confs, predictions, device, num_adv_eg=5000, num_cls=10, alpha=0.6,
                            lambd=0.2, verbose=1):
     '''Get BPs, 500 points per class
     :param model: subject model

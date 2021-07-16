@@ -1,5 +1,7 @@
 import numpy as np
 from warnings import warn, catch_warnings, filterwarnings
+
+import torch
 from umap.umap_ import make_epochs_per_sample
 from numba import TypingError
 import os
@@ -181,7 +183,7 @@ def construct_edge_dataset(
 
 
 def construct_mixed_edge_dataset(
-    X_input, old_graph_, new_graph_, n_epochs, batch_size, parametric_embedding,
+    X_input, old_graph_, new_graph_, n_epochs, batch_size, alpha, parametric_embedding,
         parametric_reconstruction
 ):
     """
@@ -200,17 +202,17 @@ def construct_mixed_edge_dataset(
     def gather_X(edge_to, edge_from, weight):
         edge_to_batch = tf.gather(fitting_data, edge_to)
         edge_from_batch = tf.gather(fitting_data, edge_from)
-
+        alpha_to = tf.gather(alpha, edge_to)
+        alpha_from = tf.gather(alpha, edge_from)
         outputs = {"umap": 0}
         if parametric_reconstruction:
             # add reconstruction to iterator output
             # edge_out = tf.concat([edge_to_batch, edge_from_batch], axis=0)
             outputs["reconstruction"] = edge_to_batch
 
-        return (edge_to_batch, edge_from_batch, weight), outputs
+        return (edge_to_batch, edge_from_batch, alpha_to, alpha_from, weight), outputs
 
     train_data, border_centers = X_input
-    # cp_num = len(train_data)
 
     fitting_data = np.concatenate((train_data, border_centers), axis=0)
 
@@ -335,6 +337,31 @@ def umap_loss(
         )
 
         return tf.reduce_mean(ce_loss)
+
+    return loss
+
+
+def reconstruction_loss(
+    beta=1
+):
+    """
+    Generate a keras-ccompatible loss function for customize reconstruction loss
+
+    Parameters
+    ----------
+    beta: hyperparameter
+    Returns
+    -------
+    loss : function
+    """
+
+    @tf.function
+    def loss(edge_to, edge_from, recon_to, recon_from, alpha_to, alpha_from):
+        loss1 = tf.reduce_mean(tf.reduce_sum(tf.math.multiply(tf.math.pow((1+alpha_to), beta), tf.math.pow(edge_to - recon_to, 2)), 1))
+        loss2 = tf.reduce_mean(tf.reduce_sum(tf.math.multiply(tf.math.pow((1+alpha_from), beta), tf.math.pow(edge_from - recon_from, 2)), 1))
+        # loss1 = tf.reduce_mean(edge_from - recon_from)
+        # loss2 = tf.reduce_mean(edge_to - recon_to)
+        return (loss1 + loss2)/2
 
     return loss
 
@@ -571,10 +598,13 @@ def define_losses(batch_size, temporal):
         _b,
     )
 
-    losses["umap"] = umap_loss_fn
-    loss_weights["umap"] = 1.0
+    recon_loss_fn = reconstruction_loss(beta=1)
 
-    losses["reconstruction"] = tf.keras.losses.MeanSquaredError()
+    losses["umap"] = umap_loss_fn
+    loss_weights["umap"] = 2.5
+
+    # losses["reconstruction"] = tf.keras.losses.MeanSquaredError()
+    losses["reconstruction"] = recon_loss_fn
     loss_weights["reconstruction"] = 1.0
 
     if temporal:
@@ -610,11 +640,11 @@ def define_lr_schedule(epoch):
     # Returns
         lr (float32): learning rate
     """
-    lr = 1e-3
-    if epoch > 5:
-        lr *= 1e-1
-    elif epoch > 10:
-        lr *= 1e-1
+    lr = 5e-3
+    if epoch < 8:
+        lr = 3e-3
+    else:
+        lr = 1e-3
     print('Learning rate: ', lr)
     return lr
 
@@ -870,4 +900,38 @@ def find_update_dist(prev_data, train_data, sigmas, rhos):
     weights = np.exp(-weights / sigmas)
     weights[index == True] = 1.0
     return weights
+
+
+def get_alpha(model, data, temperature=.01, device=torch.device("cuda:0"), verbose=0):
+    t0 = time.time()
+    grad_list = []
+
+    for i in range(len(data)):
+        b = torch.from_numpy(data[i:i + 1]).to(device=device, dtype=torch.float)
+        b.requires_grad = True
+        out = model(b)
+        top1 = torch.argsort(out)[0][-1]
+        out[0][top1].backward()
+        grad_list.append(b.grad.data.detach().cpu().numpy())
+    grad_list2 = []
+
+    for i in range(len(data)):
+        b = torch.from_numpy(data[i:i + 1]).to(device=device, dtype=torch.float)
+        b.requires_grad = True
+        out = model(b)
+        top2 = torch.argsort(out)[0][-2]
+        out[0][top2].backward()
+        grad_list2.append(b.grad.data.detach().cpu().numpy())
+    t1 = time.time()
+    grad1 = np.array(grad_list)
+    grad2 = np.array(grad_list2)
+    grad1 = grad1.squeeze(axis=1)
+    grad2 = grad2.squeeze(axis=1)
+    grad = np.abs(grad1) + np.abs(grad2)
+    grad = softmax(grad/temperature, axis=1)
+    t2 = time.time()
+    if verbose:
+        print("Gradients calculation: {:.2f} seconds\tsoftmax with temperature: {:.2f} seconds".format(round(t1-t0), round(t2-t1)))
+
+    return grad
 

@@ -17,7 +17,7 @@ class MMS:
     def __init__(self, content_path, model_structure, epoch_start, epoch_end, period, repr_num, class_num, classes,
                  low_dims=2,
                  cmap="tab10", resolution=100, neurons=None, temporal=False, transfer_learning=True, batch_size=1000,
-                 verbose=1, split=-1, advance_border_gen=False, alpha=0.8, withoutB=False, attack_device="cpu"):
+                 verbose=1, split=-1, advance_border_gen=True, alpha=0.7, withoutB=False, attack_device="cpu"):
 
         '''
         This class contains the model management system (super DB) and provides
@@ -261,7 +261,7 @@ class MMS:
         if self.verbose > 0 :
             print("Average evaluation time for 1 epoch is {:.2f} seconds".format((t1-t0) / epoch_num))
 
-    def prepare_visualization_for_all(self, encoder_in=None, decoder_in=None):
+    def prepare_visualization_for_all(self, alpha, encoder_in=None, decoder_in=None):
         """
         conduct transfer learning to save the visualization model for each epoch
         """
@@ -273,9 +273,9 @@ class MMS:
             encoder = encoder_in
         if decoder_in is not None:
             decoder = decoder_in
-        optimizer = tf.keras.optimizers.Adam(1e-3)
+        optimizer = tf.keras.optimizers.Adam()
 
-        weights_dict = {}
+        # weights_dict = {}
         losses, loss_weights = define_losses(batch_size, self.temporal)
         parametric_model = ParametricModel(encoder, decoder, optimizer, losses, loss_weights, self.temporal,
                                            prev_trainable_variables=None)
@@ -287,8 +287,8 @@ class MMS:
                 verbose=1,
             ),
             tf.keras.callbacks.LearningRateScheduler(define_lr_schedule),
-            tf.keras.callbacks.LambdaCallback(on_train_end=lambda logs: weights_dict.update(
-                {'prev': [tf.identity(tf.stop_gradient(x)) for x in parametric_model.trainable_weights]})),
+            # tf.keras.callbacks.LambdaCallback(on_train_end=lambda logs: weights_dict.update(
+            #     {'prev': [tf.identity(tf.stop_gradient(x)) for x in parametric_model.trainable_weights]})),
         ]
         t0 = time.time()
         for n_epoch in range(self.epoch_start, self.epoch_end+1, self.period):
@@ -358,11 +358,11 @@ class MMS:
                         bw_complex,
                         20,
                         batch_size,
+                        alpha,
                         parametric_embedding=True,
                         parametric_reconstruction=True,
                     )
                 else:
-
                     prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch-self.period), "train_data.npy")
                     if os.path.exists(prev_data_loc) and self.epoch_start != n_epoch:
                         prev_data = np.load(prev_data_loc)
@@ -406,7 +406,7 @@ class MMS:
                 max_queue_size=100,
             )
             # save for later use
-            parametric_model.prev_trainable_variables = weights_dict["prev"]
+            # parametric_model.prev_trainable_variables = weights_dict["prev"]
             flag = ""
             if self.withoutB:
                 flag += "_withoutB"
@@ -427,7 +427,7 @@ class MMS:
                 print("save visualized model for Epoch {:d}".format(n_epoch))
         t1 = time.time()
         if self.verbose > 0:
-            print("Average time for training visualzation model: {:.4f}".format(
+            print("Average time for training visualization model: {:.4f}".format(
                 (t1 - t0) / int((self.epoch_end - self.epoch_start) / self.period + 1)))
 
     ################################################ Backend APIs ################################################
@@ -790,7 +790,7 @@ class MMS:
         diff = (sort_preds[:, -1] - sort_preds[:, -2]) / (sort_preds[:, -1] - sort_preds[:, 0])
         border = np.zeros(len(diff), dtype=np.uint8) + 0.05
         border[diff < 0.15] = 1
-        diff[border == 1] = 0
+        diff[border == 1] = 0.
 
         diff = diff/diff.max()
         diff = diff*0.9
