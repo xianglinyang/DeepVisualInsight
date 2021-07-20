@@ -227,6 +227,8 @@ def construct_mixed_edge_dataset(
     ## normalize two graphs
     # new_head = new_head + cp_num
     # new_tail = new_tail + cp_num
+    # nearest neighbors has bad performance, go through them twice while boundary edge only once
+    # old_epochs_per_sample = old_epochs_per_sample*2
 
     # number of elements per batch for embedding
     if batch_size is None:
@@ -357,8 +359,8 @@ def reconstruction_loss(
 
     @tf.function
     def loss(edge_to, edge_from, recon_to, recon_from, alpha_to, alpha_from):
-        loss1 = tf.reduce_mean(tf.reduce_sum(tf.math.multiply(tf.math.pow((1+alpha_to), beta), tf.math.pow(edge_to - recon_to, 2)), 1))
-        loss2 = tf.reduce_mean(tf.reduce_sum(tf.math.multiply(tf.math.pow((1+alpha_from), beta), tf.math.pow(edge_from - recon_from, 2)), 1))
+        loss1 = tf.reduce_mean(tf.reduce_mean(tf.math.multiply(tf.math.pow((1+alpha_to), beta), tf.math.pow(edge_to - recon_to, 2)), 1))
+        loss2 = tf.reduce_mean(tf.reduce_mean(tf.math.multiply(tf.math.pow((1+alpha_from), beta), tf.math.pow(edge_from - recon_from, 2)), 1))
         # loss1 = tf.reduce_mean(edge_from - recon_from)
         # loss2 = tf.reduce_mean(edge_to - recon_to)
         return (loss1 + loss2)/2
@@ -601,7 +603,7 @@ def define_losses(batch_size, temporal):
     recon_loss_fn = reconstruction_loss(beta=1)
 
     losses["umap"] = umap_loss_fn
-    loss_weights["umap"] = 2.5
+    loss_weights["umap"] = 10.0
 
     # losses["reconstruction"] = tf.keras.losses.MeanSquaredError()
     losses["reconstruction"] = recon_loss_fn
@@ -640,11 +642,10 @@ def define_lr_schedule(epoch):
     # Returns
         lr (float32): learning rate
     """
-    lr = 5e-3
     if epoch < 8:
-        lr = 3e-3
-    else:
         lr = 1e-3
+    else:
+        lr = 1e-4
     print('Learning rate: ', lr)
     return lr
 

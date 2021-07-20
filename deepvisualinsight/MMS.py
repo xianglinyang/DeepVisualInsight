@@ -14,7 +14,7 @@ from deepvisualinsight.VisualizationModel import ParametricModel
 
 
 class MMS:
-    def __init__(self, content_path, model_structure, epoch_start, epoch_end, period, repr_num, class_num, classes,
+    def __init__(self, content_path, model_structure, epoch_start, epoch_end, period, repr_num, class_num, classes, temperature,
                  low_dims=2,
                  cmap="tab10", resolution=100, neurons=None, temporal=False, transfer_learning=True, batch_size=1000,
                  verbose=1, split=-1, advance_border_gen=True, alpha=0.7, withoutB=False, attack_device="cpu"):
@@ -85,6 +85,7 @@ class MMS:
         self.class_num = class_num
         self.classes = classes
         self.temporal = temporal
+        self.temperature = temperature
         self.transfer_learning = transfer_learning
         self.batch_size = batch_size
         self.verbose = verbose
@@ -148,30 +149,17 @@ class MMS:
 
             if self.advance_border_gen:
                 t0 = time.time()
-                # gaps, preds, confs = utils_advanced.batch_run(self.model, self.split, training_data, self.device, batch_size=200)
-                # Kmeans clustering
-                # kmeans_result, predictions = utils_advanced.clustering(gaps.numpy(), preds.numpy(),
-                #                                                        n_clusters_per_cls=10)
-                # Adversarial attacks
-                # border_points, _, border_cls = utils_advanced.get_border_points_mixup(model=self.model,
-                #                                                     split=self.split,
-                #                                                     input_x=training_data, gaps=gaps,
-                #                                                     confs=confs,
-                #                                                     kmeans_result=kmeans_result,
-                #                                                     predictions=predictions, device=self.device,
-                #                                                     alpha=self.alpha,
-                #                                                     num_adv_eg=n_clusters, num_cls=10,
-                #                                                     n_clusters_per_cls=10, verbose=0)
                 training_data = training_data.to(self.device)
                 confs = batch_run(self.model, training_data, 10)
                 preds = np.argmax(confs, axis=1).squeeze()
+                num_adv_eg = int(len(training_data)/10)
                 border_points, curr_samples, tot_num = utils_advanced.get_border_points_exp2(model=self.model,
                                                                                              input_x=training_data,
                                                                                              confs=confs,
                                                                                              predictions=preds,
                                                                                              device=self.device,
                                                                                              alpha=self.alpha,
-                                                                                             num_adv_eg=5000,
+                                                                                             num_adv_eg=num_adv_eg,
                                                                                              num_cls=10,
                                                                                              lambd=0.05,
                                                                                              verbose=0)
@@ -232,17 +220,29 @@ class MMS:
 
         self.model = self.model.to(self.device)
 
-    def save_evaluation(self):
+    def save_evaluation(self, eval=False, name=""):
         # evaluation information
         t0 = time.time()
         epoch_num = int((self.epoch_end - self.epoch_start) / self.period + 1)
         for n_epoch in range(self.epoch_start, self.epoch_end + 1, self.period):
-            save_dir = os.path.join(self.model_path, "Epoch_{}".format(n_epoch), "evaluation.json")
+            save_dir = os.path.join(self.model_path, "Epoch_{}".format(n_epoch), "evaluation{}.json".format(name))
             evaluation = {}
             evaluation['nn_train_15'] = self.proj_nn_perseverance_knn_train(n_epoch, 15)
             evaluation['nn_test_15'] = self.proj_nn_perseverance_knn_test(n_epoch, 15)
             evaluation['bound_train_15'] = self.proj_boundary_perseverance_knn_train(n_epoch, 15)
             evaluation['bound_test_15'] = self.proj_boundary_perseverance_knn_test(n_epoch, 15)
+
+            # for paper evaluation
+            if eval:
+                evaluation['nn_train_10'] = self.proj_nn_perseverance_knn_train(n_epoch, 10)
+                evaluation['nn_test_10'] = self.proj_nn_perseverance_knn_test(n_epoch, 10)
+                evaluation['bound_train_10'] = self.proj_boundary_perseverance_knn_train(n_epoch, 10)
+                evaluation['bound_test_10'] = self.proj_boundary_perseverance_knn_test(n_epoch, 10)
+
+                evaluation['nn_train_20'] = self.proj_nn_perseverance_knn_train(n_epoch, 20)
+                evaluation['nn_test_20'] = self.proj_nn_perseverance_knn_test(n_epoch, 20)
+                evaluation['bound_train_20'] = self.proj_boundary_perseverance_knn_train(n_epoch, 20)
+                evaluation['bound_test_20'] = self.proj_boundary_perseverance_knn_test(n_epoch, 20)
             print("finish proj eval for Epoch {}".format(n_epoch))
 
             evaluation['inv_acc_train'] = self.inv_accu_train(n_epoch)
@@ -261,7 +261,7 @@ class MMS:
         if self.verbose > 0 :
             print("Average evaluation time for 1 epoch is {:.2f} seconds".format((t1-t0) / epoch_num))
 
-    def prepare_visualization_for_all(self, alpha, encoder_in=None, decoder_in=None):
+    def prepare_visualization_for_all(self, encoder_in=None, decoder_in=None):
         """
         conduct transfer learning to save the visualization model for each epoch
         """
@@ -283,7 +283,7 @@ class MMS:
             tf.keras.callbacks.EarlyStopping(
                 monitor='loss',
                 min_delta=10 ** -2,
-                patience=8,
+                patience=4,
                 verbose=1,
             ),
             tf.keras.callbacks.LearningRateScheduler(define_lr_schedule),
@@ -347,6 +347,19 @@ class MMS:
                 )
             else:
                 if not self.temporal:
+                    fitting_data = np.concatenate((train_data, border_centers), axis=0)
+
+                    model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
+                    self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
+                    self.model = self.model.to(self.device)
+                    self.model.eval()
+
+                    model = torch.nn.Sequential(*(list(self.model.children())[-1:]))
+                    model = model.to(self.device)
+                    model = model.eval()
+                    alpha = get_alpha(model, fitting_data, temperature=self.temperature, device=torch.device("cuda:0"), verbose=1)
+                    del model
+                    gc.collect()
                     (
                         edge_dataset,
                         _batch_size,
