@@ -218,6 +218,13 @@ class MMS:
         print(
             "Average time for generate border points: {:.4f}".format(sum(time_borders_gen) / len(time_borders_gen)))
 
+        # save result
+        save_dir = os.path.join(self.model_path,  "time.json")
+        evaluation = dict()
+        evaluation["data_gene"] = round(sum(time_borders_gen) / len(time_borders_gen), 3)
+        with open(save_dir, 'a') as f:
+            json.dump(evaluation, f)
+
         self.model = self.model.to(self.device)
 
     def save_evaluation(self, eval=False, name=""):
@@ -354,7 +361,7 @@ class MMS:
                     self.model = self.model.to(self.device)
                     self.model.eval()
 
-                    model = torch.nn.Sequential(*(list(self.model.children())[-1:]))
+                    model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
                     model = model.to(self.device)
                     model = model.eval()
                     alpha = get_alpha(model, fitting_data, temperature=self.temperature, device=torch.device("cuda:0"), verbose=1)
@@ -442,6 +449,13 @@ class MMS:
         if self.verbose > 0:
             print("Average time for training visualization model: {:.4f}".format(
                 (t1 - t0) / int((self.epoch_end - self.epoch_start) / self.period + 1)))
+        # save result
+        save_dir = os.path.join(self.model_path,  "time.json")
+        evaluation = dict()
+        evaluation["vis_model"] = round(
+            (t1 - t0) / int((self.epoch_end - self.epoch_start) / self.period + 1), 3)
+        with open(save_dir, 'a') as f:
+            json.dump(evaluation, f)
 
     ################################################ Backend APIs ################################################
     def get_proj_model(self, epoch_id):
