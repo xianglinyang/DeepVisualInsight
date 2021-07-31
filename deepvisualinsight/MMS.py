@@ -220,9 +220,14 @@ class MMS:
 
         # save result
         save_dir = os.path.join(self.model_path,  "time.json")
-        evaluation = dict()
+        if not os.path.exists(save_dir):
+            evaluation = dict()
+        else:
+            f = open(save_dir, "r")
+            evaluation = json.load(f)
+            f.close()
         evaluation["data_gene"] = round(sum(time_borders_gen) / len(time_borders_gen), 3)
-        with open(save_dir, 'a') as f:
+        with open(save_dir, 'w') as f:
             json.dump(evaluation, f)
 
         self.model = self.model.to(self.device)
@@ -451,10 +456,15 @@ class MMS:
                 (t1 - t0) / int((self.epoch_end - self.epoch_start) / self.period + 1)))
         # save result
         save_dir = os.path.join(self.model_path,  "time.json")
-        evaluation = dict()
+        if not os.path.exists(save_dir):
+            evaluation = dict()
+        else:
+            f = open(save_dir, "r")
+            evaluation = json.load(f)
+            f.close()
         evaluation["vis_model"] = round(
             (t1 - t0) / int((self.epoch_end - self.epoch_start) / self.period + 1), 3)
-        with open(save_dir, 'a') as f:
+        with open(save_dir, 'w') as f:
             json.dump(evaluation, f)
 
     ################################################ Backend APIs ################################################
