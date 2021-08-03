@@ -34,6 +34,7 @@ class ParametricModel(keras.Model):
             #     self.d_var = [var for var in self.trainable_variables if "d_" in var.name or "recon" in var.name]
         else:
             to_x, from_x, to_alpha, from_alpha, weight = x[0]
+            # to_x, from_x, weight = x[0]
 
         # Forward pass
         with tf.GradientTape(persistent=True) as tape:
@@ -49,7 +50,7 @@ class ParametricModel(keras.Model):
                                           axis=1)
 
             # reconstruction loss
-            # reconstruct_loss = self.loss["reconstruction"](y_true=to_x, y_pred=embedding_to_recon) + \
+            # reconstruct_loss = self.loss["reconstruction"](y_true=to_x, y_pred=embedding_to_recon)
             #                    self.loss["reconstruction"](y_true=from_x, y_pred=embedding_from_recon)
 
             reconstruct_loss = self.loss["reconstruction"](tf.cast(to_x, dtype=tf.float32), tf.cast(from_x, dtype=tf.float32), embedding_to_recon, embedding_from_recon, to_alpha, from_alpha)

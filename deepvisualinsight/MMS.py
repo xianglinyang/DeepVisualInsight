@@ -295,7 +295,7 @@ class MMS:
             tf.keras.callbacks.EarlyStopping(
                 monitor='loss',
                 min_delta=10 ** -2,
-                patience=4,
+                patience=8,
                 verbose=1,
             ),
             tf.keras.callbacks.LearningRateScheduler(define_lr_schedule),
@@ -381,7 +381,7 @@ class MMS:
                         (train_data, border_centers),
                         complex,
                         bw_complex,
-                        20,
+                        15,
                         batch_size,
                         alpha,
                         parametric_embedding=True,

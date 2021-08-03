@@ -603,7 +603,7 @@ def define_losses(batch_size, temporal):
     recon_loss_fn = reconstruction_loss(beta=1)
 
     losses["umap"] = umap_loss_fn
-    loss_weights["umap"] = 10.0
+    loss_weights["umap"] = 1.0
 
     # losses["reconstruction"] = tf.keras.losses.MeanSquaredError()
     losses["reconstruction"] = recon_loss_fn
