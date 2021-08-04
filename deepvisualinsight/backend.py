@@ -199,11 +199,29 @@ def construct_mixed_edge_dataset(
     :return: tf edge dataset
     """
 
+    train_data, border_centers = X_input
+    fitting_data = np.concatenate((train_data, border_centers), axis=0)
+
+    def gather_index(index):
+        return fitting_data[index]
+
+    def gather_alpha(index):
+        return alpha[index]
+
+    gather_indices_in_python = True if fitting_data.nbytes * 1e-9 > 0.5 else False
+
     def gather_X(edge_to, edge_from, weight):
-        edge_to_batch = tf.gather(fitting_data, edge_to)
-        edge_from_batch = tf.gather(fitting_data, edge_from)
-        alpha_to = tf.gather(alpha, edge_to)
-        alpha_from = tf.gather(alpha, edge_from)
+        if gather_indices_in_python:
+        # if True:
+            edge_to_batch = tf.py_function(gather_index, [edge_to], [tf.float32])[0]
+            edge_from_batch = tf.py_function(gather_index, [edge_from], [tf.float32])[0]
+            alpha_to = tf.py_function(gather_alpha, [edge_to], [tf.float32])[0]
+            alpha_from = tf.py_function(gather_alpha, [edge_from], [tf.float32])[0]
+        else:
+            edge_to_batch = tf.gather(fitting_data, edge_to)
+            edge_from_batch = tf.gather(fitting_data, edge_from)
+            alpha_to = tf.gather(alpha, edge_to)
+            alpha_from = tf.gather(alpha, edge_from)
         outputs = {"umap": 0}
         if parametric_reconstruction:
             # add reconstruction to iterator output
@@ -212,9 +230,7 @@ def construct_mixed_edge_dataset(
 
         return (edge_to_batch, edge_from_batch, alpha_to, alpha_from, weight), outputs
 
-    train_data, border_centers = X_input
 
-    fitting_data = np.concatenate((train_data, border_centers), axis=0)
 
     # get data from graph
     old_graph, old_epochs_per_sample, old_head, old_tail, old_weight, old_n_vertices = get_graph_elements(
@@ -255,13 +271,12 @@ def construct_mixed_edge_dataset(
     )
     edge_dataset = edge_dataset.repeat()
     edge_dataset = edge_dataset.shuffle(10000)
-    edge_dataset = edge_dataset.map(
-        # gather_X, num_parallel_calls=tf.data.experimental.AUTOTUNE
-        gather_X
-    )
     edge_dataset = edge_dataset.batch(batch_size, drop_remainder=True)
+    edge_dataset = edge_dataset.map(
+        gather_X, num_parallel_calls=tf.data.experimental.AUTOTUNE
+        # gather_X
+    )
     edge_dataset = edge_dataset.prefetch(10)
-
     return edge_dataset, batch_size, len(edges_to_exp), weight
 
 

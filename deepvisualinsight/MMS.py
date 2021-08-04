@@ -381,7 +381,7 @@ class MMS:
                         (train_data, border_centers),
                         complex,
                         bw_complex,
-                        15,
+                        10,
                         batch_size,
                         alpha,
                         parametric_embedding=True,
