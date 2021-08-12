@@ -124,8 +124,8 @@ fg = sns.catplot(
 
 axs = fg.axes[0]
 max_ = df["eval"].max()
-min_ = df["eval"].min()
-axs[0].set_ylim(min_-0.3, max_+0.3)
+# min_ = df["eval"].min()
+axs[0].set_ylim(0., max_*1.1)
 axs[0].set_title("Train")
 axs[1].set_title("Test")
 

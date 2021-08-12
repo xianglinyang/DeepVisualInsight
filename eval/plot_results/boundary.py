@@ -137,8 +137,8 @@ def main(args):
 
     axs = fg.axes[0]
     maxlimit = df["eval"].max()
-    minlimit = df["eval"].min()
-    axs[0].set_ylim(minlimit-0.3, maxlimit+0.3)
+    # minlimit = df["eval"].min()
+    axs[0].set_ylim(0, maxlimit*1.1)
     axs[0].set_title("Train")
     axs[1].set_title("Test")
 
