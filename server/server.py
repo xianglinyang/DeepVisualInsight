@@ -346,7 +346,7 @@ def save_DVI_selections():
     classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
     mms = MMS(content_path, net, 1, 20, 1, 512, 10, classes, cmap="tab10", neurons=256, verbose=1,
               temporal=False, split=-1, advance_border_gen=True, attack_device="cpu")
-    mms.save_DVI_seletion(iteration, indices)
+    mms.save_DVI_selection(iteration, indices)
 
     sys.path.remove(content_path)
 

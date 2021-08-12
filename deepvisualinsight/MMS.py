@@ -1,3 +1,4 @@
+import os
 import time
 
 import numpy as np
@@ -138,7 +139,14 @@ class MMS:
             index = load_labelled_data_index(index_file)
             training_data = self.training_data[index]
             training_labels = self.training_labels[index]
-            testing_data = self.testing_data
+
+            # make it possible to choose a subset of testing data for testing
+            test_index_file = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "test_index.json")
+            if os.path.exists(test_index_file):
+                test_index = load_labelled_data_index(index_file)
+            else:
+                test_index = range(len(self.testing_data))
+            testing_data = self.testing_data[test_index]
 
             model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
             self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
@@ -727,8 +735,7 @@ class MMS:
 
         fc_model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
 
-        data = self.testing_data
-        data = self.get_representation_data(epoch_id, data)
+        data = self.get_epoch_test_repr_data(epoch_id)
         data = torch.from_numpy(data)
         data = data.to(self.device)
         pred = batch_run(fc_model, data, self.class_num)
@@ -768,9 +775,14 @@ class MMS:
             print("No data!")
             return None
 
-    def get_epoch_test_labels(self):
+    def get_epoch_test_labels(self, epoch_id=None):
         """get representations of testing data"""
         labels = self.testing_labels.cpu().numpy()
+        if epoch_id is not None:
+            test_index_file = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "index.json")
+            if os.path.exists(test_index_file):
+                index = load_labelled_data_index(test_index_file)
+                return labels[index]
         return labels
 
     def batch_embedding(self, data, epoch_id):
@@ -1292,7 +1304,6 @@ class MMS:
         encoder = self.get_proj_model(epoch_id)
         border_centers = self.get_epoch_border_centers(epoch_id)
         train_data = self.get_epoch_train_repr_data(epoch_id)
-        # test_data = self.get_representation_data(epoch_id, self.testing_data)
         test_data = self.get_epoch_test_repr_data(epoch_id)
         fitting_data = np.concatenate((train_data, test_data), axis=0)
 
@@ -1583,6 +1594,10 @@ class MMS:
     def testing_accu(self, epoch_id):
         # test_data = self.testing_data
         labels = self.testing_labels.cpu().numpy()
+        test_index_file = os.path.join(self.model_path, "Epoch_{}".format(epoch_id), "test_index.json")
+        if os.path.exists(test_index_file):
+            index = load_labelled_data_index(test_index_file)
+            labels = labels[index]
         # repr_data = self.get_representation_data(epoch_id, test_data)
         repr_data = self.get_epoch_test_repr_data(epoch_id)
         pred = self.get_pred(epoch_id, repr_data).argmax(-1)
@@ -1696,7 +1711,7 @@ class MMS:
             test_num = self.testing_labels.shape[0]
             return [-1 for i in range(train_num+test_num)]
 
-    def save_DVI_seletion(self, epoch_id, indices):
+    def save_DVI_selection(self, epoch_id, indices):
         save_location = os.path.join(self.model_path, "Epoch_{}".format(epoch_id),"DVISelection.json")
         with open(save_location, "w") as f:
             json.dump(indices, f)
