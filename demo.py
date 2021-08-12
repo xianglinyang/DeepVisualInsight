@@ -9,30 +9,27 @@ import torch
 import json
 import tensorflow as tf
 
-# content_path = "E:\\DVI_exp_data\\resnet18_cifar10"
-# content_path = "E:\\DVI_exp_data\\resnet18_fashionmnist"
+content_path = "E:\\DVI_exp_data\\resnet50_cifar10"
+# content_path = "E:\\DVI_exp_data\\resnet18_fmnist"
 # content_path = "E:\\DVI_exp_data\\resnet18_mnist"
-# content_path = "E:\\DVI_exp_data\\active_learning\\same_start\\random"
-# content_path = "E:\\DVI_exp_data\\active_learning\\same_start\\entropy"
-# content_path = "E:\\DVI_exp_data\\noisy_model\\resnet18_cifar10"
+# content_path = "E:\\DVI_exp_data\\noisy_model\\resnet18_cifar10_10"
+# content_path = "E:\\DVI_exp_data\\noisy_model\\resnet18_cifar10_5"
 # content_path = "E:\\DVI_exp_data\\inexpressive_model"
-# content_path = "E:\\DVI_exp_data\\active_learning\\WAAL\\resnet_dis_5"
-# content_path = "E:\\DVI_exp_data\\active_learning\\VAAL"
-# content_path = "E:\\DVI_exp_data\\active_learning\\Coreset"
-# content_path = "E:\\DVI_exp_data\\active_learning\\LeastConfident"
 # content_path = "E:\\DVI_exp_data\\active_learning\\baseline\\random\\resnet18\\CIFAR10"
 # content_path = "E:\\DVI_exp_data\\active_learning\\baseline\\LeastConfidence\\resnet18\\CIFAR10"
 # content_path = "E:\\DVI_exp_data\\active_learning\\baseline\\coreset\\resnet18\\CIFAR10"
 # content_path = "E:\\DVI_exp_data\\active_learning\\baseline\\LL4AL\\resnet18\\CIFAR10"
 # content_path = "E:\\DVI_exp_data\\adv_training\\PGD.resnet18_cifar10"
-# start_path = "E:\\DVI_exp_data\\resnet18_cifar10"
+# content_path = "E:\\DVI_exp_data\\DeepViewExp\\cifar10"
+# content_path = "E:\\DVI_exp_data\\DeepViewExp\\mnist"
+# content_path = "E:\\DVI_exp_data\\DeepViewExp\\fmnist"
 # content_path = "E:\\DVI_exp_data\\RQ1\\withoutB"
-content_path = "E:\\DVI_exp_data\\RQ1\\test"
 
 sys.path.append(content_path)
-
+#
 from Model.model import *
-net = resnet18()
+# net = resnet18()
+net = resnet50()
 # net = ResNet18()
 # net = CIFAR_17()
 
@@ -40,17 +37,18 @@ classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "sh
 # classes = ("0", "1", "2", "3", "4", "5", "6", "7", "8", "9")
 # classes = ("T-shirt/top", "Trouser", "Pullover", "Dress", "Coat", "Sandal", "Shirt", "Sneaker", "Bag", "Ankle boot")
 
+start_path = content_path
+
 
 # TODO temporal loss dynamically change weight?
-mms = MMS(content_path, net, 100, 100, 1, 512, 10, classes, cmap="tab10", resolution=100, neurons=256, verbose=1, temporal=False, split=-1, advance_border_gen=True, alpha=0.6, withoutB=False, attack_device="cuda:0")
-# encoder_location = os.path.join(start_path, "Model", "Epoch_{:d}".format(100), "encoder_advance")
+mms = MMS(content_path, net, 40, 200, 40, 2048, 10, classes, temperature=.1, batch_size=1000, cmap="tab10", resolution=100, verbose=1, temporal=False, split=-1, advance_border_gen=True, alpha=0.6, withoutB=False, attack_device="cuda:0")
+# encoder_location = os.path.join(start_path, "Model", "Epoch_{:d}".format(120), "encoder_advance")
 # encoder = tf.keras.models.load_model(encoder_location)
-# decoder_location = os.path.join(start_path, "Model", "Epoch_{:d}".format(100), "decoder_advance")
+# decoder_location = os.path.join(start_path, "Model", "Epoch_{:d}".format(120), "decoder_advance")
 # decoder = tf.keras.models.load_model(decoder_location)
-# a = mms.get_uncertainty_score(3)
-# b= mms.get_diversity_score(4)
 # mms.data_preprocessing()
 mms.prepare_visualization_for_all()
+mms.save_evaluation(eval=True)
 
 '''evaluate all properties'''
 # for i in [40, 120, 200]:
@@ -99,7 +97,7 @@ mms.prepare_visualization_for_all()
 # if not os.path.exists(img_save_location):
 #     os.mkdir(img_save_location)
 #
-# for i in range(10, 210, 10):
+# for i in range(40, 210, 40):
 #     train_data = mms.get_epoch_train_repr_data(i)
 #     labels = mms.get_epoch_train_labels(i)
 #     # with open("E:\\DVI_exp_data\\noisy_model\\resnet18\\index.json", 'r') as f:

@@ -90,7 +90,7 @@ def main(args):
     hue_dict = {
         "DVI": pal20c[4],
         "UMAP": pal20c[0],
-        "TSNE": pal20c[8],
+        # "TSNE": pal20c[8],
         "PCA": pal20c[12],
 
     }
@@ -104,7 +104,8 @@ def main(args):
     mpl.rcParams['xtick.labelsize'] = 14
 
     # hue_list = ["TSNE", "parametric-tsne", "umap-learn",  'direct', "network", "autoencoder", 'vae', 'ae_only', "PCA"]
-    hue_list = ["DVI", "UMAP", "TSNE", "PCA"]
+    # hue_list = ["DVI", "UMAP", "TSNE", "PCA"]
+    hue_list = ["DVI", "UMAP", "PCA"]
 
     #%%
 
