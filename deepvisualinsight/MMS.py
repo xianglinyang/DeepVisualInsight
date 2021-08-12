@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 import pyasn1_modules.rfc6031
 import tensorflow as tf
@@ -135,8 +137,8 @@ class MMS:
             index_file = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "index.json")
             index = load_labelled_data_index(index_file)
             training_data = self.training_data[index]
-            testing_data = self.testing_data
             training_labels = self.training_labels[index]
+            testing_data = self.testing_data
 
             model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
             self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
@@ -263,6 +265,29 @@ class MMS:
             evaluation['inv_conf_test'] = self.inv_conf_diff_test(n_epoch)
             print("finish inv eval for Epoch {}".format(n_epoch))
 
+            # record time to project and inverse testing data
+            test_data = self.get_epoch_test_repr_data(n_epoch)
+            test_len = len(test_data)
+
+            proj = self.get_proj_model(n_epoch)
+            t0 = time.time()
+            test_embedded = proj(test_data)
+            t1 = time.time()
+            del proj
+            gc.collect()
+
+            inv = self.get_inv_model(n_epoch)
+            t2 = time.time()
+            _ = inv(test_embedded)
+            t3 = time.time()
+            del inv
+            gc.collect()
+
+            evaluation["time_test_proj"] = round(t1-t0, 3)
+            evaluation["time_test_inv"] = round(t3-t2, 3)
+            evaluation["test_len"] = test_len
+
+            # subject model train/test accuracy
             evaluation['acc_train'] = self.training_accu(n_epoch)
             evaluation['acc_test'] = self.testing_accu(n_epoch)
             print("finish subject model eval for Epoch {}".format(n_epoch))
