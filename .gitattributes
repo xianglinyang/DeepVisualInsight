@@ -1,3 +1,1 @@
-*cifar10_sprite.png filter=lfs diff=lfs merge=lfs -text
-*sprite.png filter=lfs diff=lfs merge=lfs -text
-*.png filter=lfs diff=lfs merge=lfs -text
+
