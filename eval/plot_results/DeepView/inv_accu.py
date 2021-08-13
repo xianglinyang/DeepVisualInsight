@@ -53,7 +53,7 @@ def main(args):
             with open(eval_path, "r") as f:
                 eval = json.load(f)
             nn_train += round(eval[6], 4)
-            nn_test += round(eval[14], 3)
+            nn_test += round(eval[14], 4)
         nn_train = round(nn_train / 10, 3)
         nn_test = round(nn_test / 10, 3)
         data = np.concatenate((data, np.array([[dataset, "DeepView", "Train", "{}".format(str(epoch//p)), nn_train]])), axis=0)

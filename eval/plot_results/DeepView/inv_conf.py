@@ -114,7 +114,7 @@ def main(args):
 
     (fg.despine(bottom=True)
      .set_xticklabels(['Begin', 'Early', 'Mid', 'Late', 'End'])
-     .set_axis_labels("", "Inverse Accuracy property")
+     .set_axis_labels("", "Inverse Confidence diff property")
      )
     fg.fig.suptitle(dataset)
 
