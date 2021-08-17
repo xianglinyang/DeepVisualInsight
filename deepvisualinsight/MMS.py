@@ -143,7 +143,7 @@ class MMS:
             # make it possible to choose a subset of testing data for testing
             test_index_file = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "test_index.json")
             if os.path.exists(test_index_file):
-                test_index = load_labelled_data_index(index_file)
+                test_index = load_labelled_data_index(test_index_file)
             else:
                 test_index = range(len(self.testing_data))
             testing_data = self.testing_data[test_index]
@@ -244,11 +244,15 @@ class MMS:
 
     def save_evaluation(self, eval=False, name=""):
         # evaluation information
-        t0 = time.time()
+        t_s = time.time()
         epoch_num = int((self.epoch_end - self.epoch_start) / self.period + 1)
         for n_epoch in range(self.epoch_start, self.epoch_end + 1, self.period):
             save_dir = os.path.join(self.model_path, "Epoch_{}".format(n_epoch), "evaluation{}.json".format(name))
-            evaluation = {}
+            if os.path.exists(save_dir):
+                with open(save_dir, "r") as f:
+                    evaluation = json.load(f)
+            else:
+                evaluation = {}
             evaluation['nn_train_15'] = self.proj_nn_perseverance_knn_train(n_epoch, 15)
             evaluation['nn_test_15'] = self.proj_nn_perseverance_knn_test(n_epoch, 15)
             evaluation['bound_train_15'] = self.proj_boundary_perseverance_knn_train(n_epoch, 15)
@@ -302,9 +306,9 @@ class MMS:
 
             with open(save_dir, 'w') as f:
                 json.dump(evaluation, f)
-        t1 = time.time()
+        t_e = time.time()
         if self.verbose > 0 :
-            print("Average evaluation time for 1 epoch is {:.2f} seconds".format((t1-t0) / epoch_num))
+            print("Average evaluation time for 1 epoch is {:.2f} seconds".format((t_e-t_s) / epoch_num))
 
     def prepare_visualization_for_all(self, encoder_in=None, decoder_in=None):
         """
