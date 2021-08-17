@@ -324,7 +324,7 @@ class MMS:
             decoder = decoder_in
         optimizer = tf.keras.optimizers.Adam()
 
-        # weights_dict = {}
+        weights_dict = {}
         losses, loss_weights = define_losses(batch_size, self.temporal)
         parametric_model = ParametricModel(encoder, decoder, optimizer, losses, loss_weights, self.temporal,
                                            prev_trainable_variables=None)
@@ -336,8 +336,8 @@ class MMS:
                 verbose=1,
             ),
             tf.keras.callbacks.LearningRateScheduler(define_lr_schedule),
-            # tf.keras.callbacks.LambdaCallback(on_train_end=lambda logs: weights_dict.update(
-            #     {'prev': [tf.identity(tf.stop_gradient(x)) for x in parametric_model.trainable_weights]})),
+            tf.keras.callbacks.LambdaCallback(on_train_end=lambda logs: weights_dict.update(
+                {'prev': [tf.identity(tf.stop_gradient(x)) for x in parametric_model.trainable_weights]})),
         ]
         t0 = time.time()
         for n_epoch in range(self.epoch_start, self.epoch_end+1, self.period):
@@ -435,9 +435,9 @@ class MMS:
                     if prev_data is None:
                         prev_embedding = np.zeros((len(train_data), self.low_dims))
                     else:
-                        encoder = self.get_proj_model(n_epoch-self.period)
-                        prev_embedding = encoder(prev_data).cpu().numpy()
-                        del encoder
+                        encoder_ = self.get_proj_model(n_epoch-self.period)
+                        prev_embedding = encoder_(prev_data).cpu().numpy()
+                        del encoder_
                         gc.collect()
                     n_rate = find_neighbor_preserving_rate(prev_data, train_data, n_neighbors=15)
 
@@ -485,7 +485,7 @@ class MMS:
                 max_queue_size=100,
             )
             # save for later use
-            # parametric_model.prev_trainable_variables = weights_dict["prev"]
+            parametric_model.prev_trainable_variables = weights_dict["prev"]
             flag = ""
             if self.withoutB:
                 flag += "_withoutB"
