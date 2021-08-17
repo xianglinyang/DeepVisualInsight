@@ -1,3 +1,6 @@
+import os
+import time
+
 import numpy as np
 import pyasn1_modules.rfc6031
 import tensorflow as tf
@@ -135,8 +138,15 @@ class MMS:
             index_file = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "index.json")
             index = load_labelled_data_index(index_file)
             training_data = self.training_data[index]
-            testing_data = self.testing_data
             training_labels = self.training_labels[index]
+
+            # make it possible to choose a subset of testing data for testing
+            test_index_file = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "test_index.json")
+            if os.path.exists(test_index_file):
+                test_index = load_labelled_data_index(test_index_file)
+            else:
+                test_index = range(len(self.testing_data))
+            testing_data = self.testing_data[test_index]
 
             model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
             self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
@@ -234,11 +244,15 @@ class MMS:
 
     def save_evaluation(self, eval=False, name=""):
         # evaluation information
-        t0 = time.time()
+        t_s = time.time()
         epoch_num = int((self.epoch_end - self.epoch_start) / self.period + 1)
         for n_epoch in range(self.epoch_start, self.epoch_end + 1, self.period):
             save_dir = os.path.join(self.model_path, "Epoch_{}".format(n_epoch), "evaluation{}.json".format(name))
-            evaluation = {}
+            if os.path.exists(save_dir):
+                with open(save_dir, "r") as f:
+                    evaluation = json.load(f)
+            else:
+                evaluation = {}
             evaluation['nn_train_15'] = self.proj_nn_perseverance_knn_train(n_epoch, 15)
             evaluation['nn_test_15'] = self.proj_nn_perseverance_knn_test(n_epoch, 15)
             evaluation['bound_train_15'] = self.proj_boundary_perseverance_knn_train(n_epoch, 15)
@@ -263,15 +277,38 @@ class MMS:
             evaluation['inv_conf_test'] = self.inv_conf_diff_test(n_epoch)
             print("finish inv eval for Epoch {}".format(n_epoch))
 
+            # record time to project and inverse testing data
+            test_data = self.get_epoch_test_repr_data(n_epoch)
+            test_len = len(test_data)
+
+            proj = self.get_proj_model(n_epoch)
+            t0 = time.time()
+            test_embedded = proj(test_data)
+            t1 = time.time()
+            del proj
+            gc.collect()
+
+            inv = self.get_inv_model(n_epoch)
+            t2 = time.time()
+            _ = inv(test_embedded)
+            t3 = time.time()
+            del inv
+            gc.collect()
+
+            evaluation["time_test_proj"] = round(t1-t0, 3)
+            evaluation["time_test_inv"] = round(t3-t2, 3)
+            evaluation["test_len"] = test_len
+
+            # subject model train/test accuracy
             evaluation['acc_train'] = self.training_accu(n_epoch)
             evaluation['acc_test'] = self.testing_accu(n_epoch)
             print("finish subject model eval for Epoch {}".format(n_epoch))
 
             with open(save_dir, 'w') as f:
                 json.dump(evaluation, f)
-        t1 = time.time()
+        t_e = time.time()
         if self.verbose > 0 :
-            print("Average evaluation time for 1 epoch is {:.2f} seconds".format((t1-t0) / epoch_num))
+            print("Average evaluation time for 1 epoch is {:.2f} seconds".format((t_e-t_s) / epoch_num))
 
     def prepare_visualization_for_all(self, encoder_in=None, decoder_in=None):
         """
@@ -702,8 +739,7 @@ class MMS:
 
         fc_model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
 
-        data = self.testing_data
-        data = self.get_representation_data(epoch_id, data)
+        data = self.get_epoch_test_repr_data(epoch_id)
         data = torch.from_numpy(data)
         data = data.to(self.device)
         pred = batch_run(fc_model, data, self.class_num)
@@ -743,9 +779,14 @@ class MMS:
             print("No data!")
             return None
 
-    def get_epoch_test_labels(self):
+    def get_epoch_test_labels(self, epoch_id=None):
         """get representations of testing data"""
         labels = self.testing_labels.cpu().numpy()
+        if epoch_id is not None:
+            test_index_file = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "index.json")
+            if os.path.exists(test_index_file):
+                index = load_labelled_data_index(test_index_file)
+                return labels[index]
         return labels
 
     def batch_embedding(self, data, epoch_id):
@@ -1267,7 +1308,6 @@ class MMS:
         encoder = self.get_proj_model(epoch_id)
         border_centers = self.get_epoch_border_centers(epoch_id)
         train_data = self.get_epoch_train_repr_data(epoch_id)
-        # test_data = self.get_representation_data(epoch_id, self.testing_data)
         test_data = self.get_epoch_test_repr_data(epoch_id)
         fitting_data = np.concatenate((train_data, test_data), axis=0)
 
@@ -1558,6 +1598,10 @@ class MMS:
     def testing_accu(self, epoch_id):
         # test_data = self.testing_data
         labels = self.testing_labels.cpu().numpy()
+        test_index_file = os.path.join(self.model_path, "Epoch_{}".format(epoch_id), "test_index.json")
+        if os.path.exists(test_index_file):
+            index = load_labelled_data_index(test_index_file)
+            labels = labels[index]
         # repr_data = self.get_representation_data(epoch_id, test_data)
         repr_data = self.get_epoch_test_repr_data(epoch_id)
         pred = self.get_pred(epoch_id, repr_data).argmax(-1)
@@ -1671,7 +1715,7 @@ class MMS:
             test_num = self.testing_labels.shape[0]
             return [-1 for i in range(train_num+test_num)]
 
-    def save_DVI_seletion(self, epoch_id, indices):
+    def save_DVI_selection(self, epoch_id, indices):
         save_location = os.path.join(self.model_path, "Epoch_{}".format(epoch_id),"DVISelection.json")
         with open(save_location, "w") as f:
             json.dump(indices, f)

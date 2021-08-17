@@ -52,9 +52,10 @@ if __name__ == "__main__":
     sys.path.append(content_path)
     from Model.model import *
     try:
-        net = resnet18()
+        net = resnet50()
     except:
         net = ResNet18()
+        # net = resnet50()
     # net = CIFAR_17()
 
     if dataset == "CIFAR10":
