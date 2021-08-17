@@ -1,4 +1,4 @@
-from flask import request, Flask, jsonify, make_response
+from flask import request, Response, Flask, jsonify, make_response, send_file
 from flask_cors import CORS, cross_origin
 
 import os
@@ -7,6 +7,8 @@ import numpy as np
 import time
 import json
 import torch
+import tensorflow as tf
+from PIL import Image
 sys.path.append("..")
 from deepvisualinsight.MMS import MMS
 
@@ -191,13 +193,13 @@ def update_projection():
         net = resnet18()
 
     classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
-    mms = MMS(content_path, net, 1, 200, 1, 512, 10, classes, cmap="tab10", resolution=resolution, neurons=256, verbose=1,
-              temporal=False, split=-1, advance_border_gen=True, attack_device="cpu")
+    mms = MMS(content_path, net, 1, 200, 1, 512, 10, classes, temperature=None, cmap="tab10", resolution=resolution, verbose=1,
+              temporal=False, split=-1, alpha=None, advance_border_gen=True, withoutB=False, attack_device="cuda:0")
 
     train_data = mms.get_data_pool_repr(iteration)
     # train_data = mms.get_epoch_train_repr_data(iteration)
     test_data = mms.get_epoch_test_repr_data(iteration)
-    all_data = np.concatenate((train_data, test_data),axis=0)
+    all_data = np.concatenate((train_data, test_data), axis=0)
 
     embedding_2d = mms.batch_project(all_data, iteration).tolist()
     train_labels = mms.training_labels.cpu().numpy()
@@ -307,8 +309,9 @@ def filter():
         net = resnet18()
 
     classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
-    mms = MMS(content_path, net, 1, 200, 1, 512, 10, classes, cmap="tab10", neurons=256,verbose=1,
-              temporal=False, split=-1, advance_border_gen=True, attack_device="cpu")
+    mms = MMS(content_path, net, 1, 200, 1, 512, 10, classes, temperature=None, cmap="tab10",
+              verbose=1,
+              temporal=False, split=-1, alpha=None, advance_border_gen=True, withoutB=False, attack_device="cuda:0")
 
     selected_points = np.arange(mms.get_dataset_length())
     for key in predicates.keys():
@@ -352,6 +355,15 @@ def save_DVI_selections():
 
     return make_response(jsonify({"message":"Save DVI selection succefully!"}), 200)
 
+@app.route('/sprite', methods=["POST","GET"])
+@cross_origin()
+def sprite_image():
+    path= request.args.get("path")
+    sprite = tf.io.gfile.GFile(path, "rb")
+    encoded_image_string = sprite.read()
+    sprite.close()
+    image_type = "image/png"
+    return Response(encoded_image_string, status=200, mimetype=image_type)
 
 # if this is the main thread of execution first load the model and then start the server
 if __name__ == "__main__":

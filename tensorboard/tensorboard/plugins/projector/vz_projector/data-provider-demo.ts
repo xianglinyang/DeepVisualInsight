@@ -116,6 +116,7 @@ export class DemoDataProvider implements DataProvider {
     let spriteImagePath = null;
     if (embedding.sprite && embedding.sprite.imagePath) {
       spriteImagePath = embedding.sprite.imagePath;
+      spriteImagePath = `http://localhost:5001/sprite?path=${spriteImagePath}`
     }
     retrieveSpriteAndMetadataInfo(
       embedding.metadataPath,

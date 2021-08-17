@@ -9,7 +9,7 @@
       "tensorPath": "https://storage.googleapis.com/embedding-projector/data/mnist_10k_784d_tensors.bytes",
       "metadataPath": "https://gist.githubusercontent.com/hzf1174/3a7e85af7d09ebdfafac3d4d3ba5e71f/raw/502ad8aedc40fab7e56db917c57b48eaf0bd28fa/metadata.csv",
       "sprite": {
-        "imagePath": "https://storage.googleapis.com/dvi-cifar10/sprite_full.png",
+        "imagePath": "/home/xianglin/DVI_exp_data/cifar10_sprite.png",
         "singleImageDim": [
           32,
           32
