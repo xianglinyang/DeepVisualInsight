@@ -627,7 +627,7 @@ def define_losses(batch_size, temporal):
     if temporal:
         regularize_loss_fn = regularize_loss()
         losses["regularization"] = regularize_loss_fn
-        loss_weights["regularization"] = 0.5  # TODO: change this weight
+        loss_weights["regularization"] = 0.3  # TODO: change this weight
 
         embedding_to_loss_fn = embedding_loss()
         losses["embedding_to"] = embedding_to_loss_fn
@@ -667,10 +667,11 @@ def define_lr_schedule(epoch):
 
 def construct_temporal_mixed_edge_dataset(
     X_input, old_graph_, new_graph_, n_epochs, batch_size, parametric_embedding,
-        parametric_reconstruction, alpha, prev_embedding
+        parametric_reconstruction, n_rate, alpha, prev_embedding
 ):
     """
     Construct a tf.data.Dataset of edges, sampled by edge weight.
+    It considers the temporal preserving property
 
     Parameters
     ----------
@@ -691,30 +692,49 @@ def construct_temporal_mixed_edge_dataset(
         Whether the embedder is parametric or non-parametric
     parametric_reconstruction : bool
         Whether the decoder is parametric or non-parametric
-    alpha : ndarray [n_samples]
+    n_rate : ndarray [n_samples]
+        neighbor preserving rate within range (0, 1)
+    alpha: ndarray [n_samples, dim]
+        attention weight on feature vectors, put attention on more important dimensions
     prev_embedding: [n_samples, 2(n_components)]
     """
+    train_data, border_centers = X_input
+    fitting_data = np.concatenate((train_data, border_centers), axis=0)
 
-    def gather_X(edge_to, edge_from, to_alpha, to_pe, weight):
-        edge_to_batch = tf.gather(fitting_data, edge_to)
-        edge_from_batch = tf.gather(fitting_data, edge_from)
-        to_alpha_batch = tf.gather(alpha, to_alpha)
-        to_pe_batch = tf.gather(prev_embedding, to_pe)
+    def gather_index(index):
+        return fitting_data[index]
 
-        outputs = {"umap": 0, "temporal": 0}
+    def gather_alpha(index):
+        return alpha[index]
+
+    gather_indices_in_python = True if fitting_data.nbytes * 1e-9 > 0.5 else False
+
+    def gather_X(edge_to, edge_from, weight):
+        if gather_indices_in_python:
+            # if True:
+            edge_to_batch = tf.py_function(gather_index, [edge_to], [tf.float32])[0]
+            edge_from_batch = tf.py_function(gather_index, [edge_from], [tf.float32])[0]
+            alpha_to = tf.py_function(gather_alpha, [edge_to], [tf.float32])[0]
+            alpha_from = tf.py_function(gather_alpha, [edge_from], [tf.float32])[0]
+
+        else:
+            edge_to_batch = tf.gather(fitting_data, edge_to)
+            edge_from_batch = tf.gather(fitting_data, edge_from)
+            alpha_to = tf.gather(alpha, edge_to)
+            alpha_from = tf.gather(alpha, edge_from)
+        to_n_rate = tf.gather(n_rate, edge_to)
+        outputs = {"umap": 0}
         if parametric_reconstruction:
             # add reconstruction to iterator output
             # edge_out = tf.concat([edge_to_batch, edge_from_batch], axis=0)
             outputs["reconstruction"] = edge_to_batch
 
-        return (edge_to_batch, edge_from_batch, to_alpha_batch, to_pe_batch, weight), outputs
+        return (edge_to_batch, edge_from_batch, alpha_to, alpha_from, to_n_rate, weight), outputs
 
-    train_data, border_centers = X_input
-    # cp_num = len(train_data)
+
     bc_num = len(border_centers)
-    fitting_data = np.concatenate((train_data, border_centers), axis=0)
-    alpha = np.expand_dims(alpha, axis=1)
-    alpha = np.concatenate((alpha, np.zeros((bc_num, 1))), axis=0)
+    n_rate = np.expand_dims(n_rate, axis=1)
+    n_rate = np.concatenate((n_rate, np.zeros((bc_num, 1))), axis=0)
     prev_embedding = np.concatenate((prev_embedding, np.zeros((bc_num, 2))), axis=0)
 
     # get data from graph
@@ -725,10 +745,6 @@ def construct_temporal_mixed_edge_dataset(
     new_graph, new_epochs_per_sample, new_head, new_tail, new_weight, new_n_vertices = get_graph_elements(
         new_graph_, n_epochs
     )
-    new_epochs_per_sample = np.repeat(new_epochs_per_sample, 2)
-    ## normalize two graphs
-    # new_head = new_head + cp_num
-    # new_tail = new_tail + cp_num
 
     # number of elements per batch for embedding
     if batch_size is None:
@@ -747,19 +763,17 @@ def construct_temporal_mixed_edge_dataset(
     edges_to_exp = edges_to_exp[shuffle_mask].astype(np.int64)
     edges_from_exp = edges_from_exp[shuffle_mask].astype(np.int64)
     weight = weight[shuffle_mask].astype(np.float64)
-    # to_alpha = to_alpha[shuffle_mask].astype(np.float64)
-    # to_pe = to_pe[shuffle_mask].astype(np.float64)
     weight = np.expand_dims(weight, axis=1)
 
     # create edge iterator
     edge_dataset = tf.data.Dataset.from_tensor_slices(
-        (edges_to_exp, edges_from_exp, edges_to_exp, edges_to_exp, weight)
+        (edges_to_exp, edges_from_exp, weight)
     )
     edge_dataset = edge_dataset.repeat()
     edge_dataset = edge_dataset.shuffle(10000)
     edge_dataset = edge_dataset.map(
-        # gather_X, num_parallel_calls=tf.data.experimental.AUTOTUNE
-        gather_X
+        gather_X, num_parallel_calls=tf.data.experimental.AUTOTUNE,
+        # gather_X
     )
     edge_dataset = edge_dataset.batch(batch_size, drop_remainder=True)
     edge_dataset = edge_dataset.prefetch(10)
@@ -852,7 +866,7 @@ def embedding_loss():
     return loss
 
 
-def find_alpha(prev_data, train_data, n_neighbors):
+def find_neighbor_preserving_rate(prev_data, train_data, n_neighbors):
     """
     neighbor preserving rate, (0, 1)
     :param prev_data: ndarray, shape(N,2) low dimensional embedding from last epoch

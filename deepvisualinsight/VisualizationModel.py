@@ -26,8 +26,7 @@ class ParametricModel(keras.Model):
 
         if self.temporal:
         #     # get one batch
-            to_x, from_x, to_alpha, _, weight = x[0]
-
+            to_x, from_x, to_alpha, from_alpha, n_rate, weight = x[0]
             # if self.e_var is None:
             #     self.e_var = [var for var in self.trainable_variables if "e_" in var.name]
             # if self.d_var is None:
@@ -60,7 +59,7 @@ class ParametricModel(keras.Model):
 
             if self.temporal:
                 # compute alpha bar
-                alpha_mean = tf.cast(tf.reduce_mean(tf.stop_gradient(to_alpha)), dtype=tf.float32)
+                alpha_mean = tf.cast(tf.reduce_mean(tf.stop_gradient(n_rate)), dtype=tf.float32)
                 prev_trainable_variables = self.prev_trainable_variables
 
                 # embedding loss

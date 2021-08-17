@@ -437,8 +437,24 @@ class MMS:
                     else:
                         encoder = self.get_proj_model(n_epoch-self.period)
                         prev_embedding = encoder(prev_data).cpu().numpy()
-                    alpha = find_alpha(prev_data, train_data, n_neighbors=15)
-                    alpha[alpha < 0.3] = 0.0 # alpha >=0.5 is convincing
+                        del encoder
+                        gc.collect()
+                    n_rate = find_neighbor_preserving_rate(prev_data, train_data, n_neighbors=15)
+
+                    fitting_data = np.concatenate((train_data, border_centers), axis=0)
+
+                    model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
+                    self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
+                    self.model = self.model.to(self.device)
+                    self.model.eval()
+
+                    model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
+                    model = model.to(self.device)
+                    model = model.eval()
+                    alpha = get_alpha(model, fitting_data, temperature=self.temperature, device=torch.device("cuda:0"), verbose=1)
+                    del model
+                    gc.collect()
+
                     (
                         edge_dataset,
                         batch_size,
@@ -452,6 +468,7 @@ class MMS:
                         batch_size,
                         parametric_embedding=True,
                         parametric_reconstruction=True,
+                        n_rate=n_rate,
                         alpha=alpha,
                         prev_embedding=prev_embedding
                     )
@@ -1346,7 +1363,7 @@ class MMS:
             del encoder
             gc.collect()
 
-            alpha_ = backend.find_alpha(prev_data, data, n_neighbors)
+            alpha_ = backend.find_neighbor_preserving_rate(prev_data, data, n_neighbors)
             delta_x_ = np.linalg.norm(prev_embedding - embedding, axis=1)
 
             alpha[int((n_epoch - self.epoch_start) / self.period - 1)] = alpha_
@@ -1380,7 +1397,7 @@ class MMS:
             del encoder
             gc.collect()
 
-            alpha_ = backend.find_alpha(prev_data, data, n_neighbors)
+            alpha_ = backend.find_neighbor_preserving_rate(prev_data, data, n_neighbors)
             delta_x_ = np.linalg.norm(prev_embedding - embedding, axis=1)
             alpha[int((n_epoch - self.epoch_start) / self.period - 1)] = alpha_
             delta_x[int((n_epoch - self.epoch_start) / self.period - 1)] = delta_x_
