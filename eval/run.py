@@ -55,6 +55,7 @@ if __name__ == "__main__":
         net = resnet50()
     except:
         net = ResNet18()
+        # net = resnet50()
     # net = CIFAR_17()
 
     if dataset == "CIFAR10":
