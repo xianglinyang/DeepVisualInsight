@@ -163,16 +163,16 @@ class MMS:
                 confs = batch_run(self.model, training_data, 10)
                 preds = np.argmax(confs, axis=1).squeeze()
                 num_adv_eg = int(len(training_data)/10)
-                border_points, curr_samples, tot_num = utils_advanced.get_border_points_exp2(model=self.model,
-                                                                                             input_x=training_data,
-                                                                                             confs=confs,
-                                                                                             predictions=preds,
-                                                                                             device=self.device,
-                                                                                             alpha=self.alpha,
-                                                                                             num_adv_eg=num_adv_eg,
-                                                                                             num_cls=10,
-                                                                                             lambd=0.05,
-                                                                                             verbose=0)
+                border_points, curr_samples, tot_num = utils_advanced.get_border_points(model=self.model,
+                                                                                     input_x=training_data,
+                                                                                     confs=confs,
+                                                                                     predictions=preds,
+                                                                                     device=self.device,
+                                                                                     alpha=self.alpha,
+                                                                                     num_adv_eg=num_adv_eg,
+                                                                                     num_cls=10,
+                                                                                     lambd=0.05,
+                                                                                     verbose=0)
                 t1 = time.time()
                 time_borders_gen.append(round(t1 - t0, 4))
 
