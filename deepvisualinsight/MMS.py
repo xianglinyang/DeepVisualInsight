@@ -326,9 +326,9 @@ class MMS:
         optimizer = tf.keras.optimizers.Adam()
 
         weights_dict = {}
-        losses, loss_weights = define_losses(batch_size, self.temporal)
-        parametric_model = ParametricModel(encoder, decoder, optimizer, losses, loss_weights, self.temporal,
-                                           prev_trainable_variables=None)
+        losses, loss_weights = define_losses(batch_size, self.temporal, self.step3)
+        parametric_model = ParametricModel(encoder, decoder, optimizer, losses, loss_weights, self.temporal, self.step3,
+                                           self.batch_size, prev_trainable_variables=None)
         callbacks = [
             tf.keras.callbacks.EarlyStopping(
                 monitor='loss',
