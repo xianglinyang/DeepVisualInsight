@@ -18,9 +18,8 @@ from deepvisualinsight.VisualizationModel import ParametricModel
 
 class MMS:
     def __init__(self, content_path, model_structure, epoch_start, epoch_end, period, repr_num, class_num, classes, temperature,
-                 low_dims=2,
-                 cmap="tab10", resolution=100, neurons=None, temporal=False, transfer_learning=True, batch_size=1000,
-                 verbose=1, split=-1, advance_border_gen=True, alpha=0.7, withoutB=False, attack_device="cpu"):
+                 low_dims=2, cmap="tab10", resolution=100, neurons=None, temporal=False, transfer_learning=True, step3=False,
+                 batch_size=1000, verbose=1, split=-1, advance_border_gen=True, alpha=0.7, withoutB=False, attack_device="cpu"):
 
         '''
         This class contains the model management system (super DB) and provides
@@ -59,6 +58,7 @@ class MMS:
             choose whether to add temporal loss or not
         transfer_learning: boolean, by default True
             choose whether to use transfer learning
+        step3: whether to use step3 temporal loss, by default False(step2 instead)
         batch_size: int, by default 1000
             the batch size to train autoencoder
         verbose : int, by default 1
@@ -88,6 +88,7 @@ class MMS:
         self.class_num = class_num
         self.classes = classes
         self.temporal = temporal
+        self.step3 = step3
         self.temperature = temperature
         self.transfer_learning = transfer_learning
         self.batch_size = batch_size
@@ -348,7 +349,7 @@ class MMS:
                 if decoder_in is not None:
                     decoder = decoder_in
                 parametric_model = ParametricModel(encoder, decoder, optimizer, losses, loss_weights,
-                                                   self.temporal,
+                                                   self.temporal, self.step3, self.batch_size,
                                                    prev_trainable_variables=None)
             parametric_model.compile(
                 optimizer=optimizer, loss=losses, loss_weights=loss_weights,
