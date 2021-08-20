@@ -517,7 +517,15 @@ class MMS:
             f = open(save_dir, "r")
             evaluation = json.load(f)
             f.close()
-        evaluation["vis_model"] = round(
+        if not self.transfer_learning:
+            time_label = "vis_model_NT"
+        elif not self.temporal:
+            time_label = "vis_model_T"
+        elif not self.step3:
+            time_label = "vis_model_step2"
+        else:
+            time_label = "vis_model_step3"
+        evaluation[time_label] = round(
             (t1 - t0) / int((self.epoch_end - self.epoch_start) / self.period + 1), 3)
         with open(save_dir, 'w') as f:
             json.dump(evaluation, f)
