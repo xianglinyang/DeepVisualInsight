@@ -40,6 +40,21 @@ def main(args):
         data = np.concatenate((data, np.array([[dataset, "DVI", "Test", "{}".format(str(epoch//p)), nn_test]])), axis=0)
 
     #%%
+    #%%
+    # load data from evaluation_step2.json
+    content_path = "E:\\DVI_exp_data\\TemporalExp\\resnet18_{}".format(dataset)
+    for epoch in [1, 2, 3, 4, 7]:
+        eval_path = os.path.join(content_path, "Model", "Epoch_{}".format(epoch), "evaluation_step2.json")
+        with open(eval_path, "r") as f:
+            eval = json.load(f)
+        nn_train = round(eval["inv_acc_train"], 3)
+        nn_test = round(eval["inv_acc_test"], 3)
+        if epoch>5:
+            i=5
+        else:
+            i=epoch
+        data = np.concatenate((data, np.array([[dataset, "DVI-temporal", "Train", "{}".format(str(i)), nn_train]])), axis=0)
+        data = np.concatenate((data, np.array([[dataset, "DVI-temporal", "Test", "{}".format(str(i)), nn_test]])), axis=0)
 
     content_path = "E:\\xianglin\\git_space\\umap_exp\\results"
     # pca
@@ -89,6 +104,7 @@ def main(args):
     sns.palplot(pal20c)
     hue_dict = {
         "DVI": pal20c[4],
+        "DVI-temporal": pal20c[6],
         "UMAP": pal20c[0],
         # "TSNE": pal20c[8],
         "PCA": pal20c[12],
@@ -104,7 +120,7 @@ def main(args):
     mpl.rcParams['xtick.labelsize'] = 14
 
     # hue_list = ["DVI", "UMAP", "TSNE", "PCA"]
-    hue_list = ["DVI", "UMAP", "PCA"]
+    hue_list = ["DVI", "DVI-temporal", "UMAP", "PCA"]
 
     #%%
 
