@@ -42,7 +42,7 @@ def main(args):
             data = np.concatenate((data, np.array([[dataset, "DVI", "Train", "{}".format(str(epoch//p)), nn_train]])), axis=0)
         data = np.concatenate((data, np.array([[dataset, "DVI", "Test", "{}".format(str(epoch//p)), nn_test]])), axis=0)
 
-    content_path = "E:\\xianglin\\git_space\\DeepView\DVI_exp\\batch_run_results"
+    content_path = "E:\\xianglin\\git_space\\DeepView\\DVI_exp\\batch_run_results"
 
     for epoch in range(start, end, p):
         nn_train = .0
