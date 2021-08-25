@@ -1364,7 +1364,7 @@ class MMS:
 
         return val
 
-    def proj_temporal_perseverance_train(self, n_neighbors=15):
+    def proj_temporal_perseverance_train(self, n_neighbors=15, eval_name=""):
         """evalute training temporal preserving property"""
         l = load_labelled_data_index(os.path.join(self.model_path, "Epoch_{:d}".format(self.epoch_start), "index.json"))
         l = len(l)
@@ -1398,9 +1398,22 @@ class MMS:
 
         # val_entropy = evaluate_proj_temporal_perseverance_entropy(alpha, delta_x)
         val_corr = evaluate_proj_temporal_perseverance_corr(alpha, delta_x)
+        # save result
+        save_dir = os.path.join(self.model_path,  "time{}.json".format(eval_name))
+        if not os.path.exists(save_dir):
+            evaluation = dict()
+        else:
+            f = open(save_dir, "r")
+            evaluation = json.load(f)
+            f.close()
+        evaluation["temporal_train"] = val_corr
+        with open(save_dir, "w") as f:
+            json.dump(evaluation, f)
+        if self.verbose:
+            print("succefully save train corr {}".format(val_corr))
         return val_corr
 
-    def proj_temporal_perseverance_test(self, n_neighbors=15):
+    def proj_temporal_perseverance_test(self, n_neighbors=15, eval_name=""):
         """evalute testing temporal preserving property"""
         l = os.path.join(self.model_path, "Epoch_{:d}".format(self.epoch_start), "test_index.json")
         if os.path.exists(l):
@@ -1436,6 +1449,20 @@ class MMS:
 
         # val_entropy = evaluate_proj_temporal_perseverance_entropy(alpha, delta_x)
         val_corr = evaluate_proj_temporal_perseverance_corr(alpha, delta_x)
+
+        # save result
+        save_dir = os.path.join(self.model_path,  "time{}.json".format(eval_name))
+        if not os.path.exists(save_dir):
+            evaluation = dict()
+        else:
+            f = open(save_dir, "r")
+            evaluation = json.load(f)
+            f.close()
+        evaluation["temporal_test"] = val_corr
+        with open(save_dir, "w") as f:
+            json.dump(evaluation, f)
+        if self.verbose:
+            print("succefully save test corr {}".format(val_corr))
 
         return val_corr
 
