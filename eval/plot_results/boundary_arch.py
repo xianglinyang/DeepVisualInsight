@@ -155,7 +155,7 @@ axs[1].set_title("Test")
 
 (fg.despine(bottom=True)
  .set_xticklabels(['Begin', 'Early', 'Mid', 'Late', 'End'])
- .set_axis_labels("", "NN preserving property")
+ .set_axis_labels("", "Boundary preserving property")
  )
 fg.fig.suptitle("cifar10")
 

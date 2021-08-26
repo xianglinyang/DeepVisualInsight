@@ -134,7 +134,7 @@ def main(args):
         col="type",
         ci=0.001,
         height=3, #2.65,
-        aspect=2.5,#3,
+        aspect=2.8,#3,
         data=df,
         kind="bar",
         palette=[hue_dict[i] for i in hue_list],
@@ -147,6 +147,21 @@ def main(args):
     axs[0].set_ylim(.0, max_*1.1)
     axs[0].set_title("Train")
     axs[1].set_title("Test")
+
+    # iterate through axes
+    for ax in axs.ravel():
+        # add annotations
+        for c in ax.containers:
+            labels = [f'{(v.get_height()):.2f}' for v in c]
+            ax.bar_label(c, labels=labels, label_type='edge')
+        ax.margins(y=0.2)
+    # for p in ax.patches:
+    #     ax.text(p.get_x() - 0.01,
+    #             p.get_height() * 1.02,
+    #             '{0:.1f}K'.format(p.get_height()/1000),   #Used to format it K representation
+    #             color='black',
+    #             rotation='horizontal',
+    #             size='large')
 
     (fg.despine(bottom=True)
      .set_xticklabels(['Begin', 'Early', 'Mid', 'Late', 'End'])

@@ -10,8 +10,6 @@ import json
 
 import numpy as np
 import pandas as pd
-from tqdm.autonotebook import tqdm
-import matplotlib.pyplot as plt
 import matplotlib as mpl
 import seaborn as sns
 import argparse
@@ -160,7 +158,7 @@ def main(args):
 
     (fg.despine(bottom=True)
      .set_xticklabels(['Begin', 'Early', 'Mid', 'Late', 'End'])
-     .set_axis_labels("", "NN preserving property")
+     .set_axis_labels("", "Boundary preserving property")
      )
     fg.fig.suptitle(dataset)
 
