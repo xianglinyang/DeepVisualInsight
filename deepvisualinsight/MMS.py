@@ -99,11 +99,11 @@ class MMS:
         self.withoutB = withoutB
         self.device = torch.device(attack_device)
         if len(tf.config.list_physical_devices('GPU')) > 0:
-            self.tf_device = tf.config.list_physical_devices('GPU')[0]
+            # self.tf_device = tf.config.list_physical_devices('GPU')[0]
             for d in tf.config.list_physical_devices('GPU'):
                 tf.config.experimental.set_memory_growth(d, True)
-        else:
-            self.tf_device = tf.config.list_physical_devices('CPU')[0]
+        # else:
+        #     self.tf_device = tf.config.list_physical_devices('CPU')[0]
         if neurons is None:
             self.neurons = self.repr_num / 2
         else:
@@ -191,6 +191,7 @@ class MMS:
                 location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "advance_border_labels.npy")
                 np.save(location, np.array(border_cls))
             else:
+                # soon to be depercated in the future
                 # border points gen
                 t0 = time.time()
                 border_points = get_border_points(training_data, training_labels, self.model, self.device)
@@ -300,6 +301,9 @@ class MMS:
             evaluation["time_test_inv"] = round(t3-t2, 3)
             evaluation["test_len"] = test_len
 
+            # evaluation["temporal_train"] = self.proj_temporal_perseverance_train(15)
+            # evaluation["temporal_test"] = self.proj_temporal_perseverance_test(15)
+
             # subject model train/test accuracy
             evaluation['acc_train'] = self.training_accu(n_epoch)
             evaluation['acc_test'] = self.testing_accu(n_epoch)
@@ -407,7 +411,7 @@ class MMS:
                     model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
                     model = model.to(self.device)
                     model = model.eval()
-                    alpha = get_alpha(model, fitting_data, temperature=self.temperature, device=torch.device("cuda:0"), verbose=1)
+                    alpha = get_alpha(model, fitting_data, temperature=self.temperature, device=self.device, verbose=1)
                     del model
                     gc.collect()
                     (
@@ -452,7 +456,7 @@ class MMS:
                     model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
                     model = model.to(self.device)
                     model = model.eval()
-                    alpha = get_alpha(model, fitting_data, temperature=self.temperature, device=torch.device("cuda:0"), verbose=1)
+                    alpha = get_alpha(model, fitting_data, temperature=self.temperature, device=self.device, verbose=1)
                     del model
                     gc.collect()
 
@@ -494,8 +498,12 @@ class MMS:
                 flag += "_advance"
 
             if self.temporal:
-                encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder_temporal"+flag))
-                decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "decoder_temporal"+flag))
+                if self.step3:
+                    encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder_temporal3" + flag))
+                    decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "decoder_temporal3" + flag))
+                else:
+                    encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder_temporal"+flag))
+                    decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "decoder_temporal"+flag))
             elif self.transfer_learning:
                 encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder"+flag))
                 decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "decoder"+flag))
@@ -544,7 +552,11 @@ class MMS:
             flag = "_advance"
 
         if self.temporal:
-            encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "encoder_temporal"+flag)
+            if self.step3:
+                encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id),
+                                                "encoder_temporal3" + flag)
+            else:
+                encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "encoder_temporal"+flag)
         elif self.transfer_learning:
             encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "encoder"+flag)
         else:
@@ -571,7 +583,11 @@ class MMS:
             flag += "_advance"
 
         if self.temporal:
-            decoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "decoder_temporal"+flag)
+            if self.step3:
+                decoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id),
+                                                "decoder_temporal3" + flag)
+            else:
+                decoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "decoder_temporal"+flag)
         elif self.transfer_learning:
             decoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "decoder"+flag)
         else:
@@ -1118,7 +1134,7 @@ class MMS:
         # train_data labels
         for c in range(self.class_num):
             color = self.cmap(c/(self.class_num-1))
-            plot = self.ax.plot([], [], '.', label=self.classes[c], ms=1,
+            plot = self.ax.plot([], [], '.', label=self.classes[c], ms=50,
                 color=color, zorder=2, picker=mpl.rcParams['lines.markersize'])
             self.sample_plots.append(plot[0])
 
@@ -1140,7 +1156,7 @@ class MMS:
         # self.fig.canvas.mpl_connect('button_press_event', self.show_sample)
         self.disable_synth = False
 
-    def customize_visualize(self, epoch_id, train_data, train_labels, test_data, test_labels, path, highlight_index):
+    def customize_visualize(self, epoch_id, test_data, test_labels, path):
         '''
         Shows the current plot.
         training data in small dot, test data in larger triangle, highlight in red
@@ -1165,12 +1181,13 @@ class MMS:
         # pred = pred.argmax(axis=1)
 
         proj_encoder = self.get_proj_model(epoch_id)
-        embedding = proj_encoder(train_data).cpu().numpy()
+        embedding = proj_encoder(test_data).cpu().numpy()
         # test_embedding = proj_encoder(test_data).cpu().numpy()
-        # for c in range(self.class_num):
-        #     data = embedding[np.logical_and(train_labels == c, train_labels == pred)]
-        #     self.sample_plots[c].set_data(data.transpose())
-        #
+        for c in range(self.class_num):
+            # data = embedding[np.logical_and(train_labels == c, train_labels == pred)]
+            data = embedding[(test_labels == c)]
+            self.sample_plots[c].set_data(data.transpose())
+
         # for c in range(self.class_num):
         #     data = embedding[np.logical_and(train_labels == c, train_labels != pred)]
         #     self.sample_plots[self.class_num + c].set_data(data.transpose())
@@ -1187,8 +1204,8 @@ class MMS:
         # for c in range(self.class_num):
         #     data = test_embedding[test_labels == c]
         #     self.sample_plots[self.class_num + c].set_data(data.transpose())
-        data = embedding[highlight_index]
-        self.sample_plots[2*self.class_num].set_data(data.transpose())
+        # data = embedding[highlight_index]
+        # self.sample_plots[2*self.class_num].set_data(data.transpose())
 
         if os.name == 'posix':
             self.fig.canvas.manager.window.raise_()
@@ -1349,7 +1366,8 @@ class MMS:
 
     def proj_temporal_perseverance_train(self, n_neighbors=15):
         """evalute training temporal preserving property"""
-        l = len(self.training_labels)
+        l = load_labelled_data_index(os.path.join(self.model_path, "Epoch_{:d}".format(self.epoch_start), "index.json"))
+        l = len(l)
         eval_num = int((self.epoch_end - self.epoch_start) / self.period)
         alpha = np.zeros((eval_num, l))
         delta_x = np.zeros((eval_num, l))
@@ -1384,7 +1402,12 @@ class MMS:
 
     def proj_temporal_perseverance_test(self, n_neighbors=15):
         """evalute testing temporal preserving property"""
-        l = len(self.testing_labels)
+        l = os.path.join(self.model_path, "Epoch_{:d}".format(self.epoch_start), "test_index.json")
+        if os.path.exists(l):
+            l = load_labelled_data_index(l)
+            l = len(l)
+        else:
+            l = len(self.testing_labels)
         eval_num = int((self.epoch_end - self.epoch_start) / self.period)
         alpha = np.zeros((eval_num, l))
         delta_x = np.zeros((eval_num, l))
