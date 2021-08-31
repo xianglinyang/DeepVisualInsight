@@ -1134,7 +1134,7 @@ class MMS:
         # train_data labels
         for c in range(self.class_num):
             color = self.cmap(c/(self.class_num-1))
-            plot = self.ax.plot([], [], '.', label=self.classes[c], ms=50,
+            plot = self.ax.plot([], [], '.', label=self.classes[c], ms=2,
                 color=color, zorder=2, picker=mpl.rcParams['lines.markersize'])
             self.sample_plots.append(plot[0])
 
