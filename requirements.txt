@@ -11,4 +11,7 @@ umap==0.1.1
 tqdm==4.50.0
 flask==1.1.2
 flask_cors==3.0.10
-torch==1.9.0+cu111 torchvision==0.10.0+cu111 torchaudio==0.9.0 -f https://download.pytorch.org/whl/torch_stable.html
+torch==1.9.0+cu111 
+torchvision==0.10.0+cu111 
+torchaudio==0.9.0 
+-f https://download.pytorch.org/whl/torch_stable.html
