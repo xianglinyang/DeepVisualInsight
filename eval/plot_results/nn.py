@@ -118,9 +118,9 @@ def main():
         "UMAP-Train": pal20c[8],
         "TSNE-Train": pal20c[16],
         "PCA-Train": pal20c[12],
-        "DVI-Test": pal20c[2],
-        "DVI-temporal-Test": pal20c[6],
-        "UMAP-Test": pal20c[10],
+        "DVI-Test": pal20c[3],
+        "DVI-temporal-Test": pal20c[7],
+        "UMAP-Test": pal20c[11],
         # "TSNE": pal20c[8],
         "PCA-Test": pal20c[14],
 
@@ -170,7 +170,7 @@ def main():
 
     (fg.despine(bottom=False, right=False, left=False, top=False)
      .set_xticklabels(['Begin', 'Early', 'Mid', 'Late', 'End'])
-     # .set_axis_labels("", "NN preserving property")
+     .set_axis_labels("Period", "NN Preserving")
      )
     # fg.fig.suptitle("NN preserving property")
 
