@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from deepvisualinsight.evaluate import *
 import gc
+import pandas as pd
 from scipy.special import softmax
 from scipy.spatial.distance import cdist
 import deepvisualinsight.utils_advanced as utils_advanced
@@ -44,9 +45,11 @@ class MMS:
             the length of classification labels
         classes	: list, tuple of str
             All classes that the classifier uses as a list/tuple of strings.
-        low_dims: tuple
-            the expected low dimension shape
-        cmap : str, by default 'tab10'
+        temperature: float
+            the temperature sharpening parameter for Reconstruction loss(gradient calculation)
+        low_dims: int
+            the number of dimensions in low dimensional space
+        cmap : str, by default 'tab10', should support more classes in the future
             Name of the colormap to use for visualization.
             The number of distinguishable colors should correspond to class_num.
             See here for the names: https://matplotlib.org/3.1.1/gallery/color/colormap_reference.html
@@ -63,11 +66,14 @@ class MMS:
             the batch size to train autoencoder
         verbose : int, by default 1
         split: int, by default -1
-        advance_border_gen : boolean, by default False
+            number of layers for feature function
+        advance_border_gen : boolean, by default True
             whether to use advance adversarial attack method for border points generation
-        alpha: new_image = alpha*m1+(1-alpha)*m2
+        alpha: float
+            lower bound for, new_image = alpha*m1+(1-alpha)*m2
+            upper bound in paper, but they are same
         withoutB: boolean, by default False
-            whether to add boundary preserving property
+            whether to add boundary preserving property, for baseline comparsion
         attack_device: str, by default "cpu"
             the device the perform adversatial attack
         '''
@@ -94,10 +100,12 @@ class MMS:
         self.batch_size = batch_size
         self.verbose = verbose
         self.split = split
+        # TODO depercate advanced attack, set it as default
         self.advance_border_gen = advance_border_gen
         self.alpha = alpha
         self.withoutB = withoutB
         self.device = torch.device(attack_device)
+        # TODO change tensorflow to pytorch
         if len(tf.config.list_physical_devices('GPU')) > 0:
             # self.tf_device = tf.config.list_physical_devices('GPU')[0]
             for d in tf.config.list_physical_devices('GPU'):
@@ -164,6 +172,7 @@ class MMS:
                 confs = batch_run(self.model, training_data, 10)
                 preds = np.argmax(confs, axis=1).squeeze()
                 num_adv_eg = int(len(training_data)/10)
+                # TODO refactor to one utils.py file, remove utils_advanced
                 border_points, curr_samples, tot_num = utils_advanced.get_border_points(model=self.model,
                                                                                      input_x=training_data,
                                                                                      confs=confs,
@@ -855,7 +864,7 @@ class MMS:
             print("No data!")
             return None
 
-    ################################################ Visualization ################################################
+    ################################################## Visualization ##################################################
     def get_epoch_plot_measures(self, epoch_id):
         """get plot measure for visualization"""
         train_data = self.get_epoch_train_repr_data(epoch_id)
@@ -1104,33 +1113,6 @@ class MMS:
 
         self.sample_plots = []
 
-        # # labels = prediction
-        # for c in range(self.class_num):
-        #     color = self.cmap(c/(self.class_num-1))
-        #     plot = self.ax.plot([], [], '.', label=self.classes[c], ms=1,
-        #         color=color, zorder=2, picker=mpl.rcParams['lines.markersize'])
-        #     self.sample_plots.append(plot[0])
-        #
-        # # labels != prediction, labels be a large circle
-        # for c in range(self.class_num):
-        #     color = self.cmap(c/(self.class_num-1))
-        #     plot = self.ax.plot([], [], 'o', markeredgecolor=color,
-        #         fillstyle='full', ms=3, mew=2.5, zorder=3)
-        #     self.sample_plots.append(plot[0])
-        #
-        # # labels != prediction, prediction stays inside of circle
-        # for c in range(self.class_num):
-        #     color = self.cmap(c / (self.class_num - 1))
-        #     plot = self.ax.plot([], [], '.', markeredgecolor=color,
-        #                         fillstyle='full', ms=2, zorder=4)
-        #     self.sample_plots.append(plot[0])
-        #
-        # # highlight
-        # color = (0.0, 0.0, 0.0, 1.0)
-        # plot = self.ax.plot([], [], 'o', markeredgecolor=color,
-        #                     fillstyle='full', ms=1, mew=1, zorder=1)
-        # self.sample_plots.append(plot[0])
-
         # train_data labels
         for c in range(self.class_num):
             color = self.cmap(c/(self.class_num-1))
@@ -1173,12 +1155,6 @@ class MMS:
         self.ax.set_xlim((x_min, x_max))
         self.ax.set_ylim((y_min, y_max))
 
-        # params_str = 'res: %d'
-        # desc = params_str % (self.resolution)
-        # self.desc.set_text(desc)
-
-        # pred = self.get_pred(epoch_id, train_data)
-        # pred = pred.argmax(axis=1)
 
         proj_encoder = self.get_proj_model(epoch_id)
         embedding = proj_encoder(test_data).cpu().numpy()
@@ -1188,32 +1164,12 @@ class MMS:
             data = embedding[(test_labels == c)]
             self.sample_plots[c].set_data(data.transpose())
 
-        # for c in range(self.class_num):
-        #     data = embedding[np.logical_and(train_labels == c, train_labels != pred)]
-        #     self.sample_plots[self.class_num + c].set_data(data.transpose())
-        # #
-        # for c in range(self.class_num):
-        #     data = embedding[np.logical_and(pred == c, train_labels != pred)]
-        #     self.sample_plots[2 * self.class_num + c].set_data(data.transpose())
-        #
-        # data = embedding[highlight_index]
-        # self.sample_plots[3 * self.class_num].set_data(data.transpose())
-        # for c in range(self.class_num):
-        #     data = embedding[train_labels == c]
-        #     self.sample_plots[c].set_data(data.transpose())
-        # for c in range(self.class_num):
-        #     data = test_embedding[test_labels == c]
-        #     self.sample_plots[self.class_num + c].set_data(data.transpose())
-        # data = embedding[highlight_index]
-        # self.sample_plots[2*self.class_num].set_data(data.transpose())
-
         if os.name == 'posix':
             self.fig.canvas.manager.window.raise_()
 
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
 
-        # plt.text(-8, 8, "test", fontsize=18, style='oblique', ha='center', va='top', wrap=True)
         plt.savefig(path, bbox_inches='tight', pad_inches=0)
 
     def _al_visualize_init(self):
@@ -1447,7 +1403,6 @@ class MMS:
             alpha[int((n_epoch - self.epoch_start) / self.period - 1)] = alpha_
             delta_x[int((n_epoch - self.epoch_start) / self.period - 1)] = delta_x_
 
-        # val_entropy = evaluate_proj_temporal_perseverance_entropy(alpha, delta_x)
         val_corr = evaluate_proj_temporal_perseverance_corr(alpha, delta_x)
 
         # save result
@@ -1792,10 +1747,122 @@ class MMS:
             return [-1 for i in range(train_num+test_num)]
 
     def save_DVI_selection(self, epoch_id, indices):
-        save_location = os.path.join(self.model_path, "Epoch_{}".format(epoch_id),"DVISelection.json")
+        """
+        save the selected index message from DVI frontend
+        :param epoch_id:
+        :param indices: list, selected indices
+        :return:
+        """
+        save_location = os.path.join(self.model_path, "Epoch_{}".format(epoch_id), "DVISelection.json")
         with open(save_location, "w") as f:
             json.dump(indices, f)
-    ############################# DVI tensorboard frontend #################################
+    ######################################## DVI tensorboard frontend ###############################################
+
+    # TODO setup APIs to get attributes for DVI frontend
+    # Subject Model table
+    def subject_model_table(self):
+        """
+        get the dataframe for subject model table
+        :return:
+        """
+        path_list = []
+        epoch_list = []
+        train_accu = []
+        test_accu = []
+        for n_epoch in range(self.epoch_start, self.epoch_end+1, self.period):
+            path = os.path.join(self.model_path, "Epoch_{}".format(n_epoch), "subject_model.pth")
+            path_list.append(path)
+            epoch_list.append(n_epoch)
+            train_accu.append(self.training_accu(n_epoch))
+            test_accu.append(self.testing_accu(n_epoch))
+        df_dict = {
+            "location": path_list,
+            "epoch": epoch_list,
+            "train_accu": train_accu,
+            "test_accu": test_accu
+        }
+        df = pd.DataFrame(df_dict, index=pd.Index(range(len(path_list)), name="idx"))
+        return df
+
+    # Visualization model table
+    def vis_model_table(self):
+        """
+        get the dataframe for vis model table
+        :return:
+        """
+        temporal = False
+        if self.temporal:
+            temporal = True
+        path_list = []
+        epoch_list = []
+        temporal_list = []
+        nn_train = []
+        boundary_train = []
+        ppr_train = []
+        ccr_train = []
+        nn_test = []
+        boundary_test = []
+        ppr_test = []
+        ccr_test = []
+        for n_epoch in range(self.epoch_start, self.epoch_end+1, self.period):
+            path = os.path.join(self.model_path, "Epoch_{}".format(n_epoch))
+            path_list.append(path)
+            epoch_list.append(n_epoch)
+            temporal_list.append(temporal)
+
+            eval_path = os.path.join(self.model_path, "Epoch_{}".format(n_epoch), "evaluation.json")
+            with open(eval_path, "r") as f:
+                eval = json.load(f)
+            nn_train.append(eval["nn_train_15"])
+            nn_test.append(eval["nn_test_15"])
+            boundary_train.append(eval["bound_train_15"])
+            boundary_test.append(eval["bound_test_15"])
+            ppr_train.append(eval["inv_acc_train"])
+            ppr_test.append(eval["inv_acc_test"])
+            ccr_train.append(eval["inv_conf_train"])
+            ccr_test.append(eval["inv_conf_test"])
+        df_dict = {
+            "location": path_list,
+            "epoch": epoch_list,
+            "temporal_loss": temporal_list,
+            "nn_train": nn_train,
+            "nn_test": nn_test,
+            "boundary_train": boundary_train,
+            "boundary_test": boundary_test,
+            "ppr_train": ppr_train,
+            "ppr_test": ppr_test,
+            "ccr_train":ccr_train,
+            "ccr_test": ccr_test
+        }
+        df = pd.DataFrame(df_dict, index=pd.Index(range(len(path_list)), name="idx"))
+        # TODO check epoch_start and epoch_end
+        return df
+
+    # Sample table
+    def sample_table(self):
+        """
+        sample table:
+            label
+            index
+            type:["train", "test", others...]
+            customized attributes
+        :return:
+        """
+        train_labels = self.training_labels.cpu().numpy().tolist()
+        test_labels = self.testing_labels.cpu().numpy().tolist()
+        labels = train_labels + test_labels
+        train_type = ["train" for i in range(len(train_labels))]
+        test_type = ["test" for i in range(len(test_labels))]
+        types = train_type + test_type
+        df_dict = {
+            "labels": labels,
+            "type": types
+        }
+
+        df = pd.DataFrame(df_dict, index=pd.Index(range(len(labels)), name="idx"))
+        return df
+
+    # customized features
     def filter_label(self, label):
         try:
             index = self.classes.index(label)
@@ -1808,7 +1875,7 @@ class MMS:
         idxs = np.squeeze(idxs)
         return idxs
 
-    def filter_type(self,type, epoch_id):
+    def filter_type(self, type, epoch_id):
         if type == "train":
             res = self.get_epoch_index(epoch_id)
         elif type == "test":
@@ -1834,4 +1901,3 @@ class MMS:
     def filter_prediction(self, pred):
         pass
 
-    # uncertainty or diversity
