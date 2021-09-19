@@ -39,10 +39,10 @@ def main():
             nn_test = round(eval["inv_acc_test"], 3)
 
             if len(data)==0:
-                data = np.array([[dataset, "DVI", "Train", "DVI-Train", "{}".format(str(epoch//p)), nn_train]])
+                data = np.array([[dataset, "DVI", "Train", "DVI-T-Train", "{}".format(str(epoch//p)), nn_train]])
             else:
-                data = np.concatenate((data, np.array([[dataset, "DVI", "Train", "DVI-Train", "{}".format(str(epoch//p)), nn_train]])), axis=0)
-            data = np.concatenate((data, np.array([[dataset, "DVI", "Test", "DVI-Test", "{}".format(str(epoch//p)), nn_test]])), axis=0)
+                data = np.concatenate((data, np.array([[dataset, "DVI", "Train", "DVI-T-Train", "{}".format(str(epoch//p)), nn_train]])), axis=0)
+            data = np.concatenate((data, np.array([[dataset, "DVI", "Test", "DVI-T-Test", "{}".format(str(epoch//p)), nn_test]])), axis=0)
 
         #%%
         #%%
@@ -58,8 +58,8 @@ def main():
                 i=5
             else:
                 i=epoch
-            data = np.concatenate((data, np.array([[dataset, "DVI-temporal", "Train", "DVI-temporal-Train", "{}".format(str(i)), nn_train]])), axis=0)
-            data = np.concatenate((data, np.array([[dataset, "DVI-temporal", "Test", "DVI-temporal-Test", "{}".format(str(i)), nn_test]])), axis=0)
+            data = np.concatenate((data, np.array([[dataset, "DVI-temporal", "Train", "DVI-Train", "{}".format(str(i)), nn_train]])), axis=0)
+            data = np.concatenate((data, np.array([[dataset, "DVI-temporal", "Test", "DVI-Test", "{}".format(str(i)), nn_test]])), axis=0)
 
         content_path = "E:\\xianglin\\git_space\\umap_exp\\results"
         # pca
@@ -103,17 +103,18 @@ def main():
         df[["eval"]] = df[["eval"]].astype(float)
 
     #%%
+    df.to_excel("PPR.xlsx")
 
     pal20c = sns.color_palette('tab20c', 20)
     sns.palplot(pal20c)
     hue_dict = {
-        "DVI-Train": pal20c[0],
-        "DVI-temporal-Train": pal20c[4],
+        "DVI-T-Train": pal20c[0],
+        "DVI-Train": pal20c[4],
         "UMAP-Train": pal20c[8],
         # "TSNE-Train": pal20c[16],
         "PCA-Train": pal20c[12],
-        "DVI-Test": pal20c[3],
-        "DVI-temporal-Test": pal20c[7],
+        "DVI-T-Test": pal20c[3],
+        "DVI-Test": pal20c[7],
         "UMAP-Test": pal20c[11],
         # "TSNE": pal20c[8],
         "PCA-Test": pal20c[14],
@@ -127,7 +128,7 @@ def main():
     mpl.rc('axes', **axes)
     mpl.rcParams['xtick.labelsize'] = 9
 
-    hue_list = ["DVI-Train", "DVI-Test", "DVI-temporal-Train", "DVI-temporal-Test", "UMAP-Train", "UMAP-Test", "PCA-Train", "PCA-Test"]
+    hue_list = ["DVI-Train", "DVI-Test", "DVI-T-Train", "DVI-T-Test", "UMAP-Train", "UMAP-Test", "PCA-Train", "PCA-Test"]
 
     #%%
     # sns.set_style("dark")
@@ -175,13 +176,13 @@ def main():
     # fg.fig.suptitle("NN preserving property")
 
     #%%
-    fg.savefig(
-        "inv_accu.pdf",
-        dpi=300,
-        bbox_inches="tight",
-        pad_inches=0.0,
-        transparent=True,
-    )
+    # fg.savefig(
+    #     "inv_accu.pdf",
+    #     dpi=300,
+    #     bbox_inches="tight",
+    #     pad_inches=0.0,
+    #     transparent=True,
+    # )
 
 
 
