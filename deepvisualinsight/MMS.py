@@ -1362,7 +1362,7 @@ class MMS:
             f = open(save_dir, "r")
             evaluation = json.load(f)
             f.close()
-        evaluation["temporal_train"] = val_corr
+        evaluation["temporal_train_{}".format(n_neighbors)] = val_corr
         with open(save_dir, "w") as f:
             json.dump(evaluation, f)
         if self.verbose:
@@ -1413,11 +1413,11 @@ class MMS:
             f = open(save_dir, "r")
             evaluation = json.load(f)
             f.close()
-        evaluation["temporal_test"] = val_corr
+        evaluation["temporal_test_{}".format(n_neighbors)] = val_corr
         with open(save_dir, "w") as f:
             json.dump(evaluation, f)
         if self.verbose:
-            print("succefully save test corr {}".format(val_corr))
+            print("successfully save test corr {}".format(val_corr))
 
         return val_corr
 
