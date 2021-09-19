@@ -15,82 +15,100 @@ import matplotlib as mpl
 import seaborn as sns
 
 
-def main(args):
-    dataset = args.dataset
-    start = args.s
-    end = args.e
-    p = args.p
+def main():
+    # dataset = args.dataset
+    # start = args.s
+    # end = args.e
+    # p = args.p
     name_dict = {"cifar10": "resnet18", "fmnist": "FASHIONMNIST", "mnist": "MNIST", "resnet50": "CIFAR10"}
+    datasets = ["mnist", "fmnist", "cifar10"]
+    starts = [4, 10, 40]
+    ends = [24, 60, 240]
+    periods = [4, 10, 40]
+    k_neighbor = [10, 15, 20]
+    col = np.array(["dataset", "method", "type", "hue", "k", "period", "eval"])
+    df = pd.DataFrame({}, columns=col)
 
-    data = np.array([])
-    # load data from evaluation.json
-    for epoch in range(start, end, p):
-        nn_train = .0
-        nn_test = .0
-        for i in range(1, 11, 1):
-            content_path = "E:\\DVI_exp_data\\DeepViewExp\\multi_run\\{}".format(i)
-            eval_path = os.path.join(content_path,"{}".format(dataset), "Model", "Epoch_{}".format(epoch), "evaluation.json")
-            with open(eval_path, "r") as f:
-                eval = json.load(f)
-            nn_train += round(eval["nn_train_15"], 4)
-            nn_test += round(eval["nn_test_15"], 4)
-        nn_train = round(nn_train / 10, 3)
-        nn_test = round(nn_test / 10, 3)
-        if len(data)==0:
-            data = np.array([[dataset, "DVI", "Train", "{}".format(str(epoch//p)), nn_train]])
-        else:
-            data = np.concatenate((data, np.array([[dataset, "DVI", "Train", "{}".format(str(epoch//p)), nn_train]])), axis=0)
-        data = np.concatenate((data, np.array([[dataset, "DVI", "Test", "{}".format(str(epoch//p)), nn_test]])), axis=0)
+    for k in k_neighbor:
+        for i in range(3):
+            dataset = datasets[i]
+            start = starts[i]
+            end = ends[i]
+            p = periods[i]
 
-    # load data from evaluation_step2.json
-    for epoch in range(start, end, p):
-        nn_train = .0
-        nn_test = .0
-        for i in range(1, 11, 1):
-            content_path = "E:\\DVI_exp_data\\DeepViewExp\\multi_run\\{}".format(i)
-            eval_path = os.path.join(content_path,"{}".format(dataset), "Model", "Epoch_{}".format(epoch), "evaluation_step2.json")
-            with open(eval_path, "r") as f:
-                eval = json.load(f)
-            nn_train += round(eval["nn_train_15"], 4)
-            nn_test += round(eval["nn_test_15"], 4)
-        nn_train = round(nn_train / 10, 3)
-        nn_test = round(nn_test / 10, 3)
-        data = np.concatenate((data, np.array([[dataset, "DVI-temporal", "Train", "{}".format(str(epoch//p)), nn_train]])), axis=0)
-        data = np.concatenate((data, np.array([[dataset, "DVI-temporal", "Test", "{}".format(str(epoch//p)), nn_test]])), axis=0)
+            data = np.array([])
+            # load data from evaluation.json
+            for epoch in range(start, end, p):
+                nn_train = .0
+                nn_test = .0
+                for i in range(1, 11, 1):
+                    content_path = "E:\\DVI_exp_data\\DeepViewExp\\multi_run\\{}".format(i)
+                    eval_path = os.path.join(content_path,"{}".format(dataset), "Model", "Epoch_{}".format(epoch), "evaluation.json")
+                    with open(eval_path, "r") as f:
+                        eval = json.load(f)
+                    nn_train += round(eval["nn_train_{}".format(k)], 4)
+                    nn_test += round(eval["nn_test_{}".format(k)], 4)
+                nn_train = round(nn_train / 10, 3)
 
-    content_path = "E:\\xianglin\\git_space\\DeepView\\DVI_exp\\batch_run_results"
+                nn_test = round(nn_test / 10, 3)
+                if len(data)==0:
+                    data = np.array([[dataset, "DVI-T", "Train", "DVI-T-Train", "{}".format(k), "{}".format(str(epoch//p)), nn_train]])
+                else:
+                    data = np.concatenate((data, np.array([[dataset, "DVI-T", "Train", "DVI-T-Train", "{}".format(k), "{}".format(str(epoch//p)), nn_train]])), axis=0)
+                data = np.concatenate((data, np.array([[dataset, "DVI-T", "Test", "DVI-T-Test", "{}".format(k), "{}".format(str(epoch//p)), nn_test]])), axis=0)
 
-    for epoch in range(start, end, p):
-        nn_train = .0
-        # nn_test = .0
-        for i in range(1,11, 1):
-            curr_path = os.path.join(content_path, "{}".format(i))
-            eval_path = os.path.join(curr_path, "{}_{}".format(name_dict[dataset], epoch), "exp_result.json")
-            with open(eval_path, "r") as f:
-                eval = json.load(f)
-            nn_train += round(eval[1], 4)
-            nn_test += round(eval[9], 4)
-        nn_train = round(nn_train / 10, 3)
-        nn_test = round(nn_test / 10, 3)
-        data = np.concatenate((data, np.array([[dataset, "DeepView", "Train", "{}".format(str(epoch//p)), nn_train]])), axis=0)
-        data = np.concatenate((data, np.array([[dataset, "DeepView", "Test", "{}".format(str(epoch//p)), nn_test]])), axis=0)
+            # load data from evaluation_step2.json
+            for epoch in range(start, end, p):
+                nn_train = .0
+                nn_test = .0
+                for i in range(1, 11, 1):
+                    content_path = "E:\\DVI_exp_data\\DeepViewExp\\multi_run\\{}".format(i)
+                    eval_path = os.path.join(content_path,"{}".format(dataset), "Model", "Epoch_{}".format(epoch), "evaluation_step2.json")
+                    with open(eval_path, "r") as f:
+                        eval = json.load(f)
+                    nn_train += round(eval["nn_train_{}".format(k)], 4)
+                    nn_test += round(eval["nn_test_{}".format(k)], 4)
+                nn_train = round(nn_train / 10, 3)
+                nn_test = round(nn_test / 10, 3)
+                data = np.concatenate((data, np.array([[dataset, "DVI", "Train",  "DVI-Train", "{}".format(k), "{}".format(str(epoch//p)), nn_train]])), axis=0)
+                data = np.concatenate((data, np.array([[dataset, "DVI", "Test",  "DVI-Test", "{}".format(k), "{}".format(str(epoch//p)), nn_test]])), axis=0)
+
+            content_path = "E:\\xianglin\\git_space\\DeepView\\DVI_exp\\batch_run_results"
+
+            for epoch in range(start, end, p):
+                nn_train = .0
+                # nn_test = .0
+                for i in range(1,11, 1):
+                    curr_path = os.path.join(content_path, "{}".format(i))
+                    eval_path = os.path.join(curr_path, "{}_{}".format(name_dict[dataset], epoch), "exp_result.json")
+                    with open(eval_path, "r") as f:
+                        eval = json.load(f)
+                    nn_train += round(eval[k//5-1], 4)
+                    nn_test += round(eval[k//5+7], 4)
+                nn_train = round(nn_train / 10, 3)
+                nn_test = round(nn_test / 10, 3)
+                data = np.concatenate((data, np.array([[dataset, "DeepView", "Train", "DeepView-Train", "{}".format(k), "{}".format(str(epoch//p)), nn_train]])), axis=0)
+                data = np.concatenate((data, np.array([[dataset, "DeepView", "Test", "DeepView-Test", "{}".format(k), "{}".format(str(epoch//p)), nn_test]])), axis=0)
 
 
-    col = np.array(["dataset", "method", "type", "period", "eval"])
-    df = pd.DataFrame(data, columns=col)
-    df[["period"]] = df[["period"]].astype(int)
-    df[["eval"]] = df[["eval"]].astype(float)
+            df_tmp = pd.DataFrame(data, columns=col)
+            df = df.append(df_tmp, ignore_index=True)
+            df[["period"]] = df[["period"]].astype(int)
+            df[["k"]] = df[["k"]].astype(int)
+            df[["eval"]] = df[["eval"]].astype(float)
 
     #%%
+    df.to_excel("nn.xlsx")
 
     pal20c = sns.color_palette('tab20c', 20)
     sns.palplot(pal20c)
     hue_dict = {
-        "DVI": pal20c[4],
-        "DVI-temporal": pal20c[6],
-        # "UMAP": pal20c[0],
-        # "TSNE": pal20c[8],
-        "DeepView": pal20c[12],
+        "DVI-Train": pal20c[0],
+        "DVI-T-Train": pal20c[4],
+        "DeepView-Train": pal20c[8],
+        "DVI-Test": pal20c[1],
+        "DVI-T-Test": pal20c[5],
+        "DeepView-Test": pal20c[9],
 
     }
     sns.palplot([hue_dict[i] for i in hue_dict.keys()])
@@ -101,7 +119,7 @@ def main(args):
     mpl.rcParams['xtick.labelsize'] = 14
 
     # hue_list = ["TSNE", "parametric-tsne", "umap-learn",  'direct', "network", "autoencoder", 'vae', 'ae_only', "PCA"]
-    hue_list = ["DVI", "DVI-temporal", "DeepView"]
+    hue_list = ["DVI-Train", "DVI-Test", "DVI-T-Train", "DVI-T-Test", "DeepView-Train", "DeepView-Test"]
 
     #%%
 
@@ -112,7 +130,7 @@ def main(args):
         hue_order=hue_list,
         # order = [1, 2, 3, 4, 5],
         # row="method",
-        col="type",
+        col="dataset",
         ci=0.001,
         height=3, #2.65,
         aspect=2.5,#3,
@@ -137,22 +155,22 @@ def main(args):
 
     #%%
 
-    fg.savefig(
-        "nn_{}.png".format(dataset),
-        dpi=300,
-        bbox_inches="tight",
-        pad_inches=0.0,
-        transparent=True,
-    )
+    # fg.savefig(
+    #     "nn.png",
+    #     dpi=300,
+    #     bbox_inches="tight",
+    #     pad_inches=0.0,
+    #     transparent=True,
+    # )
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Draw nearest neighbor plot for different datasets.")
-
-    parser.add_argument("--dataset", type=str)
-    parser.add_argument("-s", type=int)
-    parser.add_argument('-e', type=int)
-    parser.add_argument('-p', type=int)
-    args = parser.parse_args()
-    main(args)
+    # parser = argparse.ArgumentParser(description="Draw nearest neighbor plot for different datasets.")
+    #
+    # parser.add_argument("--dataset", type=str)
+    # parser.add_argument("-s", type=int)
+    # parser.add_argument('-e', type=int)
+    # parser.add_argument('-p', type=int)
+    # args = parser.parse_args()
+    main()
 
