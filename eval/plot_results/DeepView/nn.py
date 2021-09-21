@@ -77,14 +77,14 @@ def main():
 
             for epoch in range(start, end, p):
                 nn_train = .0
-                # nn_test = .0
+                nn_test = .0
                 for i in range(1,11, 1):
                     curr_path = os.path.join(content_path, "{}".format(i))
                     eval_path = os.path.join(curr_path, "{}_{}".format(name_dict[dataset], epoch), "exp_result.json")
                     with open(eval_path, "r") as f:
                         eval = json.load(f)
-                    nn_train += round(eval[k//5-1], 4)
-                    nn_test += round(eval[k//5+7], 4)
+                    nn_train += round(eval[k//5-2], 4)
+                    nn_test += round(eval[k//5+6], 4)
                 nn_train = round(nn_train / 10, 3)
                 nn_test = round(nn_test / 10, 3)
                 data = np.concatenate((data, np.array([[dataset, "DeepView", "Train", "DeepView-Train", "{}".format(k), "{}".format(str(epoch//p)), nn_train]])), axis=0)
@@ -100,68 +100,71 @@ def main():
     #%%
     df.to_excel("nn.xlsx")
 
-    pal20c = sns.color_palette('tab20c', 20)
-    sns.palplot(pal20c)
-    hue_dict = {
-        "DVI-Train": pal20c[0],
-        "DVI-T-Train": pal20c[4],
-        "DeepView-Train": pal20c[8],
-        "DVI-Test": pal20c[1],
-        "DVI-T-Test": pal20c[5],
-        "DeepView-Test": pal20c[9],
+    for k in k_neighbor:
+        df_tmp = df[df["k"] == k]
+        pal20c = sns.color_palette('tab20c', 20)
+        sns.set_theme(style="whitegrid", palette=pal20c)
+        # sns.palplot(pal20c)
+        hue_dict = {
+            "DVI-Train": pal20c[0],
+            # "DVI-T-Train": pal20c[4],
+            "DeepView-Train": pal20c[8],
+            "DVI-Test": pal20c[1],
+            # "DVI-T-Test": pal20c[5],
+            "DeepView-Test": pal20c[9],
 
-    }
-    sns.palplot([hue_dict[i] for i in hue_dict.keys()])
+        }
+        sns.palplot([hue_dict[i] for i in hue_dict.keys()])
 
-    axes = {'labelsize': 14,
-            'titlesize': 14,}
-    mpl.rc('axes', **axes)
-    mpl.rcParams['xtick.labelsize'] = 14
+        axes = {'labelsize': 14,
+                'titlesize': 14,}
+        mpl.rc('axes', **axes)
+        mpl.rcParams['xtick.labelsize'] = 14
 
-    # hue_list = ["TSNE", "parametric-tsne", "umap-learn",  'direct', "network", "autoencoder", 'vae', 'ae_only', "PCA"]
-    hue_list = ["DVI-Train", "DVI-Test", "DVI-T-Train", "DVI-T-Test", "DeepView-Train", "DeepView-Test"]
+        # hue_list = ["TSNE", "parametric-tsne", "umap-learn",  'direct', "network", "autoencoder", 'vae', 'ae_only', "PCA"]
+        hue_list = ["DVI-Train", "DVI-Test", "DeepView-Train", "DeepView-Test"]
 
-    #%%
+        #%%
 
-    fg = sns.catplot(
-        x="period",
-        y="eval",
-        hue="method",
-        hue_order=hue_list,
-        # order = [1, 2, 3, 4, 5],
-        # row="method",
-        col="dataset",
-        ci=0.001,
-        height=3, #2.65,
-        aspect=2.5,#3,
-        data=df,
-        kind="bar",
-        palette=[hue_dict[i] for i in hue_list],
-        legend=True
-    )
+        fg = sns.catplot(
+            x="period",
+            y="eval",
+            hue="method",
+            hue_order=hue_list,
+            # order = [1, 2, 3, 4, 5],
+            # row="method",
+            col="dataset",
+            ci=0.001,
+            height=3, #2.65,
+            aspect=2.5,#3,
+            data=df_tmp,
+            kind="bar",
+            palette=[hue_dict[i] for i in hue_list],
+            legend=True
+        )
 
-    axs = fg.axes[0]
-    max_ = df["eval"].max()
-    # min_ = df["eval"].min()
-    axs[0].set_ylim(0.0, max_*1.1)
-    axs[0].set_title("Train")
-    axs[1].set_title("Test")
+        axs = fg.axes[0]
+        max_ = df_tmp["eval"].max()
+        # min_ = df["eval"].min()
+        axs[0].set_ylim(0.0, max_*1.1)
+        axs[0].set_title("Train")
+        axs[1].set_title("Test")
 
-    (fg.despine(bottom=True)
-     .set_xticklabels(['Begin', 'Early', 'Mid', 'Late', 'End'])
-     .set_axis_labels("", "NN preserving property")
-     )
-    fg.fig.suptitle(dataset)
+        (fg.despine(bottom=True)
+         .set_xticklabels(['Begin', 'Early', 'Mid', 'Late', 'End'])
+         .set_axis_labels("", "NN preserving property")
+         )
+        fg.fig.suptitle(dataset)
 
-    #%%
+        #%%
 
-    # fg.savefig(
-    #     "nn.png",
-    #     dpi=300,
-    #     bbox_inches="tight",
-    #     pad_inches=0.0,
-    #     transparent=True,
-    # )
+        # fg.savefig(
+        #     "nn_{}.png".format(k),
+        #     dpi=300,
+        #     bbox_inches="tight",
+        #     pad_inches=0.0,
+        #     transparent=True,
+        # )
 
 
 if __name__ == "__main__":

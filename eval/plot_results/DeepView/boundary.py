@@ -72,14 +72,14 @@ def main():
 
             for epoch in range(start, end, p):
                 nn_train = .0
-                # nn_test = .0
+                nn_test = .0
                 for i in range(1, 11, 1):
                     curr_path = os.path.join(content_path, "{}".format(i))
                     eval_path = os.path.join(curr_path, "{}_{}".format(name_dict[dataset], epoch), "exp_result.json")
                     with open(eval_path, "r") as f:
                         eval = json.load(f)
-                    nn_train += round(eval[k//5+2], 4)
-                    nn_test += round(eval[k//5+10], 4)
+                    nn_train += round(eval[k//5+1], 4)
+                    nn_test += round(eval[k//5+9], 4)
                 nn_train = round(nn_train / 10, 3)
                 nn_test = round(nn_test / 10, 3)
                 data = np.concatenate((data, np.array([[dataset, "DeepView", "Train", "DeepView-Train", "{}".format(k), "{}".format(str(epoch//p)), nn_train]])), axis=0)

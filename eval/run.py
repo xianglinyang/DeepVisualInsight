@@ -84,7 +84,9 @@ if __name__ == "__main__":
 
     # if preprocess == 1:
     #     mms.data_preprocessing()
-    mms.prepare_visualization_for_all()
-    mms.save_evaluation(eval=True, name=eval_name)
-    # mms.proj_temporal_perseverance_train(15, eval_name)
-    # mms.proj_temporal_perseverance_test(15, eval_name)
+    # mms.prepare_visualization_for_all()
+    # mms.save_evaluation(eval=True, name=eval_name)
+    mms.proj_temporal_perseverance_train(10, eval_name)
+    mms.proj_temporal_perseverance_test(10, eval_name)
+    mms.proj_temporal_perseverance_train(20, eval_name)
+    mms.proj_temporal_perseverance_test(20, eval_name)

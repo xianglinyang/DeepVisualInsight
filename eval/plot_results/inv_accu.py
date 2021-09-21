@@ -106,19 +106,19 @@ def main():
     df.to_excel("PPR.xlsx")
 
     pal20c = sns.color_palette('tab20c', 20)
-    sns.palplot(pal20c)
+    sns.set_theme(style="whitegrid", palette=pal20c)
+    # sns.palplot(pal20c)
     hue_dict = {
-        "DVI-T-Train": pal20c[0],
-        "DVI-Train": pal20c[4],
-        "UMAP-Train": pal20c[8],
-        # "TSNE-Train": pal20c[16],
-        "PCA-Train": pal20c[12],
-        "DVI-T-Test": pal20c[3],
-        "DVI-Test": pal20c[7],
-        "UMAP-Test": pal20c[11],
+        "DVI-Train": pal20c[0],
+        # "DVI-T-Train": pal20c[4],
+        "UMAP-Train": pal20c[4],
+        # "TSNE-Train": pal20c[12],
+        "PCA-Train": pal20c[8],
+        # "DVI-T-Test": pal20c[3],
+        "DVI-Test": pal20c[3],
+        "UMAP-Test": pal20c[7],
         # "TSNE": pal20c[8],
-        "PCA-Test": pal20c[14],
-
+        "PCA-Test": pal20c[11],
     }
     sns.palplot([hue_dict[i] for i in hue_dict.keys()])
     #%%
@@ -128,8 +128,8 @@ def main():
     mpl.rc('axes', **axes)
     mpl.rcParams['xtick.labelsize'] = 9
 
-    hue_list = ["DVI-Train", "DVI-Test", "DVI-T-Train", "DVI-T-Test", "UMAP-Train", "UMAP-Test", "PCA-Train", "PCA-Test"]
-
+    # hue_list = ["DVI-Train", "DVI-Test", "DVI-T-Train", "DVI-T-Test", "UMAP-Train", "UMAP-Test", "PCA-Train", "PCA-Test"]
+    hue_list = ["DVI-Train", "DVI-Test", "UMAP-Train", "UMAP-Test", "PCA-Train", "PCA-Test"]
     #%%
     # sns.set_style("dark")
     # sns.set_style('darkgrid')
@@ -151,7 +151,7 @@ def main():
         palette=[hue_dict[i] for i in hue_list],
         legend=True
     )
-    sns.move_legend(fg, "lower center", bbox_to_anchor=(.42, 0.92), ncol=4, title=None, frameon=False)
+    sns.move_legend(fg, "lower center", bbox_to_anchor=(.42, 0.92), ncol=3, title=None, frameon=False)
     mpl.pyplot.setp(fg._legend.get_texts(), fontsize='9')
 
     axs = fg.axes[0]
@@ -171,18 +171,18 @@ def main():
 
     (fg.despine(bottom=False, right=False, left=False, top=False)
      .set_xticklabels(['Begin', 'Early', 'Mid', 'Late', 'End'])
-     .set_axis_labels("Period", "PPR")
+     .set_axis_labels("", "PPR")
      )
     # fg.fig.suptitle("NN preserving property")
 
     #%%
-    # fg.savefig(
-    #     "inv_accu.pdf",
-    #     dpi=300,
-    #     bbox_inches="tight",
-    #     pad_inches=0.0,
-    #     transparent=True,
-    # )
+    fg.savefig(
+        "inv_accu.png",
+        dpi=300,
+        bbox_inches="tight",
+        pad_inches=0.0,
+        transparent=True,
+    )
 
 
 
