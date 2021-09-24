@@ -180,7 +180,7 @@ class MMS:
                                                                                      device=self.device,
                                                                                      alpha=self.alpha,
                                                                                      num_adv_eg=num_adv_eg,
-                                                                                     num_cls=10,
+                                                                                     # num_cls=10,
                                                                                      lambd=0.05,
                                                                                      verbose=0)
                 t1 = time.time()
@@ -339,9 +339,9 @@ class MMS:
         optimizer = tf.keras.optimizers.Adam()
 
         weights_dict = {}
-        losses, loss_weights = define_losses(batch_size, self.temporal, self.step3)
+        losses, loss_weights = define_losses(batch_size, self.temporal, self.step3, self.withoutB)
         parametric_model = ParametricModel(encoder, decoder, optimizer, losses, loss_weights, self.temporal, self.step3,
-                                           self.batch_size, prev_trainable_variables=None)
+                                           self.withoutB, self.batch_size, prev_trainable_variables=None)
         callbacks = [
             tf.keras.callbacks.EarlyStopping(
                 monitor='loss',
@@ -534,7 +534,9 @@ class MMS:
             f = open(save_dir, "r")
             evaluation = json.load(f)
             f.close()
-        if not self.transfer_learning:
+        if self.withoutB:
+            time_label = "vis_model_ParametricUmap"
+        elif not self.transfer_learning:
             time_label = "vis_model_NT"
         elif not self.temporal:
             time_label = "vis_model_T"
