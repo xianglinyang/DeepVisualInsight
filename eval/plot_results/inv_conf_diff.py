@@ -42,8 +42,8 @@ def main():
             if len(data)==0:
                 data = np.array([[dataset, "DVI", "Train", "DVI-Train", "{}".format(str(epoch//p)), nn_train]])
             else:
-                data = np.concatenate((data, np.array([[dataset, "DVI", "Train", "DVI-Train", "{}".format(str(epoch//p)), nn_train]])), axis=0)
-            data = np.concatenate((data, np.array([[dataset, "DVI", "Test", "DVI-Test", "{}".format(str(epoch//p)), nn_test]])), axis=0)
+                data = np.concatenate((data, np.array([[dataset, "DVI-T", "Train", "DVI-T-Train", "{}".format(str(epoch//p)), nn_train]])), axis=0)
+            data = np.concatenate((data, np.array([[dataset, "DVI-T", "Test", "DVI-T-Test", "{}".format(str(epoch//p)), nn_test]])), axis=0)
 
         #%%
         # load data from evaluation_step2.json
@@ -58,8 +58,20 @@ def main():
                 i=5
             else:
                 i=epoch
-            data = np.concatenate((data, np.array([[dataset, "DVI-temporal", "Train", "DVI-temporal-Train", "{}".format(str(i)), nn_train]])), axis=0)
-            data = np.concatenate((data, np.array([[dataset, "DVI-temporal", "Test", "DVI-temporal-Test", "{}".format(str(i)), nn_test]])), axis=0)
+            data = np.concatenate((data, np.array([[dataset, "DVI", "Train", "DVI-Train", "{}".format(str(i)), nn_train]])), axis=0)
+            data = np.concatenate((data, np.array([[dataset, "DVI", "Test", "DVI-Test", "{}".format(str(i)), nn_test]])), axis=0)
+
+        # parametric umap
+        content_path = "E:\\DVI_exp_data\\resnet18_{}".format(dataset)
+        for epoch in range(start, end, p):
+            eval_path = os.path.join(content_path, "Model", "Epoch_{}".format(epoch), "evaluation_parametricUmap.json")
+            with open(eval_path, "r") as f:
+                eval = json.load(f)
+            nn_train = round(eval["inv_conf_train"], 3)
+            nn_test = round(eval["inv_conf_train"], 3)
+
+            data = np.concatenate((data, np.array([[dataset, "parametricUmap", "Train", "parametricUmap-Train", "{}".format(str(epoch//p)), nn_train]])), axis=0)
+            data = np.concatenate((data, np.array([[dataset, "parametricUmap", "Test", "parametricUmap-Test", "{}".format(str(epoch//p)), nn_test]])), axis=0)
 
         content_path = "E:\\xianglin\\git_space\\umap_exp\\results"
         # pca
@@ -109,16 +121,13 @@ def main():
     sns.palplot(pal20c)
     hue_dict = {
         "DVI-Train": pal20c[0],
-        "DVI-temporal-Train": pal20c[4],
-        "UMAP-Train": pal20c[8],
-        # "TSNE-Train": pal20c[16],
-        "PCA-Train": pal20c[12],
+        "parametricUmap-Train": pal20c[12],
+        "UMAP-Train": pal20c[4],
+        "PCA-Train": pal20c[8],
         "DVI-Test": pal20c[3],
-        "DVI-temporal-Test": pal20c[7],
-        "UMAP-Test": pal20c[11],
-        # "TSNE": pal20c[8],
-        "PCA-Test": pal20c[14],
-
+        "parametricUmap-Test": pal20c[15],
+        "UMAP-Test": pal20c[7],
+        "PCA-Test": pal20c[11],
     }
     sns.palplot([hue_dict[i] for i in hue_dict.keys()])
     #%%
@@ -128,7 +137,7 @@ def main():
     mpl.rc('axes', **axes)
     mpl.rcParams['xtick.labelsize'] = 9
 
-    hue_list = ["DVI-Train", "DVI-Test", "DVI-temporal-Train", "DVI-temporal-Test", "UMAP-Train", "UMAP-Test", "PCA-Train", "PCA-Test"]
+    hue_list = ["DVI-Train", "DVI-Test", "parametricUmap-Train", "parametricUmap-Test", "UMAP-Train", "UMAP-Test", "PCA-Train", "PCA-Test"]
 
     #%%
     # sns.set_style("dark")
@@ -177,7 +186,7 @@ def main():
 
     #%%
     fg.savefig(
-        "inv_conf_diff.pdf",
+        "inv_conf_diff.png",
         dpi=300,
         bbox_inches="tight",
         pad_inches=0.0,

@@ -24,4 +24,4 @@ import os
 os.system("python nn.py")
 os.system("python boundary.py")
 os.system("python inv_accu.py")
-os.system("python inv_conf_diff.py")
+# os.system("python inv_conf_diff.py")
