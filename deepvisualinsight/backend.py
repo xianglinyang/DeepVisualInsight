@@ -597,7 +597,7 @@ def define_model(dims, low_dims, encoder, decoder, temporal, stop_grad=False):
     return parametric_model
 
 
-def define_losses(batch_size, temporal, step3, withoutB):
+def define_losses(batch_size, temporal, step3, withoutB, attention):
     # compile models
     losses = {}
     loss_weights = {}
@@ -614,7 +614,7 @@ def define_losses(batch_size, temporal, step3, withoutB):
         _a,
         _b,
     )
-    if withoutB:
+    if withoutB or attention:
         losses["reconstruction"] = tf.keras.losses.MeanSquaredError()
     else:
         recon_loss_fn = reconstruction_loss(beta=1)

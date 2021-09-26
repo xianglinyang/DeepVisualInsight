@@ -18,9 +18,11 @@ from deepvisualinsight.VisualizationModel import ParametricModel
 
 
 class MMS:
-    def __init__(self, content_path, model_structure, epoch_start, epoch_end, period, repr_num, class_num, classes, temperature,
-                 low_dims=2, cmap="tab10", resolution=100, neurons=None, temporal=False, transfer_learning=True, step3=False,
-                 batch_size=1000, verbose=1, split=-1, advance_border_gen=True, alpha=0.7, withoutB=False, attack_device="cpu"):
+    def __init__(self, content_path, model_structure, epoch_start, epoch_end, period, repr_num, class_num, classes,
+                 low_dims=2, cmap="tab10", resolution=100, neurons=None, batch_size=1000, verbose=1, split=-1, attack_device="cpu",
+                 advance_border_gen=True, alpha=0.7, withoutB=False,    # boundary complex
+                 attention=True, temperature=None,                      # reconstruction loss
+                 temporal=False, transfer_learning=True, step3=False):  # temporal
 
         '''
         This class contains the model management system (super DB) and provides
@@ -64,6 +66,8 @@ class MMS:
         step3: whether to use step3 temporal loss, by default False(step2 instead)
         batch_size: int, by default 1000
             the batch size to train autoencoder
+        attention: bool, by default True
+            whether to use attention for reconstruction loss(increase inv accu)
         verbose : int, by default 1
         split: int, by default -1
             number of layers for feature function
@@ -105,6 +109,7 @@ class MMS:
         self.alpha = alpha
         self.withoutB = withoutB
         self.device = torch.device(attack_device)
+        self.attention = attention
         # TODO change tensorflow to pytorch
         if len(tf.config.list_physical_devices('GPU')) > 0:
             # self.tf_device = tf.config.list_physical_devices('GPU')[0]
@@ -117,6 +122,20 @@ class MMS:
         else:
             self.neurons = neurons
         self.load_content()
+        self.check_sanity()
+
+    def check_sanity(self):
+        """
+        check whether all inputs are legal
+            attention with temperature
+            boundary construction
+            temporal loss
+        :return: None
+        """
+        if self.attention and self.temperature is None:
+            raise Exception("illegal temperature. Pls check input of temperature!")
+        if self.temporal and not self.transfer_learning:
+            raise Exception("temporal loss should be put on top of transfer learning!")
 
     def load_content(self):
         '''
@@ -339,7 +358,7 @@ class MMS:
         optimizer = tf.keras.optimizers.Adam()
 
         weights_dict = {}
-        losses, loss_weights = define_losses(batch_size, self.temporal, self.step3, self.withoutB)
+        losses, loss_weights = define_losses(batch_size, self.temporal, self.step3, self.withoutB, self.attention)
         parametric_model = ParametricModel(encoder, decoder, optimizer, losses, loss_weights, self.temporal, self.step3,
                                            self.withoutB, self.batch_size, prev_trainable_variables=None)
         callbacks = [
@@ -389,9 +408,10 @@ class MMS:
                 print("no border points saved for Epoch {}".format(n_epoch))
                 continue
 
-            complex, sigmas, rhos = fuzzy_complex(train_data, 15)
-            bw_complex, _, _ = boundary_wise_complex(train_data, border_centers, 15)
+
             if self.withoutB:
+                all_d = np.concatenate((train_data, border_centers), axis=0)
+                complex, sigmas, rhos = fuzzy_complex(all_d, 15)
                 # from umap.parametric_umap import construct_edge_dataset
                 (
                     edge_dataset,
@@ -401,7 +421,7 @@ class MMS:
                     _tail,
                     _edge_weight,
                 ) = construct_edge_dataset(
-                    train_data,
+                    all_d,
                     complex,
                     20,
                     batch_size,
@@ -409,6 +429,8 @@ class MMS:
                     parametric_reconstruction=False,
                 )
             else:
+                complex, sigmas, rhos = fuzzy_complex(train_data, 15)
+                bw_complex, _, _ = boundary_wise_complex(train_data, border_centers, 15)
                 if not self.temporal:
                     fitting_data = np.concatenate((train_data, border_centers), axis=0)
 
