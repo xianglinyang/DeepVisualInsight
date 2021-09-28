@@ -423,13 +423,22 @@ class MMS:
                 alpha = get_alpha(model, all_d, temperature=self.temperature, device=self.device, verbose=1)
                 if self.temporal:
                     prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch-self.period), "train_data.npy")
+                    if self.advance_border_gen:
+                        prev_border_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch),
+                                                          "advance_border_centers.npy")
+                    else:
+                        prev_border_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch),
+                                                          "border_centers.npy")
                     if os.path.exists(prev_data_loc) and self.epoch_start != n_epoch:
                         prev_data = np.load(prev_data_loc)
                         prev_index = self.get_epoch_index(n_epoch-self.period)
                         prev_data = prev_data[prev_index]
+                        prev_border = np.load(prev_border_centers_loc)
                     else:
                         prev_data = None
-                    n_rate = find_neighbor_preserving_rate(prev_data, train_data, n_neighbors=15)
+                        prev_border = None
+                    prev_data = np.concatenate((prev_data, prev_border), axis=0)
+                    n_rate = find_neighbor_preserving_rate(prev_data, all_d, n_neighbors=15)
                     (
                         edge_dataset,
                         batch_size,
