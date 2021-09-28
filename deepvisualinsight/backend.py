@@ -87,42 +87,142 @@ def make_balance_per_sample(edges_to_exp, edges_from_exp, cp_num, centers_num, b
     return balance_per_sample
 
 
+# def construct_edge_dataset(
+#     X, graph_, n_epochs, batch_size, parametric_embedding, parametric_reconstruction,
+# ):
+#     """
+#     Construct a tf.data.Dataset of edges, sampled by edge weight.
+#
+#     Parameters
+#     ----------
+#     X : list, [X, DBP_samples]
+#         X : array, shape (n_samples, n_features)
+#             New data to be transformed.
+#         DBP_samples : array, shape(n_samples, n_features)
+#             distant border points to be transformed.
+#     graph_ : scipy.sparse.csr.csr_matrix
+#         Generated UMAP graph
+#     n_epochs : int
+#         # of epochs to train each edge
+#     batch_size : int
+#         batch size
+#     parametric_embedding : bool
+#         Whether the embedder is parametric or non-parametric
+#     parametric_reconstruction : bool
+#         Whether the decoder is parametric or non-parametric
+#     """
+#
+#     def gather_X(edge_to, edge_from, weight):
+#         edge_to_batch = tf.gather(X, edge_to)
+#         edge_from_batch = tf.gather(X, edge_from)
+#
+#         outputs = {"umap": 0}
+#         if parametric_reconstruction:
+#             # add reconstruction to iterator output
+#             # edge_out = tf.concat([edge_to_batch, edge_from_batch], axis=0)
+#             outputs["reconstruction"] = edge_to_batch
+#
+#         return (edge_to_batch, edge_from_batch, weight), outputs
+#
+#
+#     # get data from graph
+#     graph, epochs_per_sample, head, tail, weight, n_vertices = get_graph_elements(
+#         graph_, n_epochs
+#     )
+#
+#     # number of elements per batch for embedding
+#     if batch_size is None:
+#         # batch size can be larger if its just over embeddings
+#         if parametric_embedding:
+#             batch_size = np.min([n_vertices, 1000])
+#         else:
+#             batch_size = len(head)
+#
+#     edges_to_exp, edges_from_exp = (
+#         np.repeat(head, epochs_per_sample.astype("int")),
+#         np.repeat(tail, epochs_per_sample.astype("int")),
+#     )
+#
+#     weight = np.repeat(weight, epochs_per_sample.astype("int"))
+#
+#     # tptp_edges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp < tp_num))
+#     # dbpdbp_edges_num = np.sum((edges_to_exp >= tp_num) & (edges_from_exp >= tp_num))
+#     # tpdbp_edges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp >= tp_num)) + np.sum((edges_to_exp >= tp_num) & (edges_from_exp < tp_num))
+#
+#
+#     # balance_per_sample = make_balance_per_sample(edges_to_exp, edges_from_exp, tp_num, tp_num, dbp_num)
+#     #
+#     # edges_to_exp, edges_from_exp = (
+#     #     np.repeat(edges_to_exp, balance_per_sample.astype("int")),
+#     #     np.repeat(edges_from_exp, balance_per_sample.astype("int")),
+#     # )
+#     # weight = np.repeat(weight, balance_per_sample.astype("int"))
+#     #
+#
+#     # shuffle edges
+#     shuffle_mask = np.random.permutation(range(len(edges_to_exp)))
+#     edges_to_exp = edges_to_exp[shuffle_mask].astype(np.int64)
+#     edges_from_exp = edges_from_exp[shuffle_mask].astype(np.int64)
+#     weight = weight[shuffle_mask].astype(np.float64)
+#     weight = np.expand_dims(weight, axis=1)
+#
+#     # create edge iterator
+#     edge_dataset = tf.data.Dataset.from_tensor_slices(
+#         (edges_to_exp, edges_from_exp, weight)
+#     )
+#     edge_dataset = edge_dataset.repeat()
+#     edge_dataset = edge_dataset.shuffle(10000)
+#     edge_dataset = edge_dataset.map(
+#         # gather_X, num_parallel_calls=tf.data.experimental.AUTOTUNE
+#         gather_X
+#     )
+#     edge_dataset = edge_dataset.batch(batch_size, drop_remainder=True)
+#     edge_dataset = edge_dataset.prefetch(10)
+#
+#     return edge_dataset, batch_size, len(edges_to_exp), head, tail, weight
+
 def construct_edge_dataset(
-    X, graph_, n_epochs, batch_size, parametric_embedding, parametric_reconstruction,
+        X, graph_, n_epochs, batch_size, alpha,
 ):
     """
-    Construct a tf.data.Dataset of edges, sampled by edge weight.
-
-    Parameters
-    ----------
-    X : list, [X, DBP_samples]
-        X : array, shape (n_samples, n_features)
-            New data to be transformed.
-        DBP_samples : array, shape(n_samples, n_features)
-            distant border points to be transformed.
-    graph_ : scipy.sparse.csr.csr_matrix
-        Generated UMAP graph
-    n_epochs : int
-        # of epochs to train each edge
-    batch_size : int
-        batch size
-    parametric_embedding : bool
-        Whether the embedder is parametric or non-parametric
-    parametric_reconstruction : bool
-        Whether the decoder is parametric or non-parametric
+    construct the mixed edge dataset
+    connect border points and train data(both direction)
+    :param X_input: tuple (train_data, border_points)
+    :param old_graph_: train data complex
+    :param new_graph_: boundary wise complex
+    :param n_epochs: how many epoch that expected to train the autoencoder
+    :param batch_size: edge dataset batch size
+    :param alpha, attention weight
+    :return: tf edge dataset
     """
 
+    fitting_data = X
+
+    def gather_index(index):
+        return fitting_data[index]
+
+    def gather_alpha(index):
+        return alpha[index]
+
+    gather_indices_in_python = True if fitting_data.nbytes * 1e-9 > 0.5 else False
+
     def gather_X(edge_to, edge_from, weight):
-        edge_to_batch = tf.gather(X, edge_to)
-        edge_from_batch = tf.gather(X, edge_from)
-
+        if gather_indices_in_python:
+            # if True:
+            edge_to_batch = tf.py_function(gather_index, [edge_to], [tf.float32])[0]
+            edge_from_batch = tf.py_function(gather_index, [edge_from], [tf.float32])[0]
+            alpha_to = tf.py_function(gather_alpha, [edge_to], [tf.float32])[0]
+            alpha_from = tf.py_function(gather_alpha, [edge_from], [tf.float32])[0]
+        else:
+            edge_to_batch = tf.gather(fitting_data, edge_to)
+            edge_from_batch = tf.gather(fitting_data, edge_from)
+            alpha_to = tf.gather(alpha, edge_to)
+            alpha_from = tf.gather(alpha, edge_from)
         outputs = {"umap": 0}
-        if parametric_reconstruction:
-            # add reconstruction to iterator output
-            # edge_out = tf.concat([edge_to_batch, edge_from_batch], axis=0)
-            outputs["reconstruction"] = edge_to_batch
+        outputs["reconstruction"] = edge_to_batch
 
-        return (edge_to_batch, edge_from_batch, weight), outputs
+        return (edge_to_batch, edge_from_batch, alpha_to, alpha_from, weight), outputs
+
 
 
     # get data from graph
@@ -130,13 +230,9 @@ def construct_edge_dataset(
         graph_, n_epochs
     )
 
-    # number of elements per batch for embedding
     if batch_size is None:
-        # batch size can be larger if its just over embeddings
-        if parametric_embedding:
-            batch_size = np.min([n_vertices, 1000])
-        else:
-            batch_size = len(head)
+        # batch size randomly choose a number as batch_size if batch_size is None
+        batch_size = 1000
 
     edges_to_exp, edges_from_exp = (
         np.repeat(head, epochs_per_sample.astype("int")),
@@ -144,20 +240,6 @@ def construct_edge_dataset(
     )
 
     weight = np.repeat(weight, epochs_per_sample.astype("int"))
-
-    # tptp_edges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp < tp_num))
-    # dbpdbp_edges_num = np.sum((edges_to_exp >= tp_num) & (edges_from_exp >= tp_num))
-    # tpdbp_edges_num = np.sum((edges_to_exp < tp_num) & (edges_from_exp >= tp_num)) + np.sum((edges_to_exp >= tp_num) & (edges_from_exp < tp_num))
-
-
-    # balance_per_sample = make_balance_per_sample(edges_to_exp, edges_from_exp, tp_num, tp_num, dbp_num)
-    #
-    # edges_to_exp, edges_from_exp = (
-    #     np.repeat(edges_to_exp, balance_per_sample.astype("int")),
-    #     np.repeat(edges_from_exp, balance_per_sample.astype("int")),
-    # )
-    # weight = np.repeat(weight, balance_per_sample.astype("int"))
-    #
 
     # shuffle edges
     shuffle_mask = np.random.permutation(range(len(edges_to_exp)))
@@ -172,19 +254,18 @@ def construct_edge_dataset(
     )
     edge_dataset = edge_dataset.repeat()
     edge_dataset = edge_dataset.shuffle(10000)
-    edge_dataset = edge_dataset.map(
-        # gather_X, num_parallel_calls=tf.data.experimental.AUTOTUNE
-        gather_X
-    )
     edge_dataset = edge_dataset.batch(batch_size, drop_remainder=True)
+    edge_dataset = edge_dataset.map(
+        gather_X, num_parallel_calls=tf.data.experimental.AUTOTUNE
+        # gather_X
+    )
     edge_dataset = edge_dataset.prefetch(10)
+    return edge_dataset, batch_size, len(edges_to_exp), weight
 
-    return edge_dataset, batch_size, len(edges_to_exp), head, tail, weight
 
 
 def construct_mixed_edge_dataset(
-    X_input, old_graph_, new_graph_, n_epochs, batch_size, alpha, parametric_embedding,
-        parametric_reconstruction
+    X_input, old_graph_, new_graph_, n_epochs, batch_size, alpha
 ):
     """
     construct the mixed edge dataset
@@ -223,10 +304,10 @@ def construct_mixed_edge_dataset(
             alpha_to = tf.gather(alpha, edge_to)
             alpha_from = tf.gather(alpha, edge_from)
         outputs = {"umap": 0}
-        if parametric_reconstruction:
+
             # add reconstruction to iterator output
             # edge_out = tf.concat([edge_to_batch, edge_from_batch], axis=0)
-            outputs["reconstruction"] = edge_to_batch
+        outputs["reconstruction"] = edge_to_batch
 
         return (edge_to_batch, edge_from_batch, alpha_to, alpha_from, weight), outputs
 
@@ -614,7 +695,7 @@ def define_losses(batch_size, temporal, step3, withoutB, attention):
         _a,
         _b,
     )
-    if withoutB or attention:
+    if not attention:
         losses["reconstruction"] = tf.keras.losses.MeanSquaredError()
     else:
         recon_loss_fn = reconstruction_loss(beta=1)
@@ -664,10 +745,92 @@ def define_lr_schedule(epoch):
     print('Learning rate: ', lr)
     return lr
 
+def construct_temporal_edge_dataset(
+        X, graph_, n_epochs, batch_size, alpha, n_rate,
+):
+    """
+    construct the mixed edge dataset
+    connect border points and train data(both direction)
+    :param X_input: tuple (train_data, border_points)
+    :param old_graph_: train data complex
+    :param new_graph_: boundary wise complex
+    :param n_epochs: how many epoch that expected to train the autoencoder
+    :param batch_size: edge dataset batch size
+    :param alpha, attention weight
+    :return: tf edge dataset
+    """
+
+    fitting_data = X
+
+    def gather_index(index):
+        return fitting_data[index]
+
+    def gather_alpha(index):
+        return alpha[index]
+
+    gather_indices_in_python = True if fitting_data.nbytes * 1e-9 > 0.5 else False
+
+    def gather_X(edge_to, edge_from, weight):
+        if gather_indices_in_python:
+            # if True:
+            edge_to_batch = tf.py_function(gather_index, [edge_to], [tf.float32])[0]
+            edge_from_batch = tf.py_function(gather_index, [edge_from], [tf.float32])[0]
+            alpha_to = tf.py_function(gather_alpha, [edge_to], [tf.float32])[0]
+            alpha_from = tf.py_function(gather_alpha, [edge_from], [tf.float32])[0]
+        else:
+            edge_to_batch = tf.gather(fitting_data, edge_to)
+            edge_from_batch = tf.gather(fitting_data, edge_from)
+            alpha_to = tf.gather(alpha, edge_to)
+            alpha_from = tf.gather(alpha, edge_from)
+        to_n_rate = tf.gather(n_rate, edge_to)
+        outputs = {"umap": 0}
+        outputs["reconstruction"] = edge_to_batch
+
+        return (edge_to_batch, edge_from_batch, alpha_to, alpha_from, to_n_rate, weight), outputs
+
+
+
+    # get data from graph
+    graph, epochs_per_sample, head, tail, weight, n_vertices = get_graph_elements(
+        graph_, n_epochs
+    )
+
+    if batch_size is None:
+        # batch size randomly choose a number as batch_size if batch_size is None
+        batch_size = 1000
+
+    edges_to_exp, edges_from_exp = (
+        np.repeat(head, epochs_per_sample.astype("int")),
+        np.repeat(tail, epochs_per_sample.astype("int")),
+    )
+
+    weight = np.repeat(weight, epochs_per_sample.astype("int"))
+    n_rate = np.expand_dims(n_rate, axis=1)
+
+    # shuffle edges
+    shuffle_mask = np.random.permutation(range(len(edges_to_exp)))
+    edges_to_exp = edges_to_exp[shuffle_mask].astype(np.int64)
+    edges_from_exp = edges_from_exp[shuffle_mask].astype(np.int64)
+    weight = weight[shuffle_mask].astype(np.float64)
+    weight = np.expand_dims(weight, axis=1)
+
+    # create edge iterator
+    edge_dataset = tf.data.Dataset.from_tensor_slices(
+        (edges_to_exp, edges_from_exp, weight)
+    )
+    edge_dataset = edge_dataset.repeat()
+    edge_dataset = edge_dataset.shuffle(10000)
+    edge_dataset = edge_dataset.batch(batch_size, drop_remainder=True)
+    edge_dataset = edge_dataset.map(
+        gather_X, num_parallel_calls=tf.data.experimental.AUTOTUNE
+        # gather_X
+    )
+    edge_dataset = edge_dataset.prefetch(10)
+    return edge_dataset, batch_size, len(edges_to_exp), weight
+
 
 def construct_temporal_mixed_edge_dataset(
-    X_input, old_graph_, new_graph_, n_epochs, batch_size, parametric_embedding,
-        parametric_reconstruction, n_rate, alpha, prev_embedding
+    X_input, old_graph_, new_graph_, n_epochs, batch_size, n_rate, alpha
 ):
     """
     Construct a tf.data.Dataset of edges, sampled by edge weight.
@@ -724,10 +887,7 @@ def construct_temporal_mixed_edge_dataset(
             alpha_from = tf.gather(alpha, edge_from)
         to_n_rate = tf.gather(n_rate, edge_to)
         outputs = {"umap": 0}
-        if parametric_reconstruction:
-            # add reconstruction to iterator output
-            # edge_out = tf.concat([edge_to_batch, edge_from_batch], axis=0)
-            outputs["reconstruction"] = edge_to_batch
+        outputs["reconstruction"] = edge_to_batch
 
         return (edge_to_batch, edge_from_batch, alpha_to, alpha_from, to_n_rate, weight), outputs
 
@@ -735,7 +895,7 @@ def construct_temporal_mixed_edge_dataset(
     bc_num = len(border_centers)
     n_rate = np.expand_dims(n_rate, axis=1)
     n_rate = np.concatenate((n_rate, np.zeros((bc_num, 1))), axis=0)
-    prev_embedding = np.concatenate((prev_embedding, np.zeros((bc_num, 2))), axis=0)
+    # prev_embedding = np.concatenate((prev_embedding, np.zeros((bc_num, 2))), axis=0)
 
     # get data from graph
     old_graph, old_epochs_per_sample, old_head, old_tail, old_weight, old_n_vertices = get_graph_elements(

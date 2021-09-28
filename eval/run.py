@@ -20,6 +20,7 @@ def get_arguments():
     parser.add_argument("-a", type=float)
     parser.add_argument("--temporal", type=int, choices=[1, 2, 3])
     parser.add_argument("--parametricUmap", type=int, choices=[0, 1], default=0, help="whether to run baseline parametric...")
+    parser.add_argument("--attention", type=int, choices=[0, 1], default=1, help="whether to add attention to renconstruction loss")
     parser.add_argument("--preprocess", type=int, choices=[0, 1], help="with 0 being false and 1 being true")
 
     return parser.parse_args()
@@ -40,7 +41,8 @@ if __name__ == "__main__":
     alpha = args.a
     temperature = args.t
     temporal_strategy = args.temporal
-    baseline = args.parametricUmap
+    parametricUmap = args.parametricUmap
+    attention = args.attention
     preprocess = args.preprocess
 
     if cuda:
@@ -59,30 +61,35 @@ if __name__ == "__main__":
 
     # dummy classes labels
     classes = range(10)
-    if baseline:
+    eval_name = ""
+    if parametricUmap:
         temporal = False
         transfer_learning = True
-        eval_name = "_parametricUmap"
-    elif temporal_strategy == 1:
+        eval_name += "_parametricUmap"
+
+    if temporal_strategy == 1:
         temporal = False
         transfer_learning = False
-        eval_name = "_NT"
+        eval_name += "_NT"
     elif temporal_strategy == 2:
         temporal = False
         transfer_learning = True
-        eval_name = "_T"
+        eval_name += "_T"
     else:
         temporal = True
         transfer_learning = True
-        eval_name = "_step2"
+        eval_name += "_step2"
 
+    if attention:
+        eval_name += "_A"
 
 
     mms = MMS(content_path, net, epoch_start, epoch_end, epoch_period, embedding_dim, num_classes, classes,
-              temperature=temperature,
+              temperature=temperature, attention=attention,
               cmap="tab10", resolution=resolution, verbose=1,
               temporal=temporal, transfer_learning=transfer_learning, step3=False,
-              split=split, advance_border_gen=True, alpha=alpha, withoutB=baseline, attack_device=attack_device)
+              split=split, advance_border_gen=True, alpha=alpha, withoutB=parametricUmap, attack_device=attack_device)
+
 
     # encoder_location = os.path.join(content_path, "Model", "Epoch_{:d}".format(136), "encoder_advance")
     # encoder = tf.keras.models.load_model(encoder_location)
@@ -93,9 +100,9 @@ if __name__ == "__main__":
     #     mms.data_preprocessing()
     mms.prepare_visualization_for_all()
     mms.save_evaluation(eval=True, name=eval_name)
-    mms.proj_temporal_perseverance_train(10, eval_name)
-    mms.proj_temporal_perseverance_test(10, eval_name)
+    # mms.proj_temporal_perseverance_train(10, eval_name)
+    # mms.proj_temporal_perseverance_test(10, eval_name)
     mms.proj_temporal_perseverance_train(15, eval_name)
     mms.proj_temporal_perseverance_test(15, eval_name)
-    mms.proj_temporal_perseverance_train(20, eval_name)
-    mms.proj_temporal_perseverance_test(20, eval_name)
+    # mms.proj_temporal_perseverance_train(20, eval_name)
+    # mms.proj_temporal_perseverance_test(20, eval_name)

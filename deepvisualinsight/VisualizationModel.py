@@ -6,8 +6,8 @@ from tensorflow import keras
 
 
 class ParametricModel(keras.Model):
-    def __init__(self, encoder, decoder, optimizer, loss, loss_weights, temporal, step3=False, withoutB=False, batch_size=1000,
-                 prev_trainable_variables=None):
+    def __init__(self, encoder, decoder, optimizer, loss, loss_weights, temporal, step3=False, withoutB=False,
+                 attention=True, batch_size=1000, prev_trainable_variables=None):
 
         super(ParametricModel, self).__init__()
         self.encoder = encoder  # encoder part
@@ -16,6 +16,7 @@ class ParametricModel(keras.Model):
         self.temporal = temporal
         self.step3 = step3
         self.withoutB = withoutB
+        self.attention = attention
 
         self.loss = loss  # dict of 3 losses {"total", "umap", "reconstrunction", "regularization"}
         self.loss_weights = loss_weights  # weights for each loss (in total 3 losses)
@@ -26,10 +27,8 @@ class ParametricModel(keras.Model):
         self.batch_size = batch_size
 
     def train_step(self, x):
-        if self.withoutB:
-            to_x, from_x, weight = x[0]
 
-        elif self.temporal:
+        if self.temporal:
             # get one batch
             to_x, from_x, to_alpha, from_alpha, n_rate, weight = x[0]
             if self.step3:
@@ -54,11 +53,12 @@ class ParametricModel(keras.Model):
                                           axis=1)
 
             # reconstruction loss
-            if self.withoutB:
+            if self.attention:
+                reconstruct_loss = self.loss["reconstruction"](tf.cast(to_x, dtype=tf.float32), tf.cast(from_x, dtype=tf.float32), embedding_to_recon, embedding_from_recon, to_alpha, from_alpha)
+            else:
                 reconstruct_loss = self.loss["reconstruction"](y_true=to_x, y_pred=embedding_to_recon) + \
                                    self.loss["reconstruction"](y_true=from_x, y_pred=embedding_from_recon)
-            else:
-                reconstruct_loss = self.loss["reconstruction"](tf.cast(to_x, dtype=tf.float32), tf.cast(from_x, dtype=tf.float32), embedding_to_recon, embedding_from_recon, to_alpha, from_alpha)
+
 
             # umap loss
             umap_loss = self.loss["umap"](None, embed_to_from=embedding_to_from)  # w_(t-1), no gradient
@@ -66,7 +66,6 @@ class ParametricModel(keras.Model):
             if self.temporal:
                 # compute alpha bar
                 alpha_mean = tf.cast(tf.reduce_mean(tf.stop_gradient(n_rate)), dtype=tf.float32)
-                prev_trainable_variables = self.prev_trainable_variables
                 if self.step3:
                     # embedding loss
                     embed_loss_to = self.loss["embedding_to"](None, embedding_to)

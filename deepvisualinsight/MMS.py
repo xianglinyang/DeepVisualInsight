@@ -360,7 +360,7 @@ class MMS:
         weights_dict = {}
         losses, loss_weights = define_losses(batch_size, self.temporal, self.step3, self.withoutB, self.attention)
         parametric_model = ParametricModel(encoder, decoder, optimizer, losses, loss_weights, self.temporal, self.step3,
-                                           self.withoutB, self.batch_size, prev_trainable_variables=None)
+                                           self.withoutB, self.attention, self.batch_size, prev_trainable_variables=None)
         callbacks = [
             tf.keras.callbacks.EarlyStopping(
                 monitor='loss',
@@ -380,8 +380,8 @@ class MMS:
                     encoder = encoder_in
                 if decoder_in is not None:
                     decoder = decoder_in
-                parametric_model = ParametricModel(encoder, decoder, optimizer, losses, loss_weights,
-                                                   self.temporal, self.step3, self.batch_size,
+                parametric_model = ParametricModel(encoder, decoder, optimizer, losses, loss_weights,self.temporal,
+                                                   self.step3, self.withoutB, self.attention, self.batch_size,
                                                    prev_trainable_variables=None)
             parametric_model.compile(
                 optimizer=optimizer, loss=losses, loss_weights=loss_weights,
@@ -408,43 +408,72 @@ class MMS:
                 print("no border points saved for Epoch {}".format(n_epoch))
                 continue
 
-
+            # attention/temporal/complex
             if self.withoutB:
                 all_d = np.concatenate((train_data, border_centers), axis=0)
                 complex, sigmas, rhos = fuzzy_complex(all_d, 15)
-                # from umap.parametric_umap import construct_edge_dataset
-                (
-                    edge_dataset,
-                    _batch_size,
-                    n_edges,
-                    _head,
-                    _tail,
-                    _edge_weight,
-                ) = construct_edge_dataset(
-                    all_d,
-                    complex,
-                    20,
-                    batch_size,
-                    parametric_embedding=True,
-                    parametric_reconstruction=False,
-                )
+                model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
+                self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
+                self.model = self.model.to(self.device)
+                self.model.eval()
+
+                model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
+                model = model.to(self.device)
+                model = model.eval()
+                alpha = get_alpha(model, all_d, temperature=self.temperature, device=self.device, verbose=1)
+                if self.temporal:
+                    prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch-self.period), "train_data.npy")
+                    if os.path.exists(prev_data_loc) and self.epoch_start != n_epoch:
+                        prev_data = np.load(prev_data_loc)
+                        prev_index = self.get_epoch_index(n_epoch-self.period)
+                        prev_data = prev_data[prev_index]
+                    else:
+                        prev_data = None
+                    n_rate = find_neighbor_preserving_rate(prev_data, train_data, n_neighbors=15)
+                    (
+                        edge_dataset,
+                        batch_size,
+                        n_edges,
+                        edge_weight,
+                    ) = construct_temporal_edge_dataset(
+                        all_d,
+                        complex,
+                        10,
+                        batch_size,
+                        n_rate=n_rate,
+                        alpha=alpha,
+                    )
+
+                else:
+                    (
+                        edge_dataset,
+                        batch_size,
+                        n_edges,
+                        edge_weight,
+                    ) = construct_edge_dataset(
+                        all_d,
+                        complex,
+                        10,
+                        batch_size,
+                        alpha=alpha,
+                    )
             else:
                 complex, sigmas, rhos = fuzzy_complex(train_data, 15)
                 bw_complex, _, _ = boundary_wise_complex(train_data, border_centers, 15)
+                fitting_data = np.concatenate((train_data, border_centers), axis=0)
+
+                model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
+                self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
+                self.model = self.model.to(self.device)
+                self.model.eval()
+
+                model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
+                model = model.to(self.device)
+                model = model.eval()
+                alpha = get_alpha(model, fitting_data, temperature=self.temperature, device=self.device, verbose=1)
+                del model
+                gc.collect()
                 if not self.temporal:
-                    fitting_data = np.concatenate((train_data, border_centers), axis=0)
-
-                    model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
-                    self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
-                    self.model = self.model.to(self.device)
-                    self.model.eval()
-
-                    model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
-                    model = model.to(self.device)
-                    model = model.eval()
-                    alpha = get_alpha(model, fitting_data, temperature=self.temperature, device=self.device, verbose=1)
-                    del model
-                    gc.collect()
                     (
                         edge_dataset,
                         _batch_size,
@@ -457,8 +486,6 @@ class MMS:
                         10,
                         batch_size,
                         alpha,
-                        parametric_embedding=True,
-                        parametric_reconstruction=True,
                     )
                 else:
                     prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch-self.period), "train_data.npy")
@@ -468,28 +495,14 @@ class MMS:
                         prev_data = prev_data[prev_index]
                     else:
                         prev_data = None
-                    if prev_data is None:
-                        prev_embedding = np.zeros((len(train_data), self.low_dims))
-                    else:
-                        encoder_ = self.get_proj_model(n_epoch-self.period)
-                        prev_embedding = encoder_(prev_data).cpu().numpy()
-                        del encoder_
-                        gc.collect()
+                    # if prev_data is None:
+                    #     prev_embedding = np.zeros((len(train_data), self.low_dims))
+                    # else:
+                    #     encoder_ = self.get_proj_model(n_epoch-self.period)
+                    #     prev_embedding = encoder_(prev_data).cpu().numpy()
+                    #     del encoder_
+                    #     gc.collect()
                     n_rate = find_neighbor_preserving_rate(prev_data, train_data, n_neighbors=15)
-
-                    fitting_data = np.concatenate((train_data, border_centers), axis=0)
-
-                    model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
-                    self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
-                    self.model = self.model.to(self.device)
-                    self.model.eval()
-
-                    model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
-                    model = model.to(self.device)
-                    model = model.eval()
-                    alpha = get_alpha(model, fitting_data, temperature=self.temperature, device=self.device, verbose=1)
-                    del model
-                    gc.collect()
 
                     (
                         edge_dataset,
@@ -500,20 +513,17 @@ class MMS:
                         (train_data, border_centers),
                         complex,
                         bw_complex,
-                        20,
+                        10,
                         batch_size,
-                        parametric_embedding=True,
-                        parametric_reconstruction=True,
                         n_rate=n_rate,
                         alpha=alpha,
-                        prev_embedding=prev_embedding
                     )
 
             steps_per_epoch = int(
                 n_edges / batch_size / 10
             )
             # create embedding
-            history = parametric_model.fit(
+            _ = parametric_model.fit(
                 edge_dataset,
                 epochs=200, # a large value, because we have early stop callback
                 steps_per_epoch=steps_per_epoch,
@@ -522,11 +532,13 @@ class MMS:
             )
             # save for later use
             parametric_model.prev_trainable_variables = weights_dict["prev"]
-            flag = ""
+            flag = ""   # record boundary complex and attention
             if self.withoutB:
                 flag += "_withoutB"
             elif self.advance_border_gen:
                 flag += "_advance"
+            if self.attention:
+                flag += "_A"
 
             if self.temporal:
                 if self.step3:
@@ -583,6 +595,8 @@ class MMS:
             flag += "_withoutB"
         elif self.advance_border_gen:
             flag = "_advance"
+        if self.attention:
+            flag += "_A"
 
         if self.temporal:
             if self.step3:
@@ -614,6 +628,8 @@ class MMS:
             flag += "_withoutB"
         elif self.advance_border_gen:
             flag += "_advance"
+        if self.attention:
+            flag += "_A"
 
         if self.temporal:
             if self.step3:
