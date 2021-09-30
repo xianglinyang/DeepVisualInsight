@@ -16,15 +16,14 @@ import seaborn as sns
 
 
 def main(args):
-    metric = args.m
+    metric = args.method
     datasets = ["mnist", "fmnist", "cifar10"]
     starts = [4, 10, 40]
     ends = [24, 60, 240]
     periods = [4, 10, 40]
     k_neighbors = [10, 15, 20]
 
-
-    if metric == "nn" or "boundary":
+    if metric == "nn" or metric == "bound":
         col = np.array(["dataset", "method", "type", "hue", "k", "period", "eval"])
         df = pd.DataFrame({}, columns=col)
         for k in k_neighbors:
@@ -48,12 +47,10 @@ def main(args):
                     else:
                         i = epoch
                     if len(data) == 0:
-                        data = np.array([[dataset, "DVI", "Train", "DVI-Train", "{}".format(k), "{}".format(str(epoch//p)), nn_train]])
+                        data = np.array([[dataset, "DVI", "Train", "DVI-Train", "{}".format(k), "{}".format(str(i)), nn_train]])
                     else:
                         data = np.concatenate((data, np.array([[dataset, "DVI", "Train", "DVI-Train", "{}".format(k), "{}".format(str(i)), nn_train]])), axis=0)
                     data = np.concatenate((data, np.array([[dataset, "DVI", "Test", "DVI-Test", "{}".format(k), "{}".format(str(i)), nn_test]])), axis=0)
-
-
 
                 # parametric umap
                 content_path = "E:\\DVI_exp_data\\resnet18_{}".format(dataset)
@@ -64,25 +61,25 @@ def main(args):
                     nn_train = round(eval["{}_train_{}".format(metric, k)], 3)
                     nn_test = round(eval["{}_test_{}".format(metric, k)], 3)
 
-                    data = np.concatenate((data, np.array([[dataset, "parametricUmap", "Train", "parametricUmap-Train", "{}".format(k), "{}".format(str(epoch//p)), nn_train]])), axis=0)
-                    data = np.concatenate((data, np.array([[dataset, "parametricUmap", "Test", "parametricUmap-Test", "{}".format(k), "{}".format(str(epoch//p)), nn_test]])), axis=0)
+                    data = np.concatenate((data, np.array([[dataset, "parametricUmap", "Train", "pU-Train", "{}".format(k), "{}".format(str(epoch//p)), nn_train]])), axis=0)
+                    data = np.concatenate((data, np.array([[dataset, "parametricUmap", "Test", "pU-Test", "{}".format(k), "{}".format(str(epoch//p)), nn_test]])), axis=0)
 
                 # parametric umap + Attention
                 content_path = "E:\\DVI_exp_data\\resnet18_{}".format(dataset)
                 for epoch in range(start, end, p):
-                    eval_path = os.path.join(content_path, "Model", "Epoch_{}".format(epoch), "evaluation_parametricUmap_T_A.json.json")
+                    eval_path = os.path.join(content_path, "Model", "Epoch_{}".format(epoch), "evaluation_parametricUmap_T_A.json")
                     with open(eval_path, "r") as f:
                         eval = json.load(f)
                     nn_train = round(eval["{}_train_{}".format(metric, k)], 3)
                     nn_test = round(eval["{}_test_{}".format(metric, k)], 3)
 
-                    data = np.concatenate((data, np.array([[dataset, "parametricUmap_A", "Train", "parametricUmap-A-Train", "{}".format(k), "{}".format(str(epoch//p)), nn_train]])), axis=0)
-                    data = np.concatenate((data, np.array([[dataset, "parametricUmap_A", "Test", "parametricUmap-A-Test", "{}".format(k), "{}".format(str(epoch//p)), nn_test]])), axis=0)
+                    data = np.concatenate((data, np.array([[dataset, "parametricUmap_A", "Train", "A-Train", "{}".format(k), "{}".format(str(epoch//p)), nn_train]])), axis=0)
+                    data = np.concatenate((data, np.array([[dataset, "parametricUmap_A", "Test", "A-Test", "{}".format(k), "{}".format(str(epoch//p)), nn_test]])), axis=0)
 
                 # parametric umap + boundary complex
                 content_path = "E:\\DVI_exp_data\\resnet18_{}".format(dataset)
                 for epoch in range(start, end, p):
-                    eval_path = os.path.join(content_path, "Model", "Epoch_{}".format(epoch), "evaluation_T.json.json")
+                    eval_path = os.path.join(content_path, "Model", "Epoch_{}".format(epoch), "evaluation_T.json")
                     with open(eval_path, "r") as f:
                         eval = json.load(f)
                     nn_train = round(eval["{}_train_{}".format(metric, k)], 3)
@@ -94,7 +91,7 @@ def main(args):
                 # parametric umap + temporal
                 content_path = "E:\\DVI_exp_data\\resnet18_{}".format(dataset)
                 for epoch in range(start, end, p):
-                    eval_path = os.path.join(content_path, "Model", "Epoch_{}".format(epoch), "evaluation_parametricUmap_step2.json.json")
+                    eval_path = os.path.join(content_path, "Model", "Epoch_{}".format(epoch), "evaluation_parametricUmap_step2.json")
                     with open(eval_path, "r") as f:
                         eval = json.load(f)
                     nn_train = round(eval["{}_train_{}".format(metric, k)], 3)
@@ -102,6 +99,11 @@ def main(args):
 
                     data = np.concatenate((data, np.array([[dataset, "Temporal", "Train", "T-Train", "{}".format(k), "{}".format(str(epoch//p)), nn_train]])), axis=0)
                     data = np.concatenate((data, np.array([[dataset, "Temporal", "Test", "T-Test", "{}".format(k), "{}".format(str(epoch//p)), nn_test]])), axis=0)
+                df_tmp = pd.DataFrame(data, columns=col)
+                df = df.append(df_tmp, ignore_index=True)
+                df[["period"]] = df[["period"]].astype(int)
+                df[["k"]] = df[["k"]].astype(int)
+                df[["eval"]] = df[["eval"]].astype(float)
     else:
         col = np.array(["dataset", "method", "type", "hue", "period", "eval"])
         df = pd.DataFrame({}, columns=col)
@@ -113,20 +115,23 @@ def main(args):
 
             data = np.array([])
             # load data from evaluation.json
-            content_path = "E:\\DVI_exp_data\\resnet18_{}".format(dataset)
-            for epoch in range(start, end, p):
+            content_path = "E:\\DVI_exp_data\\TemporalExp\\resnet18_{}".format(dataset)
+            for epoch in [1, 2, 3, 4, 7]:
                 eval_path = os.path.join(content_path, "Model", "Epoch_{}".format(epoch), "evaluation_step2.json")
                 with open(eval_path, "r") as f:
                     eval = json.load(f)
                 nn_train = round(eval["{}_train".format(metric)], 3)
                 nn_test = round(eval["{}_test".format(metric)], 3)
+                if epoch > 5:
+                    i = 5
+                else:
+                    i = epoch
 
                 if len(data) == 0:
-                    data = np.array([[dataset, "DVI", "Train", "DVI-Train", "{}".format(str(epoch//p)), nn_train]])
+                    data = np.array([[dataset, "DVI", "Train", "DVI-Train", "{}".format(str(i)), nn_train]])
                 else:
-                    data = np.concatenate((data, np.array([[dataset, "DVI", "Train", "DVI-Train",  "{}".format(str(epoch//p)), nn_train]])), axis=0)
-                data = np.concatenate((data, np.array([[dataset, "DVI", "Test", "DVI-Test", "{}".format(str(epoch//p)), nn_test]])), axis=0)
-
+                    data = np.concatenate((data, np.array([[dataset, "DVI", "Train", "DVI-Train", "{}".format(str(i)), nn_train]])), axis=0)
+                data = np.concatenate((data, np.array([[dataset, "DVI", "Test", "DVI-Test", "{}".format(str(i)), nn_test]])), axis=0)
 
             # parametric umap
             content_path = "E:\\DVI_exp_data\\resnet18_{}".format(dataset)
@@ -143,7 +148,7 @@ def main(args):
             # parametric umap + Attention
             content_path = "E:\\DVI_exp_data\\resnet18_{}".format(dataset)
             for epoch in range(start, end, p):
-                eval_path = os.path.join(content_path, "Model", "Epoch_{}".format(epoch), "evaluation_parametricUmap_T_A.json.json")
+                eval_path = os.path.join(content_path, "Model", "Epoch_{}".format(epoch), "evaluation_parametricUmap_T_A.json")
                 with open(eval_path, "r") as f:
                     eval = json.load(f)
                 nn_train = round(eval["{}_train".format(metric)], 3)
@@ -155,7 +160,7 @@ def main(args):
             # parametric umap + boundary complex
             content_path = "E:\\DVI_exp_data\\resnet18_{}".format(dataset)
             for epoch in range(start, end, p):
-                eval_path = os.path.join(content_path, "Model", "Epoch_{}".format(epoch), "evaluation_T.json.json")
+                eval_path = os.path.join(content_path, "Model", "Epoch_{}".format(epoch), "evaluation_T.json")
                 with open(eval_path, "r") as f:
                     eval = json.load(f)
                 nn_train = round(eval["{}_train".format(metric)], 3)
@@ -167,7 +172,7 @@ def main(args):
             # parametric umap + temporal
             content_path = "E:\\DVI_exp_data\\resnet18_{}".format(dataset)
             for epoch in range(start, end, p):
-                eval_path = os.path.join(content_path, "Model", "Epoch_{}".format(epoch), "evaluation_parametricUmap_step2.json.json")
+                eval_path = os.path.join(content_path, "Model", "Epoch_{}".format(epoch), "evaluation_parametricUmap_step2.json")
                 with open(eval_path, "r") as f:
                     eval = json.load(f)
                 nn_train = round(eval["{}_train".format(metric)], 3)
@@ -176,14 +181,16 @@ def main(args):
                 data = np.concatenate((data, np.array([[dataset, "Temporal", "Train", "T-Train", "{}".format(str(epoch//p)), nn_train]])), axis=0)
                 data = np.concatenate((data, np.array([[dataset, "Temporal", "Test", "T-Test", "{}".format(str(epoch//p)), nn_test]])), axis=0)
 
+            df_tmp = pd.DataFrame(data, columns=col)
+            df = df.append(df_tmp, ignore_index=True)
+            df[["period"]] = df[["period"]].astype(int)
+            df[["eval"]] = df[["eval"]].astype(float)
 
-    #%%
     df.to_excel("pU_{}.xlsx".format(metric))
-    if metric == "nn" or "bound":
+    if metric == "nn" or metric == "bound":
         for k in k_neighbors:
             df_tmp = df[df["k"] == k]
             pal20c = sns.color_palette('tab20c', 20)
-            # sns.palplot(pal20c)
             sns.set_theme(style="whitegrid", palette=pal20c)
             hue_dict = {
                 "DVI-Train": pal20c[0],
@@ -196,10 +203,9 @@ def main(args):
                 "A-Test": pal20c[7],
                 "BC-Test": pal20c[15],
                 "T-Test": pal20c[11],
+
             }
             sns.palplot([hue_dict[i] for i in hue_dict.keys()])
-
-            #%%
 
             axes = {'labelsize': 9,
                     'titlesize': 9,}
@@ -239,7 +245,6 @@ def main(args):
              .set_xticklabels(['Begin', 'Early', 'Mid', 'Late', 'End'])
              .set_axis_labels("", "")
              )
-            # fg.fig.suptitle("NN preserving property")
 
             #%%
             fg.savefig(
@@ -325,7 +330,7 @@ if __name__ == "__main__":
     # parser.add_argument("-s", type=int)
     # parser.add_argument('-e', type=int)
     # parser.add_argument('-p', type=int)
-    parser.add_argument('-m', "--method", type=str, choices=["nn", "bound", "inv_accu", "inv_conf"])
+    parser.add_argument("--method", '-m', type=str, choices=["nn", "bound", "inv_acc", "inv_conf"])
     args = parser.parse_args()
-    main()
+    main(args)
 
