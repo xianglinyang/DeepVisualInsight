@@ -437,7 +437,8 @@ class MMS:
                     else:
                         prev_data = None
                         prev_border = None
-                    prev_data = np.concatenate((prev_data, prev_border), axis=0)
+                    if prev_data is not None:
+                        prev_data = np.concatenate((prev_data, prev_border), axis=0)
                     n_rate = find_neighbor_preserving_rate(prev_data, all_d, n_neighbors=15)
                     (
                         edge_dataset,
@@ -1909,6 +1910,32 @@ class MMS:
         }
 
         df = pd.DataFrame(df_dict, index=pd.Index(range(len(labels)), name="idx"))
+        return df
+
+    def sample_table_AL(self):
+        """
+        sample table for active learning scenarios
+        :return:
+        """
+        df = self.sample_table()
+        new_selected_epoch = [-1 for _ in range(len(self.training_labels)+len(self.testing_labels))]
+        for epoch_id in range(self.epoch_start, self.epoch_end+1, self.period):
+            labeled = np.array(self.get_epoch_index(epoch_id))
+            new_selected_epoch[labeled] = epoch_id
+        df["al_selected_epoch"] = new_selected_epoch
+
+        return df
+
+    def sample_table_noisy(self):
+        df = self.sample_table()
+        noisy_data = self.noisy_data_index()
+        is_noisy = [False for _ in range(len(self.training_labels)+len(self.testing_labels))]
+        is_noisy[noisy_data] = True
+
+        original_label = self.get_original_labels().tolist()
+
+        df["original_label"] = original_label
+        df["is_noisy"] = is_noisy
         return df
 
     # customized features
