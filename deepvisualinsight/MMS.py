@@ -1919,23 +1919,25 @@ class MMS:
         """
         df = self.sample_table()
         new_selected_epoch = [-1 for _ in range(len(self.training_labels)+len(self.testing_labels))]
+        new_selected_epoch = np.array(new_selected_epoch)
         for epoch_id in range(self.epoch_start, self.epoch_end+1, self.period):
             labeled = np.array(self.get_epoch_index(epoch_id))
             new_selected_epoch[labeled] = epoch_id
-        df["al_selected_epoch"] = new_selected_epoch
-
+        df["al_selected_epoch"] = new_selected_epoch.tolist()
         return df
 
     def sample_table_noisy(self):
         df = self.sample_table()
         noisy_data = self.noisy_data_index()
-        is_noisy = [False for _ in range(len(self.training_labels)+len(self.testing_labels))]
+        is_noisy = np.array([False for _ in range(len(self.training_labels)+len(self.testing_labels))])
         is_noisy[noisy_data] = True
 
         original_label = self.get_original_labels().tolist()
+        test_labels = self.testing_labels.cpu().numpy().tolist()
+        original_label = original_label.extend(test_labels)
 
         df["original_label"] = original_label
-        df["is_noisy"] = is_noisy
+        df["is_noisy"] = is_noisy.tolist()
         return df
 
     # customized features
