@@ -272,6 +272,26 @@ class MMS:
 
         self.model = self.model.to(self.device)
 
+    def eval_keep_B(self, name=""):
+        # evaluate keep_B metric
+        t_s = time.time()
+        epoch_num = int((self.epoch_end - self.epoch_start) / self.period + 1)
+        for n_epoch in range(self.epoch_start, self.epoch_end + 1, self.period):
+            save_dir = os.path.join(self.model_path, "Epoch_{}".format(n_epoch), "evaluation{}.json".format(name))
+            if os.path.exists(save_dir):
+                with open(save_dir, "r") as f:
+                    evaluation = json.load(f)
+            else:
+                evaluation = {}
+            evaluation['keep_B_train'] = self.keep_B_train(n_epoch)
+            evaluation['keep_B_test'] = self.keep_B_test(n_epoch)
+            evaluation['keep_B_bound'] = self.keep_B_boundary(n_epoch)
+            with open(save_dir, 'w') as f:
+                json.dump(evaluation, f)
+        t_e = time.time()
+        if self.verbose > 0 :
+            print("Average evaluation time for 1 epoch is {:.2f} seconds".format((t_e-t_s) / epoch_num))
+
     def save_evaluation(self, eval=False, name=""):
         # evaluation information
         t_s = time.time()
@@ -287,6 +307,9 @@ class MMS:
             evaluation['nn_test_15'] = self.proj_nn_perseverance_knn_test(n_epoch, 15)
             evaluation['bound_train_15'] = self.proj_boundary_perseverance_knn_train(n_epoch, 15)
             evaluation['bound_test_15'] = self.proj_boundary_perseverance_knn_test(n_epoch, 15)
+            evaluation['keep_B_train'] = self.keep_B_train(n_epoch)
+            evaluation['keep_B_test'] = self.keep_B_test(n_epoch)
+            evaluation['keep_B_bound'] = self.keep_B_boundary(n_epoch)
 
             # for paper evaluation
             if eval:
@@ -1593,6 +1616,43 @@ class MMS:
         val = evaluate_inv_conf(labels, ori_pred, new_pred)
         return val
 
+    def keep_B_train(self, epoch_id, resolution=400, threshold=0.7):
+        train_data = self.get_epoch_train_repr_data(epoch_id)
+        preds = self.get_pred(epoch_id, train_data)
+        is_border = is_B(preds)
+        border_points = train_data[is_border]
+        grid_view, decision_view = self.get_epoch_decision_view(epoch_id, resolution=resolution)
+        low_B = self.batch_project(border_points, epoch_id)
+
+        ans = evaluate_keep_B(low_B, grid_view, decision_view, threshold=threshold)
+        if self.verbose:
+            print("{:.2f}% of training boundary points still lie on boundary after dimension reduction...".format(ans*100))
+        return ans
+
+    def keep_B_test(self, epoch_id, resolution=400, threshold=0.7):
+        test_data = self.get_epoch_test_repr_data(epoch_id)
+        preds = self.get_pred(epoch_id, test_data)
+        is_border = is_B(preds)
+        border_points = test_data[is_border]
+
+        grid_view, decision_view = self.get_epoch_decision_view(epoch_id, resolution=resolution)
+        low_B = self.batch_project(border_points, epoch_id)
+
+        ans = evaluate_keep_B(low_B, grid_view, decision_view, threshold=threshold)
+        if self.verbose:
+            print("{:.2f}% of testing boundary points still lie on boundary after dimension reduction...".format(ans*100))
+        return ans
+
+    def keep_B_boundary(self, epoch_id, resolution=400, threshold=0.7):
+        border_points = self.get_epoch_border_centers(epoch_id)
+        grid_view, decision_view = self.get_epoch_decision_view(epoch_id, resolution=resolution)
+        low_B = self.batch_project(border_points, epoch_id)
+
+        ans = evaluate_keep_B(low_B, grid_view, decision_view, threshold=threshold)
+        if self.verbose:
+            print("{:.2f}% of boundary points still lie on boundary after dimension reduction...".format(ans*100))
+        return ans
+
     def point_inv_preserve(self, epoch_id, data):
         """
         get inverse confidence for a single point
@@ -1667,6 +1727,7 @@ class MMS:
                 value = round(value, 2)
                 evaluation_new[item] = value
         return evaluation_new
+
 
     '''subject model'''
     def training_accu(self, epoch_id):
