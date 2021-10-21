@@ -189,7 +189,7 @@ def main():
 
         #%%
         fg.savefig(
-            "nn_boundary_{}.png".format(k),
+            "nn_boundary_{}.pdf".format(k),
             dpi=400,
             bbox_inches="tight",
             pad_inches=0.0,

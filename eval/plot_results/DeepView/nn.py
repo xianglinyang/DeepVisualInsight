@@ -156,15 +156,14 @@ def main():
          )
         fg.fig.suptitle(dataset)
 
-        #%%
 
-        # fg.savefig(
-        #     "nn_{}.png".format(k),
-        #     dpi=300,
-        #     bbox_inches="tight",
-        #     pad_inches=0.0,
-        #     transparent=True,
-        # )
+        fg.savefig(
+            "nn_{}.pdf".format(k),
+            dpi=300,
+            bbox_inches="tight",
+            pad_inches=0.0,
+            transparent=True,
+        )
 
 
 if __name__ == "__main__":

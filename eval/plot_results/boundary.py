@@ -149,7 +149,8 @@ def main():
         mpl.rcParams['xtick.labelsize'] = 9
 
         # hue_list = ["DVI-Train", "DVI-Test", "DVI-T-Train", "DVI-T-Test", "UMAP-Train", "UMAP-Test", "PCA-Train", "PCA-Test", "TSNE-Train"]
-        hue_list = ["DVI-Train", "DVI-Test", "parametricUmap-Train","parametricUmap-Test", "UMAP-Train", "UMAP-Test", "PCA-Train", "PCA-Test", "TSNE-Train"]
+        # hue_list = ["DVI-Train", "DVI-Test", "parametricUmap-Train","parametricUmap-Test", "UMAP-Train", "UMAP-Test", "PCA-Train", "PCA-Test", "TSNE-Train"]
+        hue_list = ["DVI-Train", "DVI-Test","UMAP-Train", "UMAP-Test", "PCA-Train", "PCA-Test", "TSNE-Train"]
 
         #%%
         fg = sns.catplot(
@@ -169,7 +170,7 @@ def main():
             legend=True
         )
 
-        sns.move_legend(fg, "lower center", bbox_to_anchor=(.42, 0.92), ncol=5, title=None, frameon=False)
+        sns.move_legend(fg, "lower center", bbox_to_anchor=(.42, 0.92), ncol=4, title=None, frameon=False)
         mpl.pyplot.setp(fg._legend.get_texts(), fontsize='9')
 
         axs = fg.axes[0]
@@ -188,7 +189,7 @@ def main():
 
         #%%
         fg.savefig(
-            "boundary_{}.png".format(k),
+            "boundary_{}.pdf".format(k),
             dpi=300,
             bbox_inches="tight",
             pad_inches=0.0,

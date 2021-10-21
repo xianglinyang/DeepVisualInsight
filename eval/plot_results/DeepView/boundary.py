@@ -150,13 +150,13 @@ def main():
 
     #%%
 
-    # fg.savefig(
-    #     "boundary_{}.png".format(dataset),
-    #     dpi=300,
-    #     bbox_inches="tight",
-    #     pad_inches=0.0,
-    #     transparent=True,
-    # )
+    fg.savefig(
+        "boundary_{}.pdf".format(k),
+        dpi=300,
+        bbox_inches="tight",
+        pad_inches=0.0,
+        transparent=True,
+    )
 
 
 if __name__ == "__main__":
