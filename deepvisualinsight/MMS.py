@@ -1995,7 +1995,9 @@ class MMS:
 
         original_label = self.get_original_labels().tolist()
         test_labels = self.testing_labels.cpu().numpy().tolist()
-        original_label = original_label.extend(test_labels)
+        for ele in test_labels:
+            original_label.append(ele)
+        # original_label.extend(test_labels)
 
         df["original_label"] = original_label
         df["is_noisy"] = is_noisy.tolist()
