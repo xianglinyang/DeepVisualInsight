@@ -145,11 +145,11 @@ class MMS:
             sys.exit("Dir not exists!")
 
         self.training_data_path = os.path.join(self.content_path, "Training_data")
-        self.training_data = torch.load(os.path.join(self.training_data_path, "training_dataset_data.pth"))
-        self.training_labels = torch.load(os.path.join(self.training_data_path, "training_dataset_label.pth"))
+        self.training_data = torch.load(os.path.join(self.training_data_path, "training_dataset_data.pth"), map_location=self.device)
+        self.training_labels = torch.load(os.path.join(self.training_data_path, "training_dataset_label.pth"), map_location=self.device)
         self.testing_data_path = os.path.join(self.content_path, "Testing_data")
-        self.testing_data = torch.load(os.path.join(self.testing_data_path, "testing_dataset_data.pth"))
-        self.testing_labels = torch.load(os.path.join(self.testing_data_path, "testing_dataset_label.pth"))
+        self.testing_data = torch.load(os.path.join(self.testing_data_path, "testing_dataset_data.pth"), map_location=self.device)
+        self.testing_labels = torch.load(os.path.join(self.testing_data_path, "testing_dataset_label.pth"), map_location=self.device)
 
         self.model_path = os.path.join(self.content_path, "Model")
         if self.verbose > 0:
@@ -1189,7 +1189,7 @@ class MMS:
         # train_data labels
         for c in range(self.class_num):
             color = self.cmap(c/(self.class_num-1))
-            plot = self.ax.plot([], [], '.', label=self.classes[c], ms=2,
+            plot = self.ax.plot([], [], '.', label=self.classes[c], ms=5,
                 color=color, zorder=2, picker=mpl.rcParams['lines.markersize'])
             self.sample_plots.append(plot[0])
 
@@ -1237,9 +1237,9 @@ class MMS:
             data = embedding[(test_labels == c)]
             self.sample_plots[c].set_data(data.transpose())
 
-        if os.name == 'posix':
-            self.fig.canvas.manager.window.raise_()
-
+        # if os.name == 'posix':
+        #     self.fig.canvas.manager.window.raise_()
+        # #
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
 
