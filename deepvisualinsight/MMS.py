@@ -937,6 +937,17 @@ class MMS:
             print("No data!")
             return None
 
+    def is_deltaB(self, epoch_id, data):
+        """
+        check wheter input vectors are lying on delta-boundary or not
+        :param epoch_id:
+        :param data: numpy.ndarray
+        :return: numpy.ndarray, boolean, True stands for is_delta_boundary
+        """
+        preds = self.get_pred(epoch_id, data)
+        border = is_B(preds)
+        return border
+
     ################################################## Visualization ##################################################
     def get_epoch_plot_measures(self, epoch_id):
         """get plot measure for visualization"""
