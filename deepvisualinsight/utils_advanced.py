@@ -161,7 +161,7 @@ def mixup_bi(model, image1, image2, label, target_cls, device, diff=0.1, max_ite
         lamb = (upper + lower) / 2
         image_mix = lamb * image1 + (1 - lamb) * image2
         # clip image
-        image_mix = torch.clamp(image_mix, 0, 1)
+        # image_mix = torch.clamp(image_mix, 0, 1)
 
         pred_new, normalized = f(image_mix)
 
