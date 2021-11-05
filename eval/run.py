@@ -96,14 +96,14 @@ if __name__ == "__main__":
     # decoder_location = os.path.join(content_path, "Model", "Epoch_{:d}".format(136), "decoder_advance")
     # decoder = tf.keras.models.load_model(decoder_location)
 
-    # if preprocess == 1:
-    #     mms.data_preprocessing()
-    # mms.prepare_visualization_for_all()
-    # mms.save_evaluation(eval=False, name=eval_name)
-    mms.eval_keep_B(name=eval_name)
+    if preprocess == 1:
+        mms.data_preprocessing()
+    mms.prepare_visualization_for_all()
+    mms.save_evaluation(eval=False, name=eval_name)
+    # mms.eval_keep_B(name=eval_name)
     # mms.proj_temporal_perseverance_train(10, eval_name)
     # mms.proj_temporal_perseverance_test(10, eval_name)
-    # mms.proj_temporal_perseverance_train(15, eval_name)
-    # mms.proj_temporal_perseverance_test(15, eval_name)
+    mms.proj_temporal_perseverance_train(15, eval_name)
+    mms.proj_temporal_perseverance_test(15, eval_name)
     # mms.proj_temporal_perseverance_train(20, eval_name)
     # mms.proj_temporal_perseverance_test(20, eval_name)

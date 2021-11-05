@@ -700,7 +700,7 @@ def define_losses(batch_size, temporal, step3, withoutB, attention):
     else:
         recon_loss_fn = reconstruction_loss(beta=1)
         losses["reconstruction"] = recon_loss_fn
-    loss_weights["reconstruction"] = 1.0
+    loss_weights["reconstruction"] = 50.0
 
     losses["umap"] = umap_loss_fn
     loss_weights["umap"] = 1.0
