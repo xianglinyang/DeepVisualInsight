@@ -13,6 +13,7 @@ import gc
 import pandas as pd
 from scipy.special import softmax
 from scipy.spatial.distance import cdist
+from sklearn.neighbors import KDTree
 import deepvisualinsight.utils_advanced as utils_advanced
 from deepvisualinsight.VisualizationModel import ParametricModel
 
@@ -948,6 +949,23 @@ class MMS:
         border = is_B(preds)
         return border
 
+    def find_neighbors(self, epoch_id, data, n_neighbors):
+        """
+        return the index to nearest neighbors
+        :param epoch_id:
+        :param data: ndarray, feature vectors
+        :param n_neighbors:
+        :return:
+        """
+        train_data = self.get_epoch_train_repr_data(epoch_id)
+        test_data = self.get_epoch_test_repr_data(epoch_id)
+        fitting_data = np.concatenate((train_data, test_data), axis=0)
+        tree = KDTree(fitting_data)
+
+        _, knn_indices = tree.query(data, k=n_neighbors)
+        return knn_indices
+
+
     ################################################## Visualization ##################################################
     def get_epoch_plot_measures(self, epoch_id):
         """get plot measure for visualization"""
@@ -1455,28 +1473,35 @@ class MMS:
 
     def proj_temporal_perseverance_test(self, n_neighbors=15, eval_name=""):
         """evalute testing temporal preserving property"""
-        l = os.path.join(self.model_path, "Epoch_{:d}".format(self.epoch_start), "test_index.json")
-        if os.path.exists(l):
-            l = load_labelled_data_index(l)
-            l = len(l)
+        test_path = os.path.join(self.model_path, "Epoch_{:d}".format(self.epoch_start), "test_index.json")
+        if os.path.exists(test_path):
+            test_l = load_labelled_data_index(test_path)
+            test_l = len(test_l)
         else:
-            l = len(self.testing_labels)
+            test_l= len(self.testing_labels)
+
+        train_path = os.path.join(self.model_path, "Epoch_{:d}".format(self.epoch_start), "index.json")
+        train_l = load_labelled_data_index(train_path)
+        train_l = len(train_l)
+
+        l = train_l + test_l
+
         eval_num = int((self.epoch_end - self.epoch_start) / self.period)
         alpha = np.zeros((eval_num, l))
         delta_x = np.zeros((eval_num, l))
         for n_epoch in range(self.epoch_start + self.period, self.epoch_end + 1, self.period):
-
-            # prev_data = self.get_representation_data(n_epoch-self.period, self.testing_data)
-            prev_data = self.get_epoch_test_repr_data(n_epoch - self.period)
+            prev_data_test = self.get_epoch_test_repr_data(n_epoch - self.period)
+            prev_data_train = self.get_epoch_train_repr_data(n_epoch - self.period)
+            prev_data = np.concatenate((prev_data_train, prev_data_test), axis=0)
             encoder = self.get_proj_model(n_epoch - self.period)
             prev_embedding = encoder(prev_data).cpu().numpy()
-
             del encoder
             gc.collect()
 
-            # data = self.get_representation_data(n_epoch, self.testing_data)
             encoder = self.get_proj_model(n_epoch)
-            data = self.get_epoch_test_repr_data(n_epoch)
+            test_data = self.get_epoch_test_repr_data(n_epoch)
+            train_data = self.get_epoch_train_repr_data(n_epoch)
+            data = np.concatenate((train_data, test_data), axis=0)
             embedding = encoder(data).cpu().numpy()
 
             del encoder
