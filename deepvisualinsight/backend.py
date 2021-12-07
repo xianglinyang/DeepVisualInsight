@@ -13,7 +13,7 @@ import tensorflow as tf
 from sklearn.cluster import KMeans
 
 
-from deepvisualinsight.utils import *
+from utils import *
 from scipy.special import softmax
 import numpy as np
 from tensorflow import keras

@@ -2,20 +2,20 @@ import os
 import time
 
 import numpy as np
-import pyasn1_modules.rfc6031
+# import pyasn1_modules.rfc6031
 import tensorflow as tf
-from deepvisualinsight.utils import *
-from deepvisualinsight.backend import *
+from utils import *
+from backend import *
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from deepvisualinsight.evaluate import *
+from evaluate import *
 import gc
 import pandas as pd
 from scipy.special import softmax
 from scipy.spatial.distance import cdist
 from sklearn.neighbors import KDTree
-import deepvisualinsight.utils_advanced as utils_advanced
-from deepvisualinsight.VisualizationModel import ParametricModel
+import utils_advanced as utils_advanced
+from VisualizationModel import ParametricModel
 
 
 class MMS:
@@ -878,7 +878,7 @@ class MMS:
             train_data = np.load(location)
             current_index = self.get_epoch_index(epoch_id)
             train_data = train_data[current_index]
-            return train_data
+            return train_data.squeeze()
         else:
             print("No data!")
             return None
@@ -899,7 +899,7 @@ class MMS:
         location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "test_data.npy")
         if os.path.exists(location):
             test_data = np.load(location)
-            return test_data
+            return test_data.squeeze()
         else:
             print("No data!")
             return None
@@ -933,7 +933,7 @@ class MMS:
             location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "border_centers.npy")
         if os.path.exists(location):
             data = np.load(location)
-            return data
+            return data.squeeze()
         else:
             print("No data!")
             return None
@@ -1431,9 +1431,10 @@ class MMS:
         delta_x = np.zeros((eval_num, l))
         for n_epoch in range(self.epoch_start+self.period, self.epoch_end+1, self.period):
 
-            prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch - self.period), "train_data.npy")
-            prev_index = self.get_epoch_index(n_epoch - self.period)
-            prev_data = np.load(prev_data_loc)[prev_index]
+            # prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch - self.period), "train_data.npy")
+            # prev_index = self.get_epoch_index(n_epoch - self.period)
+            # prev_data = np.load(prev_data_loc)[prev_index]
+            prev_data = self.get_epoch_train_repr_data(n_epoch - self.period)
 
             encoder = self.get_proj_model(n_epoch - self.period)
             prev_embedding = encoder(prev_data).cpu().numpy()
@@ -1455,7 +1456,7 @@ class MMS:
             delta_x[int((n_epoch - self.epoch_start) / self.period - 1)] = delta_x_
 
         # val_entropy = evaluate_proj_temporal_perseverance_entropy(alpha, delta_x)
-        val_corr = evaluate_proj_temporal_perseverance_corr(alpha, delta_x)
+        val_corr, corr_std = evaluate_proj_temporal_perseverance_corr(alpha, delta_x)
         # save result
         save_dir = os.path.join(self.model_path,  "time{}.json".format(eval_name))
         if not os.path.exists(save_dir):
@@ -1464,11 +1465,12 @@ class MMS:
             f = open(save_dir, "r")
             evaluation = json.load(f)
             f.close()
-        evaluation["temporal_train_{}".format(n_neighbors)] = val_corr
+        evaluation["temporal_train_mean_{}".format(n_neighbors)] = val_corr
+        evaluation["temporal_train_std_{}".format(n_neighbors)] = corr_std
         with open(save_dir, "w") as f:
             json.dump(evaluation, f)
         if self.verbose:
-            print("succefully save train corr {}".format(val_corr))
+            print("succefully save (train) corr {:.3f}\t std {:.3f}".format(val_corr, corr_std))
         return val_corr
 
     def proj_temporal_perseverance_test(self, n_neighbors=15, eval_name=""):
@@ -1512,7 +1514,7 @@ class MMS:
             alpha[int((n_epoch - self.epoch_start) / self.period - 1)] = alpha_
             delta_x[int((n_epoch - self.epoch_start) / self.period - 1)] = delta_x_
 
-        val_corr = evaluate_proj_temporal_perseverance_corr(alpha, delta_x)
+        val_corr, corr_std = evaluate_proj_temporal_perseverance_corr(alpha, delta_x)
 
         # save result
         save_dir = os.path.join(self.model_path,  "time{}.json".format(eval_name))
@@ -1522,11 +1524,12 @@ class MMS:
             f = open(save_dir, "r")
             evaluation = json.load(f)
             f.close()
-        evaluation["temporal_test_{}".format(n_neighbors)] = val_corr
+        evaluation["temporal_test_mean_{}".format(n_neighbors)] = val_corr
+        evaluation["temporal_test_stda_{}".format(n_neighbors)] = corr_std
         with open(save_dir, "w") as f:
             json.dump(evaluation, f)
         if self.verbose:
-            print("successfully save test corr {}".format(val_corr))
+            print("successfully save (test) corr {:.3f}\t std {:.3f}".format(val_corr, corr_std))
 
         return val_corr
 

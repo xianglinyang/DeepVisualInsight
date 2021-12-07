@@ -1,7 +1,7 @@
 import sys
 import argparse
-
-from deepvisualinsight.MMS import MMS
+sys.path.append("/home/xianglin/projects/git_space/DeepVisualInsight/deepvisualinsight")
+from MMS import MMS
 
 
 def get_arguments():
@@ -85,7 +85,7 @@ if __name__ == "__main__":
 
 
     mms = MMS(content_path, net, epoch_start, epoch_end, epoch_period, embedding_dim, num_classes, classes,
-              temperature=temperature, attention=attention,
+              temperature=temperature, attention=False,
               cmap="tab10", resolution=resolution, verbose=1,
               temporal=temporal, transfer_learning=transfer_learning, step3=False,
               split=split, advance_border_gen=True, alpha=alpha, withoutB=parametricUmap, attack_device=attack_device)
@@ -96,10 +96,10 @@ if __name__ == "__main__":
     # decoder_location = os.path.join(content_path, "Model", "Epoch_{:d}".format(136), "decoder_advance")
     # decoder = tf.keras.models.load_model(decoder_location)
 
-    if preprocess == 1:
-        mms.data_preprocessing()
-    mms.prepare_visualization_for_all()
-    mms.save_evaluation(eval=False, name=eval_name)
+    # if preprocess == 1:
+    #     mms.data_preprocessing()
+    # mms.prepare_visualization_for_all()
+    # mms.save_evaluation(eval=False, name=eval_name)
     # mms.eval_keep_B(name=eval_name)
     # mms.proj_temporal_perseverance_train(10, eval_name)
     # mms.proj_temporal_perseverance_test(10, eval_name)
