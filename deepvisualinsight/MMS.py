@@ -20,7 +20,7 @@ from deepvisualinsight.VisualizationModel import ParametricModel
 class MMS:
     def __init__(self, content_path, model_structure, epoch_start, epoch_end, period, repr_num, class_num, classes,
                  low_dims=2, cmap="tab10", resolution=100, neurons=None, batch_size=1000, verbose=1, split=-1, attack_device="cpu",
-                 advance_border_gen=True, alpha=0.7, withoutB=False,    # boundary complex
+                 alpha=0.7, withoutB=False,    # boundary complex
                  attention=True, temperature=None,                      # reconstruction loss
                  temporal=False, transfer_learning=True, step3=False):  # temporal
 
@@ -71,8 +71,6 @@ class MMS:
         verbose : int, by default 1
         split: int, by default -1
             number of layers for feature function
-        advance_border_gen : boolean, by default True
-            whether to use advance adversarial attack method for border points generation
         alpha: float
             lower bound for, new_image = alpha*m1+(1-alpha)*m2
             upper bound in paper, but they are same
@@ -104,8 +102,6 @@ class MMS:
         self.batch_size = batch_size
         self.verbose = verbose
         self.split = split
-        # TODO depercate advanced attack, set it as default
-        self.advance_border_gen = advance_border_gen
         self.alpha = alpha
         self.withoutB = withoutB
         self.device = torch.device(attack_device)
@@ -185,60 +181,38 @@ class MMS:
 
             n_clusters = math.floor(len(index) / 10)
 
-            if self.advance_border_gen:
-                t0 = time.time()
-                training_data = training_data.to(self.device)
-                confs = batch_run(self.model, training_data, 10)
-                preds = np.argmax(confs, axis=1).squeeze()
-                num_adv_eg = int(len(training_data)/10)
-                # TODO refactor to one utils.py file, remove utils_advanced
-                border_points, curr_samples, tot_num = utils_advanced.get_border_points(model=self.model,
-                                                                                     input_x=training_data,
-                                                                                     confs=confs,
-                                                                                     predictions=preds,
-                                                                                     device=self.device,
-                                                                                     alpha=self.alpha,
-                                                                                     num_adv_eg=num_adv_eg,
-                                                                                     # num_cls=10,
-                                                                                     lambd=0.05,
-                                                                                     verbose=0)
-                t1 = time.time()
-                time_borders_gen.append(round(t1 - t0, 4))
+            t0 = time.time()
+            training_data = training_data.to(self.device)
+            confs = batch_run(self.model, training_data, 10)
+            preds = np.argmax(confs, axis=1).squeeze()
+            num_adv_eg = int(len(training_data)/10)
+            # TODO refactor to one utils.py file, remove utils_advanced
+            border_points, curr_samples, tot_num = utils_advanced.get_border_points(model=self.model,
+                                                                                    input_x=training_data,
+                                                                                    confs=confs,
+                                                                                    predictions=preds,
+                                                                                    device=self.device,
+                                                                                    alpha=self.alpha,
+                                                                                    num_adv_eg=num_adv_eg,
+                                                                                    # num_cls=10,
+                                                                                    lambd=0.05,
+                                                                                    verbose=0)
+            t1 = time.time()
+            time_borders_gen.append(round(t1 - t0, 4))
 
-                # get gap layer data
-                border_points = border_points.to(self.device)
-                border_centers = batch_run(repr_model, border_points, self.repr_num)
-                location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "advance_border_centers.npy")
-                np.save(location, border_centers)
+            # get gap layer data
+            border_points = border_points.to(self.device)
+            border_centers = batch_run(repr_model, border_points, self.repr_num)
+            location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "border_centers.npy")
+            np.save(location, border_centers)
 
-                location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "ori_advance_border_centers.npy")
-                np.save(location, border_points.cpu().numpy())
+            location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "ori_border_centers.npy")
+            np.save(location, border_points.cpu().numpy())
 
-                confs = batch_run(self.model, border_points, 10)
-                border_cls = np.argmax(confs, axis=1).squeeze()
-                location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "advance_border_labels.npy")
-                np.save(location, np.array(border_cls))
-            else:
-                # soon to be depercated in the future
-                # border points gen
-                t0 = time.time()
-                border_points = get_border_points(training_data, training_labels, self.model, self.device)
-
-                # border clustering
-                border_points = torch.from_numpy(border_points)
-                border_points = border_points.to(self.device)
-                border_representation = batch_run(repr_model, border_points, self.repr_num)
-                border_centers = clustering(border_representation, n_clusters, verbose=0)
-                t1 = time.time()
-                time_borders_gen.append(round(t1 - t0, 4))
-
-                location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "border_centers.npy")
-                np.save(location, border_centers)
-
-                index = cdist(border_centers, border_representation, 'euclidean').argmax(-1)
-                ori_border_points = border_points.cpu().numpy()[index]
-                location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "ori_border_centers.npy")
-                np.save(location, ori_border_points)
+            confs = batch_run(self.model, border_points, 10)
+            border_cls = np.argmax(confs, axis=1).squeeze()
+            location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "border_labels.npy")
+            np.save(location, np.array(border_cls))
 
             # training data clustering
             data_pool = self.training_data
@@ -410,12 +384,7 @@ class MMS:
                 optimizer=optimizer, loss=losses, loss_weights=loss_weights,
             )
 
-            if self.advance_border_gen:
-                border_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch),
-                                                  "advance_border_centers.npy")
-            else:
-                border_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch),
-                                                  "border_centers.npy")
+            border_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "border_centers.npy")
             train_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "train_data.npy")
 
             try:
@@ -446,12 +415,7 @@ class MMS:
                 alpha = get_alpha(model, all_d, temperature=self.temperature, device=self.device, verbose=1)
                 if self.temporal:
                     prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch-self.period), "train_data.npy")
-                    if self.advance_border_gen:
-                        prev_border_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch),
-                                                          "advance_border_centers.npy")
-                    else:
-                        prev_border_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch),
-                                                          "border_centers.npy")
+                    prev_border_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "border_centers.npy")
                     if os.path.exists(prev_data_loc) and self.epoch_start != n_epoch:
                         prev_data = np.load(prev_data_loc)
                         prev_index = self.get_epoch_index(n_epoch-self.period)
@@ -568,8 +532,6 @@ class MMS:
             flag = ""   # record boundary complex and attention
             if self.withoutB:
                 flag += "_withoutB"
-            elif self.advance_border_gen:
-                flag += "_advance"
             if self.attention:
                 flag += "_A"
 
@@ -626,8 +588,6 @@ class MMS:
         flag = ""
         if self.withoutB:
             flag += "_withoutB"
-        elif self.advance_border_gen:
-            flag = "_advance"
         if self.attention:
             flag += "_A"
 
@@ -659,8 +619,6 @@ class MMS:
         flag = ""
         if self.withoutB:
             flag += "_withoutB"
-        elif self.advance_border_gen:
-            flag += "_advance"
         if self.attention:
             flag += "_A"
 
@@ -926,10 +884,7 @@ class MMS:
 
     def get_epoch_border_centers(self, epoch_id):
         """get border representations"""
-        if self.advance_border_gen:
-            location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "advance_border_centers.npy")
-        else:
-            location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "border_centers.npy")
+        location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "border_centers.npy")
         if os.path.exists(location):
             data = np.load(location)
             return data.squeeze()
