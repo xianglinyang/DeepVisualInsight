@@ -2,20 +2,19 @@ import os
 import time
 
 import numpy as np
-# import pyasn1_modules.rfc6031
 import tensorflow as tf
-from utils import *
-from backend import *
+from deepvisualinsight.utils import *
+from deepvisualinsight.backend import *
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from evaluate import *
+from deepvisualinsight.evaluate import *
 import gc
 import pandas as pd
 from scipy.special import softmax
 from scipy.spatial.distance import cdist
 from sklearn.neighbors import KDTree
-import utils_advanced as utils_advanced
-from VisualizationModel import ParametricModel
+import deepvisualinsight.utils_advanced as utils_advanced
+from deepvisualinsight.VisualizationModel import ParametricModel
 
 
 class MMS:
@@ -1189,8 +1188,56 @@ class MMS:
             data = embedding[np.logical_and(pred == c, train_labels != pred)]
             self.sample_plots[2*self.class_num + c].set_data(data.transpose())
 
-        if os.name == 'posix':
-            self.fig.canvas.manager.window.raise_()
+        # if os.name == 'posix':
+        #     self.fig.canvas.manager.window.raise_()
+
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+
+        # plt.text(-8, 8, "test", fontsize=18, style='oblique', ha='center', va='top', wrap=True)
+        plt.savefig(path)
+    
+    def savefig_cus(self, epoch_id, data, pred, labels, path):
+        '''
+        Shows the current plot.
+        '''
+        # if not hasattr(self, 'fig'):
+        #     self._s()
+        self._init_plot()
+
+        x_min, y_min, x_max, y_max = self.get_epoch_plot_measures(epoch_id)
+
+        grid, decision_view = self.get_epoch_decision_view(epoch_id, self.resolution)
+        self.cls_plot.set_data(decision_view)
+        self.cls_plot.set_extent((x_min, x_max, y_max, y_min))
+        self.ax.set_xlim((x_min, x_max))
+        self.ax.set_ylim((y_min, y_max))
+
+        params_str = 'res: %d'
+        desc = params_str % (self.resolution)
+        self.desc.set_text(desc)
+
+        # train_data = self.get_epoch_train_repr_data(epoch_id)
+        # train_labels = self.get_epoch_train_labels(epoch_id)
+        # pred = self.get_pred(epoch_id, train_data)
+        # pred = pred.argmax(axis=1)
+
+        proj_encoder = self.get_proj_model(epoch_id)
+        embedding = proj_encoder(data).cpu().numpy()
+        for c in range(self.class_num):
+            data = embedding[np.logical_and(labels == c, labels == pred)]
+            self.sample_plots[c].set_data(data.transpose())
+
+        for c in range(self.class_num):
+            data = embedding[np.logical_and(labels == c, labels != pred)]
+            self.sample_plots[self.class_num+c].set_data(data.transpose())
+        #
+        for c in range(self.class_num):
+            data = embedding[np.logical_and(pred == c, labels != pred)]
+            self.sample_plots[2*self.class_num + c].set_data(data.transpose())
+
+        # if os.name == 'posix':
+        #     self.fig.canvas.manager.window.raise_()
 
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
