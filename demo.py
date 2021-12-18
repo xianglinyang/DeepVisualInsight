@@ -27,8 +27,9 @@ import tensorflow as tf
 # content_path = "/home/xianglin/DVI_exp_data/Temporal_eval/resnet18_cifar10"
 # content_path = "/home/xianglin/DVI_exp_data/Temporal_eval/DeepViewExp/1/cifar10"
 # content_path = "/home/xianglin/DVI_exp_data/Temporal_eval/case_study/demo"
-content_path = "/home/xianglin/DVI_exp_data/case_studies/normal_consecutive_epochs"
-content_path = "/home/xianglin/DVI_exp_data/case_studies/adv_training_batch"
+# content_path = "/home/xianglin/DVI_exp_data/case_studies/normal_consecutive_epochs"
+# content_path = "/home/xianglin/DVI_exp_data/case_studies/adv_training_batch"
+content_path = "/home/xianglin/projects/DVI_data/TemporalExp/resnet18_cifar10"
 
 sys.path.append(content_path)
 #
@@ -46,7 +47,7 @@ start_path = "/home/xianglin/DVI_exp_data/case_studies/normal_consecutive_epochs
 
 
 # TODO temporal loss dynamically change weight?
-mms = MMS(content_path, net, 0, 10, 1, 512, 10, classes, temperature=.3, batch_size=500, cmap="tab10", resolution=100, verbose=1, transfer_learning=True, temporal=True, step3=False, split=-1, advance_border_gen=True, alpha=0.3, withoutB=False, attack_device="cuda:0")
+mms = MMS(content_path, net, 1, 7, 1, 512, 10, classes, temperature=.3, batch_size=500, cmap="tab10", resolution=100, verbose=1, transfer_learning=True, temporal=True, step3=False, attention=False,split=-1, advance_border_gen=True, alpha=0.3, withoutB=False, attack_device="cuda:0")
 # encoder_location = os.path.join(start_path, "Model", "Epoch_{:d}".format(0), "encoder_temporal_advance")
 # encoder = tf.keras.models.load_model(encoder_location)
 # decoder_location = os.path.join(start_path, "Model", "Epoch_{:d}".format(0), "decoder_temporal_advance")
@@ -100,35 +101,35 @@ mms = MMS(content_path, net, 0, 10, 1, 512, 10, classes, temperature=.3, batch_s
 
 
 '''visualization by plt'''
-# img_save_location = os.path.join(mms.content_path, "img")
-# if not os.path.exists(img_save_location):
-#     os.mkdir(img_save_location)
-#
-# for i in range(0, 21, 1):
-#     train_data = mms.get_epoch_train_repr_data(i)
-#     labels = mms.get_epoch_train_labels(i)
-#     # with open("E:\\DVI_exp_data\\noisy_model\\resnet18\\index.json", 'r') as f:
-#     #     index = json.load(f)
-#     # with open("E:\\DVI_exp_data\\noisy_model\\resnet18\\new_labels.json", 'r') as f:
-#     #     ori_labels = json.load(f)
-#     if train_data is None:
-#         continue
-#     z = mms.batch_project(train_data, i)
-#
-#     fig, ax = plt.subplots(ncols=1, figsize=(10, 8))
-#     sc = ax.scatter(
-#         z[:, 0],
-#         z[:, 1],
-#         c=labels,
-#         cmap="tab10",
-#         s=0.1,
-#         alpha=0.5,
-#         rasterized=True,
-#     )
-#     ax.axis('equal')
-#     ax.set_title("parametric UMAP autoencoder embeddings-training data", fontsize=20)
-#     plt.savefig(os.path.join(img_save_location, "{:d}".format(i)))
-#     mms.savefig(i, os.path.join(img_save_location, "b_{:d}".format(i)))
+img_save_location = os.path.join(mms.content_path, "img")
+if not os.path.exists(img_save_location):
+    os.mkdir(img_save_location)
+
+for i in range(1, 8, 1):
+    train_data = mms.get_epoch_train_repr_data(i)
+    labels = mms.get_epoch_train_labels(i)
+    # with open("E:\\DVI_exp_data\\noisy_model\\resnet18\\index.json", 'r') as f:
+    #     index = json.load(f)
+    # with open("E:\\DVI_exp_data\\noisy_model\\resnet18\\new_labels.json", 'r') as f:
+    #     ori_labels = json.load(f)
+    if train_data is None:
+        continue
+    z = mms.batch_project(train_data, i)
+
+    fig, ax = plt.subplots(ncols=1, figsize=(10, 8))
+    sc = ax.scatter(
+        z[:, 0],
+        z[:, 1],
+        c=labels,
+        cmap="tab10",
+        s=0.1,
+        alpha=0.5,
+        rasterized=True,
+    )
+    ax.axis('equal')
+    ax.set_title("parametric UMAP autoencoder embeddings-training data", fontsize=20)
+    # plt.savefig(os.path.join(img_save_location, "{:d}".format(i)))
+    mms.savefig(i, os.path.join(img_save_location, "b_{:d}".format(i)))
 
 
 '''noisy model highlight points'''
@@ -201,36 +202,36 @@ mms = MMS(content_path, net, 0, 10, 1, 512, 10, classes, temperature=.3, batch_s
 #     mms.al_visualize(i, train_data, training_labels, os.path.join(img_save_location, "alb_{:d}".format(i)), l)
 
 '''customized version, case studies'''
-img_save_location = os.path.join(mms.content_path, "img")
 # img_save_location = os.path.join(mms.content_path, "img")
-if not os.path.exists(img_save_location):
-    os.mkdir(img_save_location)
+# # img_save_location = os.path.join(mms.content_path, "img")
+# if not os.path.exists(img_save_location):
+#     os.mkdir(img_save_location)
 
-for i in range(0, 1, 1):
-    # index_file = os.path.join(mms.model_path, "Epoch_{:d}".format(i), "index.json")
-    # index = utils.load_labelled_data_index(index_file)
+# for i in range(0, 1, 1):
+#     # index_file = os.path.join(mms.model_path, "Epoch_{:d}".format(i), "index.json")
+#     # index = utils.load_labelled_data_index(index_file)
 
-    # index_file = os.path.join(mms.model_path, "list_index.json")
-    # index = utils.load_labelled_data_index(index_file)
-    adv_dataset = os.path.join(mms.model_path, "Epoch_{}".format(i+1), "adv_dataset.pth")
-    adv_dataset = torch.load(adv_dataset)[:200]
-    adv_labels = os.path.join(mms.model_path, "Epoch_{}".format(i+1), "adv_labels.pth")
-    adv_labels = torch.load(adv_labels).cpu().numpy()[:200]
-    adv_data = mms.get_representation_data(i, adv_dataset)
+#     # index_file = os.path.join(mms.model_path, "list_index.json")
+#     # index = utils.load_labelled_data_index(index_file)
+#     adv_dataset = os.path.join(mms.model_path, "Epoch_{}".format(i+1), "adv_dataset.pth")
+#     adv_dataset = torch.load(adv_dataset)[:200]
+#     adv_labels = os.path.join(mms.model_path, "Epoch_{}".format(i+1), "adv_labels.pth")
+#     adv_labels = torch.load(adv_labels).cpu().numpy()[:200]
+#     adv_data = mms.get_representation_data(i, adv_dataset)
 
-    # testing_data = mms.testing_data
-    # testing_labels = mms.testing_labels.cpu().numpy()
-    # test_data = mms.get_representation_data(i, testing_data)
+#     # testing_data = mms.testing_data
+#     # testing_labels = mms.testing_labels.cpu().numpy()
+#     # test_data = mms.get_representation_data(i, testing_data)
 
-    # test_data = test_data[index]
-    # testing_labels = testing_labels[index]
+#     # test_data = test_data[index]
+#     # testing_labels = testing_labels[index]
 
-    # pred = mms.get_epoch_test_pred(i).argmax(-1)[index]
-    # mask = np.squeeze(np.argwhere(testing_labels==pred))
-    # test_data = test_data[mask]
-    # testing_labels = testing_labels[mask]
-    # # index = (pred != testing_labels)
-    # print(np.sum(pred!=testing_labels))
+#     # pred = mms.get_epoch_test_pred(i).argmax(-1)[index]
+#     # mask = np.squeeze(np.argwhere(testing_labels==pred))
+#     # test_data = test_data[mask]
+#     # testing_labels = testing_labels[mask]
+#     # # index = (pred != testing_labels)
+#     # print(np.sum(pred!=testing_labels))
 
-    mms.customize_visualize(i, adv_data, adv_labels, os.path.join(img_save_location, "adv_{:d}".format(i)))
+#     mms.customize_visualize(i, adv_data, adv_labels, os.path.join(img_save_location, "adv_{:d}".format(i)))
 

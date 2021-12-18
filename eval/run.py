@@ -46,7 +46,7 @@ if __name__ == "__main__":
     preprocess = args.preprocess
 
     if cuda:
-        attack_device = "cuda:0"
+        attack_device = "cuda:3"
     else:
         attack_device = "cpu"
 
@@ -88,7 +88,7 @@ if __name__ == "__main__":
               temperature=temperature, attention=False,
               cmap="tab10", resolution=resolution, verbose=1,
               temporal=temporal, transfer_learning=transfer_learning, step3=False,
-              split=split, advance_border_gen=True, alpha=alpha, withoutB=parametricUmap, attack_device=attack_device)
+              split=split, alpha=alpha, withoutB=parametricUmap, attack_device=attack_device)
 
 
     # encoder_location = os.path.join(content_path, "Model", "Epoch_{:d}".format(136), "encoder_advance")
@@ -96,10 +96,10 @@ if __name__ == "__main__":
     # decoder_location = os.path.join(content_path, "Model", "Epoch_{:d}".format(136), "decoder_advance")
     # decoder = tf.keras.models.load_model(decoder_location)
 
-    # if preprocess == 1:
-    #     mms.data_preprocessing()
-    # mms.prepare_visualization_for_all()
-    # mms.save_evaluation(eval=False, name=eval_name)
+    if preprocess == 1:
+        mms.data_preprocessing()
+    mms.prepare_visualization_for_all()
+    mms.save_evaluation(eval=False, name=eval_name)
     # mms.eval_keep_B(name=eval_name)
     # mms.proj_temporal_perseverance_train(10, eval_name)
     # mms.proj_temporal_perseverance_test(10, eval_name)

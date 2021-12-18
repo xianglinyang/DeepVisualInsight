@@ -3,18 +3,25 @@ import time
 
 import numpy as np
 import tensorflow as tf
-from deepvisualinsight.utils import *
-from deepvisualinsight.backend import *
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from deepvisualinsight.evaluate import *
 import gc
 import pandas as pd
 from scipy.special import softmax
 from scipy.spatial.distance import cdist
 from sklearn.neighbors import KDTree
-import deepvisualinsight.utils_advanced as utils_advanced
-from deepvisualinsight.VisualizationModel import ParametricModel
+
+# from deepvisualinsight.utils import *
+# from deepvisualinsight.backend import *
+# from deepvisualinsight.evaluate import *
+# import deepvisualinsight.utils_advanced as utils_advanced
+# from deepvisualinsight.VisualizationModel import ParametricModel
+from utils import *
+from backend import *
+from evaluate import *
+import utils_advanced as utils_advanced
+from VisualizationModel import ParametricModel
+
 
 
 class MMS:

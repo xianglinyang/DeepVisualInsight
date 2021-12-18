@@ -2,12 +2,14 @@
 Help functions to evaluate our visualization system
 """
 from sklearn.neighbors import KDTree
-import backend
 import numpy as np
 from scipy.stats import spearmanr
 from scipy.stats import pearsonr
 from pynndescent import NNDescent
 from sklearn.manifold import trustworthiness
+
+# import deepvisualinsight.backend as backend
+import backend as backend
 
 
 def evaluate_proj_nn_perseverance_knn(data, embedding, n_neighbors, metric="euclidean"):
