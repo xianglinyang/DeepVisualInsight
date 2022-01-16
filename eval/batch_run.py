@@ -21,11 +21,11 @@ os.system("python {} --content_path /home/xianglin/projects/DVI_data/TemporalExp
 #
 # os.system("python run.py --content_path E:\\DVI_exp_data\\TemporalExp\\resnet18_mnist --epoch_start 1 --epoch_end 7 --epoch_period 1 --resolution 100 --embedding_dim 512 --cuda True -a 0.5 -t 0.02 --num_class 10 --split -1 --temporal 1 --preprocess 1")
 # os.system("python run.py --content_path E:\\DVI_exp_data\\TemporalExp\\resnet18_mnist --epoch_start 1 --epoch_end 7 --epoch_period 1 --resolution 100 --embedding_dim 512 --cuda True -a 0.5 -t 0.02 --num_class 10 --split -1 --temporal 2 --preprocess 0")
-os.system("python {} --content_path /home/xianglin/projects/DVI_data/TemporalExp/resnet18_mnist --epoch_start 1 --epoch_end 10 --epoch_period 1 --resolution 100 --embedding_dim 512 --cuda True -a 0.5 -t 0.02 --num_class 10 --split -1 --temporal 3 --preprocess 1".format(RUN))
+os.system("python {} --content_path /home/xianglin/projects/DVI_data/TemporalExp/resnet18_mnist --epoch_start 1 --epoch_end 11 --epoch_period 1 --resolution 100 --embedding_dim 512 --cuda True -a 0.5 -t 0.02 --num_class 10 --split -1 --temporal 3 --preprocess 1".format(RUN))
 #
 # os.system("python run.py --content_path E:\\DVI_exp_data\\TemporalExp\\resnet18_fmnist --epoch_start 1 --epoch_end 7 --epoch_period 1 --resolution 100 --embedding_dim 512 --cuda True -a 0.5 -t 0.1 --num_class 10 --split -1 --temporal 1 --preprocess 1")
 # os.system("python run.py --content_path E:\\DVI_exp_data\\TemporalExp\\resnet18_fmnist --epoch_start 1 --epoch_end 7 --epoch_period 1 --resolution 100 --embedding_dim 512 --cuda True -a 0.5 -t 0.1 --num_class 10 --split -1 --temporal 2 --preprocess 0")
-os.system("python {} --content_path /home/xianglin/projects/DVI_data/TemporalExp/resnet18_fmnist --epoch_start 1 --epoch_end 11 --epoch_period 1 --resolution 100 --embedding_dim 512 --cuda True -a 0.5 -t 0.1 --num_class 10 --split -1 --temporal 3 --preprocess 1".format(RUN))
+os.system("python {} --content_path /home/xianglin/projects/DVI_data/TemporalExp/resnet18_fmnist --epoch_start 1 --epoch_end 10 --epoch_period 1 --resolution 100 --embedding_dim 512 --cuda True -a 0.5 -t 0.1 --num_class 10 --split -1 --temporal 3 --preprocess 1".format(RUN))
 #
 # os.system("python run.py --content_path E:\\DVI_exp_data\\TemporalExp\\resnet50_cifar10 --epoch_start 1 --epoch_end 7 --epoch_period 1 --resolution 100 --embedding_dim 2048 --cuda True -a 0.6 -t 0.15 --num_class 10 --split -1 --temporal 1 --preprocess 1")
 # os.system("python run.py --content_path E:\\DVI_exp_data\\TemporalExp\\resnet50_cifar10 --epoch_start 1 --epoch_end 7 --epoch_period 1 --resolution 100 --embedding_dim 2048 --cuda True -a 0.6 -t 0.15 --num_class 10 --split -1 --temporal 2 --preprocess 0")
