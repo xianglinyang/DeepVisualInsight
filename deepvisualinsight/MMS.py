@@ -1,5 +1,6 @@
 import os
 import time
+from numba.cuda import target
 
 import numpy as np
 import tensorflow as tf
@@ -10,6 +11,7 @@ import pandas as pd
 from scipy.special import softmax
 from scipy.spatial.distance import cdist
 from sklearn.neighbors import KDTree
+from collections.abc import Mapping
 
 # from deepvisualinsight.utils import *
 # from deepvisualinsight.backend import *
@@ -276,8 +278,11 @@ class MMS:
     def save_evaluation(self, eval=False, name=""):
         # evaluation information
         t_s = time.time()
-        epoch_num = int((self.epoch_end - self.epoch_start) / self.period + 1)
+        epoch_num = 0
         for n_epoch in range(self.epoch_start, self.epoch_end + 1, self.period):
+        # for n_epoch in [self.epoch_start,int((self.epoch_start+ self.epoch_end)/2), self.epoch_end]:
+        # for n_epoch in [1,2,4,5,10]:
+            epoch_num = epoch_num + 1
             save_dir = os.path.join(self.model_path, "Epoch_{}".format(n_epoch), "evaluation{}.json".format(name))
             if os.path.exists(save_dir):
                 with open(save_dir, "r") as f:
@@ -288,9 +293,11 @@ class MMS:
             evaluation['nn_test_15'] = self.proj_nn_perseverance_knn_test(n_epoch, 15)
             evaluation['bound_train_15'] = self.proj_boundary_perseverance_knn_train(n_epoch, 15)
             evaluation['bound_test_15'] = self.proj_boundary_perseverance_knn_test(n_epoch, 15)
-            evaluation['keep_B_train'] = self.keep_B_train(n_epoch)
-            evaluation['keep_B_test'] = self.keep_B_test(n_epoch)
-            evaluation['keep_B_bound'] = self.keep_B_boundary(n_epoch)
+            # evaluation['keep_B_train'] = self.keep_B_train(n_epoch)
+            # evaluation['keep_B_test'] = self.keep_B_test(n_epoch)
+            # evaluation['keep_B_bound'] = self.keep_B_boundary(n_epoch)
+            self.proj_temporal_ranking_corr_train(n_epoch, 3, eval_name=name)
+            self.proj_temporal_ranking_corr_test(n_epoch, 3, eval_name=name)
 
             # for paper evaluation
             if eval:
@@ -303,6 +310,12 @@ class MMS:
                 evaluation['nn_test_20'] = self.proj_nn_perseverance_knn_test(n_epoch, 20)
                 evaluation['bound_train_20'] = self.proj_boundary_perseverance_knn_train(n_epoch, 20)
                 evaluation['bound_test_20'] = self.proj_boundary_perseverance_knn_test(n_epoch, 20)
+                self.proj_temporal_ranking_corr_train(n_epoch, 1, eval_name=name)
+                self.proj_temporal_ranking_corr_test(n_epoch, 1, eval_name=name)
+                self.proj_temporal_ranking_corr_train(n_epoch, 5, eval_name=name)
+                self.proj_temporal_ranking_corr_test(n_epoch, 5, eval_name=name)
+                self.proj_temporal_ranking_corr_train(n_epoch, 7, eval_name=name)
+                self.proj_temporal_ranking_corr_test(n_epoch, 7, eval_name=name)
             print("finish proj eval for Epoch {}".format(n_epoch))
 
             evaluation['inv_acc_train'] = self.inv_accu_train(n_epoch)
@@ -872,7 +885,7 @@ class MMS:
         """get representations of testing data"""
         labels = self.testing_labels.cpu().numpy()
         if epoch_id is not None:
-            test_index_file = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "index.json")
+            test_index_file = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "test_index.json")
             if os.path.exists(test_index_file):
                 index = load_labelled_data_index(test_index_file)
                 return labels[index]
@@ -1022,7 +1035,7 @@ class MMS:
         if not is_for_frontend:
             # self.ax.set_title(self.title)
             self.ax.set_title("DVI visualization")
-        self.desc = self.fig.text(0.5, 0.02, '', fontsize=8, ha='center')
+            self.desc = self.fig.text(0.5, 0.02, '', fontsize=8, ha='center')
         self.cls_plot = self.ax.imshow(np.zeros([5, 5, 3]),
             interpolation='gaussian', zorder=0, vmin=0, vmax=1)
 
@@ -1031,7 +1044,7 @@ class MMS:
         # labels = prediction
         for c in range(self.class_num):
             color = self.cmap(c/(self.class_num-1))
-            plot = self.ax.plot([], [], '.', label=self.classes[c], ms=1,
+            plot = self.ax.plot([], [], '.', label=self.classes[c], ms=5,
                 color=color, zorder=2, picker=mpl.rcParams['lines.markersize'])
             self.sample_plots.append(plot[0])
 
@@ -1039,14 +1052,14 @@ class MMS:
         for c in range(self.class_num):
             color = self.cmap(c/(self.class_num-1))
             plot = self.ax.plot([], [], 'o', markeredgecolor=color,
-                fillstyle='full', ms=3, mew=2.5, zorder=3)
+                fillstyle='full', ms=7, mew=2.5, zorder=3)
             self.sample_plots.append(plot[0])
 
         # labels != prediction, prediction stays inside of circle
         for c in range(self.class_num):
             color = self.cmap(c / (self.class_num - 1))
             plot = self.ax.plot([], [], '.', markeredgecolor=color,
-                                fillstyle='full', ms=2, zorder=4)
+                                fillstyle='full', ms=6, zorder=4)
             self.sample_plots.append(plot[0])
 
         # highlight
@@ -1061,6 +1074,8 @@ class MMS:
         self.disable_synth = False
         if not is_for_frontend:
             self.ax.legend()
+        if is_for_frontend:
+            plt.axis('off')
 
     def show(self, epoch_id):
         '''
@@ -1201,6 +1216,64 @@ class MMS:
         # if os.name == 'posix':
         #     self.fig.canvas.manager.window.raise_()
 
+        self.fig.canvas.draw()
+        self.fig.canvas.flush_events()
+
+        # plt.text(-8, 8, "test", fontsize=18, style='oblique', ha='center', va='top', wrap=True)
+        plt.savefig(path)
+    
+    def savefig_trajectory(self, epoch, prev_data, prev_pred, prev_labels, data, pred, labels, path="vis"):
+        '''
+        Shows the current plot with given data
+        '''
+        self._init_plot(is_for_frontend=True)
+
+        x_min, y_min, x_max, y_max = self.get_epoch_plot_measures(epoch)
+
+        _, decision_view = self.get_epoch_decision_view(epoch, self.resolution)
+        self.cls_plot.set_data(decision_view)
+        self.cls_plot.set_extent((x_min, x_max, y_max, y_min))
+        self.ax.set_xlim((x_min, x_max))
+        self.ax.set_ylim((y_min, y_max))
+
+        # params_str = 'res: %d'
+        # desc = params_str % (self.resolution)
+        # self.desc.set_text(desc)
+
+        # curr
+        color = (1.0, 1.0, 0.0, 1.0)
+        plot = self.ax.plot([], [], '.', markeredgecolor=color,
+                            fillstyle='full', ms=20, mew=4, zorder=1)
+        self.sample_plots.append(plot[0])
+        # prev
+        color = (1.0, 0.0, 0.0, 1.0)
+        plot = self.ax.plot([], [], '.', markeredgecolor=color,
+                            fillstyle='full', ms=20, mew=4, zorder=1)
+        self.sample_plots.append(plot[0])
+
+        proj_encoder = self.get_proj_model(epoch)
+        embedding = proj_encoder(data).cpu().numpy()
+        # for c in range(self.class_num):
+        #     data = embedding[np.logical_and(labels == c, labels == pred)]
+        #     self.sample_plots[c].set_data(data.transpose())
+
+        # for c in range(self.class_num):
+        #     data = embedding[np.logical_and(labels == c, labels != pred)]
+        #     self.sample_plots[self.class_num+c].set_data(data.transpose())
+        # #
+        # for c in range(self.class_num):
+        #     data = embedding[np.logical_and(pred == c, labels != pred)]
+        #     self.sample_plots[2*self.class_num + c].set_data(data.transpose())
+        # self.sample_plots[3*self.class_num].set_data(embedding.transpose())
+
+        # if os.name == 'posix':
+        #     self.fig.canvas.manager.window.raise_()
+        proj_encoder = self.get_proj_model(epoch-self.period)
+        prev_embedding = proj_encoder(prev_data).cpu().numpy()
+        
+        plt.quiver(prev_embedding[:, 0], prev_embedding[:, 1], embedding[:, 0]-prev_embedding[:, 0],embedding[:, 1]-prev_embedding[:, 1], scale_units='xy', angles='xy', scale=1, color='y')  
+        self.sample_plots[3*self.class_num+1].set_data(embedding.transpose())
+        self.sample_plots[3*self.class_num+2].set_data(prev_embedding.transpose())
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
 
@@ -1541,6 +1614,326 @@ class MMS:
             print("successfully save (test) corr {:.3f}\t std {:.3f}".format(val_corr, corr_std))
 
         return val_corr
+    
+    def proj_temporal_ranking_corr_train(self, epoch, k, eval_name=""):
+        """evalute training temporal preserving property"""
+
+        l = load_labelled_data_index(os.path.join(self.model_path, "Epoch_{:d}".format(self.epoch_start), "index.json"))
+        l = len(l)
+        epoch_num = int((self.epoch_end - self.epoch_start) / self.period) + 1
+        high_dists = np.zeros((l, epoch_num))
+        low_dists = np.zeros((l, epoch_num))
+
+        encoder = self.get_proj_model(epoch)
+        data = self.get_epoch_train_repr_data(epoch)
+        embedding = encoder(data).cpu().numpy()
+        del encoder
+        gc.collect()
+        for n_epoch in range(self.epoch_start, self.epoch_end+1, self.period):
+            encoder = self.get_proj_model(n_epoch)
+            curr_data = self.get_epoch_train_repr_data(n_epoch)
+            curr_embedding = encoder(curr_data).cpu().numpy()
+            del encoder
+            gc.collect()
+
+            high_dist = np.linalg.norm(data-curr_data, axis=1)
+            low_dist = np.linalg.norm(embedding-curr_embedding, axis=1)
+
+            high_dists[:, (n_epoch-self.epoch_start)//self.period] = high_dist
+            low_dists[:, (n_epoch-self.epoch_start)//self.period] = low_dist
+        high_rankings = np.argsort(high_dists, axis=1)[:, :k]
+        low_rankings = np.argsort(low_dists, axis=1)[:, :k]
+
+        corr = np.zeros(len(high_dist))
+        for i in range(len(data)):
+            corr[i] = len(np.intersect1d(high_rankings[i], low_rankings[i]))
+        corr_std = corr.std()
+        val_corr = corr.mean()
+
+        # save result
+        save_dir = os.path.join(self.model_path,  "time{}.json".format(eval_name))
+        if not os.path.exists(save_dir):
+            evaluation = dict()
+        else:
+            f = open(save_dir, "r")
+            evaluation = json.load(f)
+            f.close()
+        if "temporal_train_ranking" not in evaluation:
+            evaluation["temporal_train_ranking"] = dict()
+        if not isinstance(evaluation["temporal_train_ranking"], Mapping) or str(epoch) not in evaluation["temporal_train_ranking"]:
+            evaluation["temporal_train_ranking"][epoch] = dict()
+        evaluation["temporal_train_ranking"][epoch][k] = float(val_corr)
+        with open(save_dir, "w") as f:
+            json.dump(evaluation, f)
+        if self.verbose:
+            print("succefully save (train) ranking corr for {}-th epoch {}: mean {:.3f}\t std {:.3f}".format(epoch, k, val_corr, corr_std))
+        return val_corr
+
+    def proj_temporal_ranking_corr_test(self, epoch, k, eval_name=""):
+        """evalute testing temporal preserving property"""
+        test_path = os.path.join(self.model_path, "Epoch_{:d}".format(self.epoch_start), "test_index.json")
+        if os.path.exists(test_path):
+            l = load_labelled_data_index(test_path)
+            l = len(l)
+        else:
+            l= len(self.testing_labels)
+        epoch_num = int((self.epoch_end - self.epoch_start) / self.period) + 1
+        high_dists = np.zeros((l, epoch_num))
+        low_dists = np.zeros((l, epoch_num))
+
+        encoder = self.get_proj_model(epoch)
+        data = self.get_epoch_test_repr_data(epoch)
+        embedding = encoder(data).cpu().numpy()
+
+        for n_epoch in range(self.epoch_start + self.period, self.epoch_end + 1, self.period):
+            encoder = self.get_proj_model(n_epoch)
+            curr_data = self.get_epoch_test_repr_data(n_epoch)
+            curr_embedding = encoder(curr_data).cpu().numpy()
+            del encoder
+            gc.collect()
+
+            high_dist = np.linalg.norm(data-curr_data, axis=1)
+            low_dist = np.linalg.norm(embedding-curr_embedding, axis=1)
+
+            high_dists[:, (n_epoch-self.epoch_start)//self.period] = high_dist
+            low_dists[:, (n_epoch-self.epoch_start)//self.period] = low_dist
+        high_rankings = np.argsort(high_dists, axis=1)[:,:k]
+        low_rankings = np.argsort(low_dists, axis=1)[:,:k]
+
+        corr = np.zeros(len(high_dist))
+        for i in range(len(data)):
+            corr[i] = len(np.intersect1d(high_rankings[i], low_rankings[i]))
+        corr_std = corr.std()
+        val_corr = corr.mean()
+
+        # save result
+        save_dir = os.path.join(self.model_path,  "time{}.json".format(eval_name))
+        if not os.path.exists(save_dir):
+            evaluation = dict()
+        else:
+            f = open(save_dir, "r")
+            evaluation = json.load(f)
+            f.close()
+        if "temporal_test_ranking" not in evaluation:
+            evaluation["temporal_test_ranking"] = dict()
+        if not isinstance(evaluation["temporal_test_ranking"], Mapping) or str(epoch) not in evaluation["temporal_test_ranking"]:
+            evaluation["temporal_test_ranking"][epoch] = dict()
+        evaluation["temporal_test_ranking"][epoch][k] = float(val_corr)
+        with open(save_dir, "w") as f:
+            json.dump(evaluation, f)
+        if self.verbose:
+            print("succefully save (test) ranking corr for {}-th epoch {}: mean {:.3f}\t std {:.3f}".format(epoch,k,val_corr, corr_std))
+        return val_corr
+    
+
+
+    
+    def proj_temporal_corr_train(self, n_neighbors=15, n_grain=1, eval_name=""):
+        l = load_labelled_data_index(os.path.join(self.model_path, "Epoch_{:d}".format(self.epoch_start), "index.json"))
+        l = len(l)
+        eval = dict()
+
+        for n_epoch in range(self.epoch_start+self.period*n_grain, self.epoch_end+1, self.period*n_grain):
+            prev_data = self.get_epoch_train_repr_data(n_epoch - self.period*n_grain)
+
+            encoder = self.get_proj_model(n_epoch - self.period*n_grain)
+            prev_embedding = encoder(prev_data).cpu().numpy()
+
+            del encoder
+            gc.collect()
+
+            encoder = self.get_proj_model(n_epoch)
+            data = self.get_epoch_train_repr_data(n_epoch)
+            embedding = encoder(data).cpu().numpy()
+
+            del encoder
+            gc.collect()
+
+            dists = np.linalg.norm(prev_data - data, axis=1)
+            embedding_dists = np.linalg.norm(prev_embedding - embedding, axis=1)
+            corr = evaluate_proj_temporal_epoch_corr(dists, embedding_dists)
+            eval[n_epoch] = corr
+            if self.verbose:
+                print("{:d}-{:d} corr value: {:.3f}".format(n_epoch-self.period*n_grain,n_epoch, corr))
+
+        # save result
+        save_dir = os.path.join(self.model_path,  "time{}.json".format(eval_name))
+        if not os.path.exists(save_dir):
+            evaluation = dict()
+        else:
+            f = open(save_dir, "r")
+            evaluation = json.load(f)
+            f.close()
+        key = "temporal_train_corr_{}".format(n_neighbors)
+        if key in evaluation:
+            evaluation[key][n_grain] = eval
+        else:
+            evaluation[key] = dict()
+            evaluation[key][n_grain] = eval
+        with open(save_dir, "w") as f:
+            json.dump(evaluation, f)
+        if self.verbose:
+            print("succefully save (train) corr")
+        
+    def proj_temporal_corr_test(self, n_neighbors=15, n_grain=1, eval_name=""):
+        """evalute testing temporal preserving property"""
+        eval = dict()
+
+        for n_epoch in range(self.epoch_start + self.period*n_grain, self.epoch_end + 1, self.period*n_grain):
+            prev_data = self.get_epoch_test_repr_data(n_epoch - self.period*n_grain)
+            encoder = self.get_proj_model(n_epoch - self.period*n_grain)
+            prev_embedding = encoder(prev_data).cpu().numpy()
+            del encoder
+            gc.collect()
+
+            encoder = self.get_proj_model(n_epoch)
+            data = self.get_epoch_test_repr_data(n_epoch)
+            embedding = encoder(data).cpu().numpy()
+
+            del encoder
+            gc.collect()
+
+            dists = np.linalg.norm(prev_data-data, axis=1)
+            embedding_dists = np.linalg.norm(prev_embedding-embedding, axis=1)
+
+            corr = evaluate_proj_temporal_epoch_corr(dists, embedding_dists)
+            eval[n_epoch] = corr
+            if self.verbose:
+                print("{:d}-{:d} corr value: {:.3f}".format(n_epoch-self.period*n_grain,n_epoch, corr))
+
+
+        # save result
+        save_dir = os.path.join(self.model_path,  "time{}.json".format(eval_name))
+        if not os.path.exists(save_dir):
+            evaluation = dict()
+        else:
+            f = open(save_dir, "r")
+            evaluation = json.load(f)
+            f.close()
+        key = "temporal_test_corr_{}".format(n_neighbors)
+        if key in evaluation:
+            evaluation[key][n_grain] = eval
+        else:
+            evaluation[key] = dict()
+            evaluation[key][n_grain] = eval
+        with open(save_dir, "w") as f:
+            json.dump(evaluation, f)
+        if self.verbose:
+            print("successfully save (test) corr")
+    
+    def eval_temporal_md_train(self, n_neighbors, eval_name=""):
+
+        l = load_labelled_data_index(os.path.join(self.model_path, "Epoch_{:d}".format(self.epoch_start), "index.json"))
+        l = len(l)
+        eval = dict()
+
+        for n_epoch in range(self.epoch_start+self.period, self.epoch_end+1, self.period):
+            prev_data = self.get_epoch_train_repr_data(n_epoch - self.period)
+
+            encoder = self.get_proj_model(n_epoch - self.period)
+            prev_embedding = encoder(prev_data).cpu().numpy()
+
+            del encoder
+            gc.collect()
+
+            encoder = self.get_proj_model(n_epoch)
+            data = self.get_epoch_train_repr_data(n_epoch)
+            embedding = encoder(data).cpu().numpy()
+
+            del encoder
+            gc.collect()
+
+            dists = np.linalg.norm(prev_data - data, axis=1)
+            embedding_dists = np.linalg.norm(prev_embedding - embedding, axis=1)
+
+            npr = find_neighbor_preserving_rate(prev_data, data, n_neighbors=n_neighbors)
+            targets_npr = npr < 0.1
+            targets_dists = dists>dists.mean()
+            targets = np.logical_and(targets_dists, targets_npr)
+
+            target_em_dists = embedding_dists[targets]
+
+            if len(target_em_dists) == 0:
+                mean = 0
+                std = 0
+                small_n = 0
+            else:
+                mean = target_em_dists.mean()
+                std = target_em_dists.std()
+                small_n = np.sum(target_em_dists<0.5)
+            
+            eval[n_epoch//self.period] = (float(mean), float(std), int(small_n))
+            if self.verbose:
+                print("{:d} mean/std value: ({:.3f}, {:.3f}, {})".format(n_epoch//self.period, mean, std, small_n))
+
+        # save result
+        save_dir = os.path.join(self.model_path,  "time{}.json".format(eval_name))
+        if not os.path.exists(save_dir):
+            evaluation = dict()
+        else:
+            f = open(save_dir, "r")
+            evaluation = json.load(f)
+            f.close()
+        evaluation["temporal_train_md_{}".format(n_neighbors)] = eval
+        with open(save_dir, "w") as f:
+            json.dump(evaluation, f)
+        if self.verbose:
+            print("succefully save (train) md")
+
+    
+    def eval_temporal_md_test(self, n_neighbors, eval_name=""):
+        """evalute testing temporal preserving property"""
+        eval = dict()
+
+        for n_epoch in range(self.epoch_start + self.period, self.epoch_end + 1, self.period):
+            prev_data = self.get_epoch_test_repr_data(n_epoch - self.period)
+            encoder = self.get_proj_model(n_epoch - self.period)
+            prev_embedding = encoder(prev_data).cpu().numpy()
+            del encoder
+            gc.collect()
+
+            encoder = self.get_proj_model(n_epoch)
+            data = self.get_epoch_test_repr_data(n_epoch)
+            embedding = encoder(data).cpu().numpy()
+
+            del encoder
+            gc.collect()
+
+            dists = np.linalg.norm(prev_data-data, axis=1)
+            embedding_dists = np.linalg.norm(prev_embedding-embedding, axis=1)
+
+            npr = find_neighbor_preserving_rate(prev_data, data, n_neighbors=n_neighbors)
+            targets_npr = npr < 0.1
+            targets_dists = dists>dists.mean()
+            targets = np.logical_and(targets_dists, targets_npr)
+
+            target_em_dists = embedding_dists[targets]
+            
+            if len(target_em_dists) == 0:
+                mean = 0
+                std = 0
+                small_n = 0
+            else:
+                mean = target_em_dists.mean()
+                std = target_em_dists.std()
+                small_n = np.sum(target_em_dists<0.5)
+            eval[n_epoch//self.period] = eval[n_epoch//self.period] = (float(mean), float(std), int(small_n))
+            if self.verbose:
+                print("{:d} (test) mean/std value: ({:.2f},{:.2f},{})".format(n_epoch//self.period, mean, std, small_n))
+
+        # save result
+        save_dir = os.path.join(self.model_path,  "time{}.json".format(eval_name))
+        if not os.path.exists(save_dir):
+            evaluation = dict()
+        else:
+            f = open(save_dir, "r")
+            evaluation = json.load(f)
+            f.close()
+        evaluation["temporal_test_md_{}".format(n_neighbors)] = eval
+        with open(save_dir, "w") as f:
+            json.dump(evaluation, f)
+        if self.verbose:
+            print("successfully save (test) md")
 
     '''inverse preserving'''
     def inv_accu_train(self, epoch_id):
