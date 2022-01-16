@@ -700,7 +700,7 @@ def define_losses(batch_size, temporal, step3, withoutB, attention):
     else:
         recon_loss_fn = reconstruction_loss(beta=1)
         losses["reconstruction"] = recon_loss_fn
-    loss_weights["reconstruction"] = 10.0
+    loss_weights["reconstruction"] = 1.0
 
     losses["umap"] = umap_loss_fn
     loss_weights["umap"] = 1.0
@@ -713,7 +713,7 @@ def define_losses(batch_size, temporal, step3, withoutB, attention):
         else:
             regularize_loss_fn = regularize_loss_3()
             losses["regularization"] = regularize_loss_fn
-            loss_weights["regularization"] = 0.3  # TODO: change this weight
+            loss_weights["regularization"] = 1.0  # TODO: change this weight
 
         embedding_to_loss_fn = embedding_loss()
         losses["embedding_to"] = embedding_to_loss_fn
