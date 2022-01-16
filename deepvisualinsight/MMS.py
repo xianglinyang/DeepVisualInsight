@@ -1,6 +1,5 @@
 import os
 import time
-from numba.cuda import target
 
 import numpy as np
 import tensorflow as tf
