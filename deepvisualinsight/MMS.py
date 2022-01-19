@@ -278,9 +278,9 @@ class MMS:
         # evaluation information
         t_s = time.time()
         epoch_num = 0
-        for n_epoch in range(self.epoch_start, self.epoch_end + 1, self.period):
+        # for n_epoch in range(self.epoch_start, self.epoch_end + 1, self.period):
         # for n_epoch in [self.epoch_start,int((self.epoch_start+ self.epoch_end)/2), self.epoch_end]:
-        # for n_epoch in [1,2,4,5,10]:
+        for n_epoch in [1,4,10]:
             epoch_num = epoch_num + 1
             save_dir = os.path.join(self.model_path, "Epoch_{}".format(n_epoch), "evaluation{}.json".format(name))
             if os.path.exists(save_dir):
@@ -288,6 +288,8 @@ class MMS:
                     evaluation = json.load(f)
             else:
                 evaluation = {}
+            self.proj_temporal_ranking_corr_train(n_epoch, 3, eval_name=name)
+            self.proj_temporal_ranking_corr_test(n_epoch, 3, eval_name=name)
             evaluation['nn_train_15'] = self.proj_nn_perseverance_knn_train(n_epoch, 15)
             evaluation['nn_test_15'] = self.proj_nn_perseverance_knn_test(n_epoch, 15)
             evaluation['bound_train_15'] = self.proj_boundary_perseverance_knn_train(n_epoch, 15)
@@ -295,8 +297,7 @@ class MMS:
             # evaluation['keep_B_train'] = self.keep_B_train(n_epoch)
             # evaluation['keep_B_test'] = self.keep_B_test(n_epoch)
             # evaluation['keep_B_bound'] = self.keep_B_boundary(n_epoch)
-            self.proj_temporal_ranking_corr_train(n_epoch, 3, eval_name=name)
-            self.proj_temporal_ranking_corr_test(n_epoch, 3, eval_name=name)
+            
 
             # for paper evaluation
             if eval:
@@ -1025,16 +1026,20 @@ class MMS:
         color = color[:, 0:3]
         return color
 
-    def _init_plot(self, is_for_frontend=False):
+    def _init_plot(self, only_img=False):
         '''
         Initialises matplotlib artists and plots. from DeepView
         '''
         plt.ion()
         self.fig, self.ax = plt.subplots(1, 1, figsize=(8, 8))
-        if not is_for_frontend:
-            # self.ax.set_title(self.title)
+        if not only_img:
+            self.ax.set_title(self.title)
             self.ax.set_title("DVI visualization")
             self.desc = self.fig.text(0.5, 0.02, '', fontsize=8, ha='center')
+            self.ax.legend()
+        else:
+            plt.axis('off')
+
         self.cls_plot = self.ax.imshow(np.zeros([5, 5, 3]),
             interpolation='gaussian', zorder=0, vmin=0, vmax=1)
 
@@ -1071,10 +1076,7 @@ class MMS:
         # self.fig.canvas.mpl_connect('pick_event', self.show_sample)
         # self.fig.canvas.mpl_connect('button_press_event', self.show_sample)
         self.disable_synth = False
-        if not is_for_frontend:
-            self.ax.legend()
-        if is_for_frontend:
-            plt.axis('off')
+        
 
     def show(self, epoch_id):
         '''
@@ -1179,7 +1181,7 @@ class MMS:
         '''
         # if not hasattr(self, 'fig'):
         #     self._s()
-        self._init_plot()
+        self._init_plot(only_img=True)
 
         x_min, y_min, x_max, y_max = self.get_epoch_plot_measures(epoch_id)
 
@@ -1189,9 +1191,9 @@ class MMS:
         self.ax.set_xlim((x_min, x_max))
         self.ax.set_ylim((y_min, y_max))
 
-        params_str = 'res: %d'
-        desc = params_str % (self.resolution)
-        self.desc.set_text(desc)
+        # params_str = 'res: %d'
+        # desc = params_str % (self.resolution)
+        # self.desc.set_text(desc)
 
         # train_data = self.get_epoch_train_repr_data(epoch_id)
         # train_labels = self.get_epoch_train_labels(epoch_id)
@@ -1225,7 +1227,7 @@ class MMS:
         '''
         Shows the current plot with given data
         '''
-        self._init_plot(is_for_frontend=True)
+        self._init_plot(only_img=True)
 
         x_min, y_min, x_max, y_max = self.get_epoch_plot_measures(epoch)
 
@@ -1659,9 +1661,11 @@ class MMS:
             f.close()
         if "temporal_train_ranking" not in evaluation:
             evaluation["temporal_train_ranking"] = dict()
-        if not isinstance(evaluation["temporal_train_ranking"], Mapping) or str(epoch) not in evaluation["temporal_train_ranking"]:
-            evaluation["temporal_train_ranking"][epoch] = dict()
-        evaluation["temporal_train_ranking"][epoch][k] = float(val_corr)
+        if not isinstance(evaluation["temporal_train_ranking"], Mapping):
+            evaluation["temporal_train_ranking"] = dict()
+        if str(epoch) not in evaluation["temporal_train_ranking"]:
+            evaluation["temporal_train_ranking"][str(epoch)] = dict()
+        evaluation["temporal_train_ranking"][str(epoch)][k] = float(val_corr)
         with open(save_dir, "w") as f:
             json.dump(evaluation, f)
         if self.verbose:
@@ -1715,9 +1719,12 @@ class MMS:
             f.close()
         if "temporal_test_ranking" not in evaluation:
             evaluation["temporal_test_ranking"] = dict()
-        if not isinstance(evaluation["temporal_test_ranking"], Mapping) or str(epoch) not in evaluation["temporal_test_ranking"]:
-            evaluation["temporal_test_ranking"][epoch] = dict()
-        evaluation["temporal_test_ranking"][epoch][k] = float(val_corr)
+        if not isinstance(evaluation["temporal_test_ranking"], Mapping):
+            evaluation["temporal_test_ranking"] = dict()
+        if str(epoch) not in evaluation["temporal_test_ranking"]:
+            evaluation["temporal_test_ranking"][str(epoch)] = dict()
+        evaluation["temporal_test_ranking"][str(epoch)][k] = float(val_corr)
+
         with open(save_dir, "w") as f:
             json.dump(evaluation, f)
         if self.verbose:
