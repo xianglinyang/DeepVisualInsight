@@ -229,7 +229,8 @@ export class DataSet {
   /**
    * This part contains information for DVI visualization
    */
-  DVIsubjectModelPath = "/Users/yangxianglin/DVI_data/active_learning/random/resnet18/CIFAR10";
+  //DVIsubjectModelPath = "/Users/yangxianglin/DVI_data/active_learning/random/resnet18/CIFAR10";
+  DVIsubjectModelPath = "/home/xianglin/DVI_exp_data/resnet18_cifar10";
   DVIResolution = 400;
   DVIServer = "";
   DVIValidPointNumber: {
@@ -454,7 +455,25 @@ export class DataSet {
     this.DVIfilterIndices = pointIndices;
   }
 
-
+  /** Load Button Function to load data in MYSQL Database. */
+  async loadprojectDVI() {
+      let headers = new Headers();
+      headers.append('Content-Type', 'application/json');
+      headers.append('Accept', 'application/json');
+      await fetch("standalone_projector_config.json", {method: 'GET'})
+          .then(response => response.json())
+          .then(data => {
+            const ip_address = data.DVIServerIP+":"+data.DVIServerPort;
+            this.DVIServer = ip_address;
+      fetch("http://"+this.DVIServer+"/load", {
+        method: 'POST',
+        body: JSON.stringify({"path": this.DVIsubjectModelPath,
+              "resolution":this.DVIResolution}),
+        headers: headers,
+        mode: 'cors'
+      })
+    })
+  }
   /** Runs DVI on the data. */
   async projectDVI (
       iteration: number,predicates:{[key:string]: any},
