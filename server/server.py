@@ -12,13 +12,125 @@ from PIL import Image
 sys.path.append("..")
 from deepvisualinsight.MMS import MMS
 
-from prepare_data import prepare_data
+from sqlalchemy import create_engine, text
+import pymysql
+import pandas as pd
+from antlr4 import *
+from MyGrammar.MyGrammarLexer import MyGrammarLexer
+from MyGrammar.MyGrammarListener import MyGrammarListener
+from MyGrammar.MyGrammarParser import MyGrammarParser
+
+#from prepare_data import prepare_data
 
 # flask for API server
 app = Flask(__name__)
 cors = CORS(app, supports_credentials=True)
 app.config['CORS_HEADERS'] = 'Content-Type'
 
+class MyGrammarPrintListener(MyGrammarListener):
+    def __init__(self, epochs=[1], selected_epoch=None):
+        self.epochs = epochs
+        if selected_epoch:
+            self.selected_epoch = selected_epoch
+        else:
+            self.selected_epoch = self.epochs[0]
+        self.result = ""
+        self.pred_sample_needed = False
+        self.epoch_sample_needed = False
+        self.deltab_sample_needed = False
+        self.stack = []
+        self.array = []
+
+    def enterMultiplecond2(self, ctx):
+        if ctx.CONDOP().getText() == "&":
+            self.result += " AND "
+        elif ctx.CONDOP().getText() == "|":
+            self.result += " OR "
+
+    def enterParencond1(self, ctx):
+        self.result += "("
+
+    def exitParencond1(self, ctx):
+        self.result += ")"
+
+    def exitCond2(self, ctx):
+        result = ""
+        right = self.stack.pop()
+        if self.stack:
+            left  = self.stack.pop()
+            result =  left + str(ctx.OP()) + right
+        elif self.array:
+            left = right
+            lenArray = len(self.array)
+            for _ in range(lenArray):
+                i = self.array.pop(0)
+                result += i +","
+            result = left + " IN (" + result[:-1] + ")"       
+        self.result += result
+
+    def exitArray(self, ctx):
+        for i in ctx.INT():
+            self.array.append(i.getText())
+
+    def exitParameter(self, ctx):
+        if ctx.STRING():
+            self.stack.append(self.checkString(ctx.STRING().getText()))
+
+    def exitPositive(self, ctx):
+        if ctx.INT():
+            self.stack.append(ctx.INT().getText())
+
+    def exitNegative(self, ctx):
+    	# Return the number of indexes for an array based on the negative integer value
+        if ctx.INT():
+            value = int("-"+ctx.INT().getText())
+            for i in self.epochs[value:]:
+                self.array.append(str(i))
+
+    def exitExpr(self, ctx):
+    	# MYSQL statement is built here
+        if "search for samples" in ctx.ACTION().getText():
+            action = "SELECT Sample.idx FROM Sample "
+        if self.result:
+            self.result = "WHERE " + self.result
+        if self.pred_sample_needed or self.epoch_sample_needed or self.deltab_sample_needed:
+            self.result = action + "INNER JOIN PredSample ON Sample.idx =  PredSample.idx " + self.result
+        else:
+            self.result = action + self.result
+        if (self.pred_sample_needed or self.deltab_sample_needed) and not self.epoch_sample_needed:
+            self.result += " AND PredSample.epoch=" + str(self.selected_epoch)
+        elif self.epoch_sample_needed:
+            self.result += " GROUP BY Sample.idx"
+        self.result += ";"
+
+    def checkString(self, string):
+    	# check the strings and categorize them for MYSQL statement
+        classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
+        if "pred" in string:
+            result = string.split(".")
+            self.pred_sample_needed = True
+            return "PredSample."+result[1]
+        elif "epoch" in string:
+            result = string.split(".")
+            self.epoch_sample_needed = True
+            return "PredSample."+result[1]
+        elif "deltab" in string:
+            result = string.split(".")
+            self.deltab_sample_needed = True
+            return "PredSample."+result[1]
+        elif "sample" in string:
+            result = string.split(".")
+            return "Sample."+result[1]
+        elif string in classes:
+            return str(classes.index(string))
+        elif string in ["test","train"]:
+            return "'"+string+"'"
+        elif string == "false":
+            return "0"
+        elif string == "true":
+            return "1"
+        else:
+            return string + " "
 
 @app.route('/animation', methods=["POST"])
 @cross_origin()
@@ -173,14 +285,166 @@ def animation():
 def index():
     return 'Index Page'
 
-@app.route('/updateProjection', methods=["POST", "GET"])
+
+def record(string):
+    with open("record.txt", "a") as file_object:
+        file_object.write(string+"\n")
+
+@app.route('/load', methods=["POST", "GET"])
 @cross_origin()
-def update_projection():
+def load():
+    t1 = time.time()
 
     res = request.get_json()
     content_path = os.path.normpath(res['path'])
-    iteration = int(res['iteration'])
-    print(iteration)
+
+    sys.path.append(content_path)
+
+    try:
+        from Model.model import ResNet18
+        net = ResNet18()
+    except:
+        from Model.model import resnet18
+        net = resnet18()
+
+    # Retrieving hyperparameters from json file to be passed as  parameters for MMS model
+    with open(content_path+"/config.json") as file:
+        data = json.load(file)
+        for key in data:
+            if key=="dataset":
+                dataset = data[key]
+            elif key=="epoch_start":
+                start_epoch = int(data[key])
+            elif key=="epoch_end":
+                end_epoch = int(data[key])
+            elif key=="epoch_period":
+                period = int(data[key])
+            elif key=="embedding_dim":
+                embedding_dim = int(data[key])
+            elif key=="num_classes":
+                num_classes = int(data[key])
+            elif key=="classes":
+                classes = range(num_classes)
+            elif key=="temperature":
+                temperature = float(data[key])
+            elif key=="attention":
+                if int(data[key]) == 0:
+                    attention = False
+                else:
+                    attention = True
+            elif key=="cmap":
+                cmap = data[key]
+            elif key=="resolution":
+                resolution = int(data[key])
+            elif key=="temporal":
+                if int(data[key]) == 0:
+                    temporal = False
+                else:
+                    temporal = True
+            elif key=="transfer_learning":
+                transfer_learning = int(data[key])
+            elif key=="step3":
+                step3 = int(data[key])
+            elif key=="split":
+                split = int(data[key])
+            elif key=="advance_border_gen":
+                if int(data[key]) == 0:
+                    advance_border_gen = False
+                else:
+                    advance_border_gen = True
+            elif key=="alpha":
+                alpha = float(data[key])
+            elif key=="withoutB":
+                if int(data[key]) == 0:
+                    withoutB = False
+                else:
+                    withoutB = True
+            elif key=="attack_device":
+                attack_device = data[key]
+
+
+    classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
+    mms = MMS(content_path, net, start_epoch, end_epoch, period, embedding_dim, num_classes, classes, temperature=temperature, cmap=cmap, resolution=resolution, verbose=1,
+              temporal=temporal, split=split, alpha=alpha, advance_border_gen=advance_border_gen, withoutB=withoutB, attack_device="cpu")
+
+    sql_engine       = create_engine('mysql+pymysql://xg:password@localhost/dviDB', pool_recycle=3600)
+    db_connection    = sql_engine.connect()
+
+    # Search the following tables in MYSQL database and drop them if they exist
+    sql_engine.execute(text('DROP TABLE IF EXISTS SubjectModel;'))
+    sql_engine.execute(text('DROP TABLE IF EXISTS VisModel;'))
+    sql_engine.execute(text('DROP TABLE IF EXISTS Sample;'))
+    sql_engine.execute(text('DROP TABLE IF EXISTS NoisySample;'))
+    sql_engine.execute(text('DROP TABLE IF EXISTS AlSample;'))
+    sql_engine.execute(text('DROP TABLE IF EXISTS PredSample;'))
+
+    # Create the SubjectModel table in MYSQL database and insert the data
+    table_subject_model = "SubjectModel"
+    data_subject_model = mms.subject_model_table()
+    data_subject_model.to_sql(table_subject_model, db_connection, if_exists='fail');
+
+    # Create the VisModel table in MYSQL database and insert the data
+    table_vis_model = "VisModel"
+    data_vis_model = mms.vis_model_table()
+    data_vis_model.to_sql(table_vis_model, db_connection, if_exists='fail');
+
+    # Create the Sample table in MYSQL database and insert the data
+    table_sample = "Sample"
+    data_sample = mms.sample_table()
+    data_sample.to_sql(table_sample, db_connection, if_exists='fail');
+
+    # For nosiy or active learning data, currently not tested yet
+    if "noisy" in content_path:     
+        table_noisy_sample = "NoisySample"
+        data_noisy_sample = mms.sample_table_noisy()
+        data_noisy_sample.to_sql(table_noisy_sample, db_connection, if_exists='fail');
+    elif "active" in content_path:
+        table_al_sample = "AlSample"
+        data_al_sample = mms.sample_table_AL()
+        data_al_sample.to_sql(table_al_sample, db_connection, if_exists='fail');
+    
+    # Ablation starts here
+    # Store prediction, deltaboundary true/false for all samples in all epochs in PredSample table
+    all_prediction_list = []
+    all_deltab_list = []
+    all_epochs_list = []
+    all_idx_list = []
+    for iteration in range(start_epoch, end_epoch+1, period): 
+        print("iteration", iteration)
+        train_data = mms.get_data_pool_repr(iteration)
+        test_data = mms.get_epoch_test_repr_data(iteration)
+        all_data = np.concatenate((train_data, test_data), axis=0)
+
+        prediction = mms.get_pred(iteration, all_data).argmax(-1)
+        deltab = mms.is_deltaB(iteration, all_data)
+        count = 0
+        for idx,_ in enumerate(prediction):
+            all_prediction_list.append(prediction[idx])
+            all_deltab_list.append(deltab[idx])
+            all_epochs_list.append(iteration)
+            all_idx_list.append(count)
+            count += 1
+
+    data_pred_sample = pd.DataFrame(list(zip(all_idx_list, all_epochs_list, all_prediction_list, all_deltab_list)),
+               columns =['idx', 'epoch', 'pred', 'deltab'])
+    table_pred_sample = "PredSample"
+    data_pred_sample.to_sql(table_pred_sample, db_connection, if_exists='fail');
+    # Ablation ends here
+
+    db_connection.close()
+
+    t2 = time.time()
+    print("time taken", t2-t1)
+    save_to_file = "{:.2f}".format(t2-t1)+"|"+time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(t1))+"|"+time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(t2))+"|loadPredDeltaBKNN|"+content_path
+    record(save_to_file)
+    return None
+
+
+@app.route('/updateProjection', methods=["POST", "GET"])
+@cross_origin()
+def update_projection():
+    res = request.get_json()
+    content_path = os.path.normpath(res['path'])
     resolution = int(res['resolution'])
     predicates = res["predicates"]
     sys.path.append(content_path)
@@ -192,9 +456,66 @@ def update_projection():
         from Model.model import resnet18
         net = resnet18()
 
+    # Retrieving hyperparameters from json file to be passed as  parameters for MMS model
+    with open(content_path+"/config.json") as file:
+        data = json.load(file)
+        for key in data:
+            if key=="dataset":
+                dataset = data[key]
+            elif key=="epoch_start":
+                start_epoch = int(data[key])
+            elif key=="epoch_end":
+                end_epoch = int(data[key])
+            elif key=="epoch_period":
+                period = int(data[key])
+            elif key=="embedding_dim":
+                embedding_dim = int(data[key])
+            elif key=="num_classes":
+                num_classes = int(data[key])
+            elif key=="classes":
+                classes = range(num_classes)
+            elif key=="temperature":
+                temperature = float(data[key])
+            elif key=="attention":
+                if int(data[key]) == 0:
+                    attention = False
+                else:
+                    attention = True
+            elif key=="cmap":
+                cmap = data[key]
+            elif key=="resolution":
+                resolution = int(data[key])
+            elif key=="temporal":
+                if int(data[key]) == 0:
+                    temporal = False
+                else:
+                    temporal = True
+            elif key=="transfer_learning":
+                transfer_learning = int(data[key])
+            elif key=="step3":
+                step3 = int(data[key])
+            elif key=="split":
+                split = int(data[key])
+            elif key=="advance_border_gen":
+                if int(data[key]) == 0:
+                    advance_border_gen = False
+                else:
+                    advance_border_gen = True
+            elif key=="alpha":
+                alpha = float(data[key])
+            elif key=="withoutB":
+                if int(data[key]) == 0:
+                    withoutB = False
+                else:
+                    withoutB = True
+            elif key=="attack_device":
+                attack_device = data[key]
+
     classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
-    mms = MMS(content_path, net, 1, 200, 1, 512, 10, classes, temperature=None, cmap="tab10", resolution=resolution, verbose=1,
-              temporal=False, split=-1, alpha=None, advance_border_gen=True, withoutB=False, attack_device="cuda:0")
+    mms = MMS(content_path, net, start_epoch, end_epoch, period, embedding_dim, num_classes, classes, temperature=temperature, cmap=cmap, resolution=resolution, verbose=1, attention=attention, 
+              temporal=False, split=split, alpha=alpha, advance_border_gen=advance_border_gen, withoutB=withoutB, attack_device="cpu")
+    iteration = int(res['iteration'])*period
+
 
     train_data = mms.get_data_pool_repr(iteration)
     # train_data = mms.get_epoch_train_repr_data(iteration)
@@ -297,37 +618,35 @@ def update_projection():
 @cross_origin()
 def filter():
     res = request.get_json()
-    predicates = res["predicates"]
+    string = res["predicates"]["label"]
     content_path = os.path.normpath(res['content_path'])
-    iteration = int(res["iteration"])
-    sys.path.append(content_path)
-    try:
-        from Model.model import ResNet18
-        net = ResNet18()
-    except:
-        from Model.model import resnet18
-        net = resnet18()
 
-    classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
-    mms = MMS(content_path, net, 1, 200, 1, 512, 10, classes, temperature=None, cmap="tab10",
-              verbose=1,
-              temporal=False, split=-1, alpha=None, advance_border_gen=True, withoutB=False, attack_device="cuda:0")
+    data =  InputStream(string)
+    # lexer
+    lexer = MyGrammarLexer(data)
+    stream = CommonTokenStream(lexer)
+    # parser
+    parser = MyGrammarParser(stream)
+    tree = parser.expr()
+    # Currently this is hardcoded for CIFAR10, changes need to be made in future
+    # Error will appear based on some of the queries sent
+    model_epochs = [40, 80, 120, 160, 200]
+    # evaluator
+    listener = MyGrammarPrintListener(model_epochs)
+    walker = ParseTreeWalker()
+    walker.walk(listener, tree)
+    statement = listener.result
 
-    selected_points = np.arange(mms.get_dataset_length())
-    for key in predicates.keys():
-        if key == "new_selection":
-            tmp = np.array(mms.get_new_index(int(predicates[key])))
-        elif key == "label":
-            tmp = np.array(mms.filter_label(predicates[key]))
-        elif key == "type":
-            tmp = np.array(mms.filter_type(predicates[key], int(iteration)))
-        else:
-            tmp = np.arange(mms.get_dataset_length())
-        selected_points = np.intersect1d(selected_points, tmp)
-    sys.path.remove(content_path)
-
-    return make_response(jsonify({"selectedPoints":selected_points.tolist()}), 200)
-
+    sql_engine       = create_engine('mysql+pymysql://xg:password@localhost/dviDB', pool_recycle=3600)
+    db_connection    = sql_engine.connect()
+    frame           = pd.read_sql(statement, db_connection);
+    pd.set_option('display.expand_frame_repr', False)
+    db_connection.close()
+    result = []
+    for _, row in frame.iterrows():
+        for col in frame.columns:
+            result.append(int(row[col]))
+    return make_response(jsonify({"selectedPoints":result}), 200)
 
 
 @app.route('/saveDVIselections', methods=["POST"])
