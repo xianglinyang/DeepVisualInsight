@@ -248,29 +248,20 @@ export const template = html`
       <button class="button clear-selection">Clear selection</button>
     </div>
     
-    <div class="search-by">
-      <vz-projector-input id="search-box" label="Search"></vz-projector-input>
-      <paper-dropdown-menu no-animations label="by">
-        <paper-listbox
-          attr-for-selected="value"
-          class="dropdown-content"
-          selected="{{selectedMetadataField}}"
-          slot="dropdown-content"
-        >
-<!--          <template is="dom-repeat" items="[[metadataFields]]">-->
-          <template is="dom-repeat" items="[[searchFields]]">
-            <paper-item value="[[item]]" label="[[item]]">
-              [[item]]
-            </paper-item>
-          </template>
-        </paper-listbox>
-      </paper-dropdown-menu>
-      <button class="search-button search">search</button>
+    <div class="search-by" style="margin-top:20px">
+        <vz-projector-input id="search-box" label="High level query"></vz-projector-input>
+        <button class="search-button search">query</button>
+        <div>
+        </div>
+    </div>
+    <div class="query-list" style="display: none">
+      <div class="list"></div>
+    </div>
 
     <div>
     </div>
   </div>
-  <div>
+  <div style="display: none">
       <button class="boundingbox-button add">add</button>
       <button class="boundingbox-button reset">reset</button>
       <button class="boundingbox-button sent">sent</button>
