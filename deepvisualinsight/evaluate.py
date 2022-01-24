@@ -195,3 +195,43 @@ def evaluate_proj_temporal_perseverance_entropy(alpha, delta_x):
             corr[i] = correlation
 
     return corr.mean()
+
+
+def evaluate_keep_B(low_B, grid_view, decision_view, threshold=0.8):
+    """
+    evaluate whether high dimensional boundary points still lying on Boundary in low-dimensional space or not
+    find the nearest grid point of boundary points, and check whether the color of corresponding grid point is white or not
+
+    :param low_B: ndarray, (n, 2), low dimension position of boundary points
+    :param grid_view: ndarray, (resolution^2, 2), the position array of grid points
+    :param decision_view: ndarray, (resolution^2, 3), the RGB color of grid points
+    :param threshold:
+    :return:
+    """
+    if len(low_B) == 0 or low_B is None:
+        return .0
+    # reshape grid and decision view
+    grid_view = grid_view.reshape(-1, 2)
+    decision_view = decision_view.reshape(-1, 3)
+
+    # find the color of nearest grid view
+    from sklearn.neighbors import NearestNeighbors
+    nbs = NearestNeighbors(n_neighbors=1, algorithm="ball_tree").fit(grid_view)
+    _, indices = nbs.kneighbors(low_B)
+    indices = indices.squeeze()
+    sample_colors = decision_view[indices]
+
+    # check whether 3 channel are above a predefined threshold
+    c1 = np.zeros(indices.shape[0], dtype=np.bool)
+    c1[sample_colors[:, 0] > threshold] = 1
+
+    c2 = np.zeros(indices.shape[0], dtype=np.bool)
+    c2[sample_colors[:, 1] > threshold] = 1
+
+    c3 = np.zeros(indices.shape[0], dtype=np.bool)
+    c3[sample_colors[:, 2] > threshold] = 1
+    c = np.logical_and(c1, c2)
+    c = np.logical_and(c, c3)
+
+    # return the ratio of boundary points that still lie on boundary after dimension reduction
+    return np.sum(c)/len(c)
