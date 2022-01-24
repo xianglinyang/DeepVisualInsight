@@ -161,7 +161,7 @@ def mixup_bi(model, image1, image2, label, target_cls, device, diff=0.1, max_ite
         lamb = (upper + lower) / 2
         image_mix = lamb * image1 + (1 - lamb) * image2
         # clip image
-        image_mix = torch.clamp(image_mix, 0, 1)
+        # image_mix = torch.clamp(image_mix, 0, 1)
 
         pred_new, normalized = f(image_mix)
 
@@ -496,7 +496,7 @@ def get_border_points_exp1(model, input_x, confs, predictions, device, num_adv_e
 # attack based on probabilities...(successful rate and current sample number)
 # def get_border_points_exp2(model, input_x, confs, predictions, device, num_adv_eg=5000, num_cls=10, alpha=0.6,
 #                            lambd=0.2, verbose=1):
-def get_border_points(model, input_x, confs, predictions, device, num_adv_eg=5000, num_cls=10, alpha=0.6,
+def get_border_points(model, input_x, confs, predictions, device, num_adv_eg=5000, alpha=0.6,
                            lambd=0.2, verbose=1):
     '''Get BPs, 500 points per class
     :param model: subject model
@@ -511,17 +511,22 @@ def get_border_points(model, input_x, confs, predictions, device, num_adv_eg=500
     adv_examples = torch.tensor([]).to(device)
     num_adv = 0
     a = lambd
+    # count valid classes
+    valid_cls = np.unique(predictions)
+    valid_cls_num = len(valid_cls)
+    if valid_cls_num < 2:
+        raise Exception("Valid prediction classes less than 2!")
 
-    succ_rate = np.ones(int(num_cls*(num_cls-1)/2))
-    tot_num = np.zeros(int(num_cls*(num_cls-1)/2))
-    curr_samples = np.zeros(int(num_cls*(num_cls-1)/2))
+    succ_rate = np.ones(int(valid_cls_num*(valid_cls_num-1)/2))
+    tot_num = np.zeros(int(valid_cls_num*(valid_cls_num-1)/2))
+    curr_samples = np.zeros(int(valid_cls_num*(valid_cls_num-1)/2))
 
     # record index dictionary for query index pair
     idx = 0
     index_dict = dict()
-    for i in range(num_cls):
-        for j in range(i+1, num_cls):
-            index_dict[idx] = (i, j)
+    for i in range(valid_cls_num):
+        for j in range(i+1, len(valid_cls)):
+            index_dict[idx] = (valid_cls[i], valid_cls[j])
             idx += 1
 
     t0 = time.time()
