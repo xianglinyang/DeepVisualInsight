@@ -87,8 +87,9 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   customSelectedSearchByMetadataOption: string;
 
   @property({type: String})
-  subjectModelPathEditorInput: string = "/Users/yangxianglin/DVI_data/active_learning/random/resnet18/CIFAR10/";
-
+  //subjectModelPathEditorInput: string = "/Users/yangxianglin/DVI_data/active_learning/random/resnet18/CIFAR10/";
+  subjectModelPathEditorInput: string = "/home/xianglin/DVI_exp_data/resnet18_cifar10";
+    
   @property({type: String})
   resolutionEditorInput: number;
 
@@ -124,6 +125,7 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
   private runTsneButton: HTMLButtonElement;
   private pauseTsneButton: HTMLButtonElement;
   //private perturbTsneButton: HTMLButtonElement;
+  private loadDVIButton: HTMLButtonElement;
   private previousDVIButton: HTMLButtonElement;
   private nextDVIButton: HTMLButtonElement;
   private jumpDVIButton: HTMLButtonElement;
@@ -183,7 +185,9 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
     //this.perturbTsneButton = this.$$('.perturb-tsne') as HTMLButtonElement;
     this.previousDVIButton = this.$$('.previous-dvi') as HTMLButtonElement;
     this.previousDVIButton.disabled = true;
+    this.loadDVIButton = this.$$('.load-dvi') as HTMLButtonElement;
     this.nextDVIButton = this.$$('.next-dvi') as HTMLButtonElement;
+    this.nextDVIButton.disabled = true;
     this.jumpDVIButton = this.$$('.jump-dvi') as HTMLButtonElement;
     this.jumpDVIButton.disabled = true;
     //this.nextDVIButton.disabled = true;
@@ -357,6 +361,50 @@ class ProjectionsPanel extends LegacyElementMixin(PolymerElement) {
             this.previousDVIButton.disabled = false;
           }
         this.nextDVIButton.disabled = false;
+        this.jumpDVIButton.disabled = false;
+      });
+    });
+    this.loadDVIButton.addEventListener('click', ()=> {
+      this.loadDVIButton.disabled = true;
+      this.dataSet.loadprojectDVI() 
+      this.nextDVIButton.disabled = true;
+      this.previousDVIButton.disabled = true;
+      this.jumpDVIButton.disabled = true;
+      this.dataSet.projectDVI(this.dataSet.tSNEIteration + 1,this.projector.inspectorPanel.currentPredicate,
+          (iteration: number|null, evaluation:any, newSelection:any[], indices:number[], totalIter?: number) => {
+        /**
+         * get filter index
+         */
+        //get search predicates or indices
+        var filterIndices:number[];
+        filterIndices = []
+        if(this.temporalStatus){
+          //search predicate
+          this.projector.inspectorPanel.filterIndices = indices;
+        }
+        //indices
+        filterIndices = this.projector.inspectorPanel.filterIndices;
+        console.log(filterIndices.length);
+        this.projector.dataSet.setDVIFilteredData(filterIndices);
+
+        if (iteration != null) {
+          this.iterationLabelTsne.innerText = '' + iteration;
+          this.totalIterationLabelDVI.innerText = '' + totalIter;
+          this.updateEvaluationInformation(evaluation);
+          // this.projector.notifyProjectionPositionsUpdated(newSelection);
+          this.projector.notifyProjectionPositionsUpdated();
+          this.projector.onProjectionChanged();
+          this.projector.onIterationChange(iteration);
+          if(this.dataSet.tSNEIteration > 1) {
+            this.previousDVIButton.disabled = false;
+          }
+          if(this.dataSet.tSNETotalIter != this.dataSet.tSNEIteration) {
+            this.nextDVIButton.disabled = false;
+          }
+        } else {
+          this.nextDVIButton.disabled = false;
+          this.projector.onProjectionChanged();
+        }
         this.jumpDVIButton.disabled = false;
       });
     });
