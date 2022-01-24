@@ -29,7 +29,7 @@ export const template = html`
         border-radius: 2px;
         font-size: 13px;
         padding: 10px;
-        min-width: 100px;
+        min-width: 80px;
         flex-shrink: 0;
         background: #e3e3e3;
       }
@@ -288,6 +288,9 @@ export const template = html`
               </div>
           </div> -->
           <div class="row">
+            <button class="load-dvi ink-button" title="Load DVI">
+              Load
+            </button>
             <button class="previous-dvi ink-button" title="Previous DVI">
               Previous
             </button>
