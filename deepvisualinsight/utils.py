@@ -159,3 +159,21 @@ def batch_run(model, data, output_shape, batch_size=200):
             pred = model(inputs).cpu().numpy()
             input_X[r1:r2] = pred.reshape(pred.shape[0], -1)
     return input_X
+
+def is_B(preds):
+    """
+    given N points' prediction (N, class_num), we evaluate whether they are \delta-boundary points or not
+
+    Please check the formal definition of \delta-boundary from our paper DVI
+    :param preds: ndarray, (N, class_num), the output of model prediction before softmax layer
+    :return: ndarray, (N:bool,),
+    """
+
+    preds = preds + 1e-8
+
+    sort_preds = np.sort(preds)
+    diff = (sort_preds[:, -1] - sort_preds[:, -2]) / (sort_preds[:, -1] - sort_preds[:, 0])
+
+    is_border = np.zeros(len(diff), dtype=np.bool)
+    is_border[diff < 0.1] = 1
+    return is_border
