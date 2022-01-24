@@ -10,16 +10,20 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from deepvisualinsight.evaluate import *
 import gc
+import pandas as pd
 from scipy.special import softmax
 from scipy.spatial.distance import cdist
+from sklearn.neighbors import KDTree
 import deepvisualinsight.utils_advanced as utils_advanced
 from deepvisualinsight.VisualizationModel import ParametricModel
 
 
 class MMS:
-    def __init__(self, content_path, model_structure, epoch_start, epoch_end, period, repr_num, class_num, classes, temperature,
-                 low_dims=2, cmap="tab10", resolution=100, neurons=None, temporal=False, transfer_learning=True, step3=False,
-                 batch_size=1000, verbose=1, split=-1, advance_border_gen=True, alpha=0.7, withoutB=False, attack_device="cpu"):
+    def __init__(self, content_path, model_structure, epoch_start, epoch_end, period, repr_num, class_num, classes,
+                 low_dims=2, cmap="tab10", resolution=100, neurons=None, batch_size=1000, verbose=1, split=-1, attack_device="cpu",
+                 advance_border_gen=True, alpha=0.7, withoutB=False,    # boundary complex
+                 attention=True, temperature=None,                      # reconstruction loss
+                 temporal=False, transfer_learning=True, step3=False):  # temporal
 
         '''
         This class contains the model management system (super DB) and provides
@@ -44,9 +48,11 @@ class MMS:
             the length of classification labels
         classes	: list, tuple of str
             All classes that the classifier uses as a list/tuple of strings.
-        low_dims: tuple
-            the expected low dimension shape
-        cmap : str, by default 'tab10'
+        temperature: float
+            the temperature sharpening parameter for Reconstruction loss(gradient calculation)
+        low_dims: int
+            the number of dimensions in low dimensional space
+        cmap : str, by default 'tab10', should support more classes in the future
             Name of the colormap to use for visualization.
             The number of distinguishable colors should correspond to class_num.
             See here for the names: https://matplotlib.org/3.1.1/gallery/color/colormap_reference.html
@@ -61,13 +67,18 @@ class MMS:
         step3: whether to use step3 temporal loss, by default False(step2 instead)
         batch_size: int, by default 1000
             the batch size to train autoencoder
+        attention: bool, by default True
+            whether to use attention for reconstruction loss(increase inv accu)
         verbose : int, by default 1
         split: int, by default -1
-        advance_border_gen : boolean, by default False
+            number of layers for feature function
+        advance_border_gen : boolean, by default True
             whether to use advance adversarial attack method for border points generation
-        alpha: new_image = alpha*m1+(1-alpha)*m2
+        alpha: float
+            lower bound for, new_image = alpha*m1+(1-alpha)*m2
+            upper bound in paper, but they are same
         withoutB: boolean, by default False
-            whether to add boundary preserving property
+            whether to add boundary preserving property, for baseline comparsion
         attack_device: str, by default "cpu"
             the device the perform adversatial attack
         '''
@@ -94,21 +105,38 @@ class MMS:
         self.batch_size = batch_size
         self.verbose = verbose
         self.split = split
+        # TODO depercate advanced attack, set it as default
         self.advance_border_gen = advance_border_gen
         self.alpha = alpha
         self.withoutB = withoutB
         self.device = torch.device(attack_device)
+        self.attention = attention
+        # TODO change tensorflow to pytorch
         if len(tf.config.list_physical_devices('GPU')) > 0:
-            self.tf_device = tf.config.list_physical_devices('GPU')[0]
+            # self.tf_device = tf.config.list_physical_devices('GPU')[0]
             for d in tf.config.list_physical_devices('GPU'):
                 tf.config.experimental.set_memory_growth(d, True)
-        else:
-            self.tf_device = tf.config.list_physical_devices('CPU')[0]
+        # else:
+        #     self.tf_device = tf.config.list_physical_devices('CPU')[0]
         if neurons is None:
             self.neurons = self.repr_num / 2
         else:
             self.neurons = neurons
         self.load_content()
+        self.check_sanity()
+
+    def check_sanity(self):
+        """
+        check whether all inputs are legal
+            attention with temperature
+            boundary construction
+            temporal loss
+        :return: None
+        """
+        #if self.attention and self.temperature is None:
+        #    raise Exception("illegal temperature. Pls check input of temperature!")
+        if self.temporal and not self.transfer_learning:
+            raise Exception("temporal loss should be put on top of transfer learning!")
 
     def load_content(self):
         '''
@@ -118,11 +146,11 @@ class MMS:
             sys.exit("Dir not exists!")
 
         self.training_data_path = os.path.join(self.content_path, "Training_data")
-        self.training_data = torch.load(os.path.join(self.training_data_path, "training_dataset_data.pth"))
-        self.training_labels = torch.load(os.path.join(self.training_data_path, "training_dataset_label.pth"))
+        self.training_data = torch.load(os.path.join(self.training_data_path, "training_dataset_data.pth"), map_location=self.device)
+        self.training_labels = torch.load(os.path.join(self.training_data_path, "training_dataset_label.pth"), map_location=self.device)
         self.testing_data_path = os.path.join(self.content_path, "Testing_data")
-        self.testing_data = torch.load(os.path.join(self.testing_data_path, "testing_dataset_data.pth"))
-        self.testing_labels = torch.load(os.path.join(self.testing_data_path, "testing_dataset_label.pth"))
+        self.testing_data = torch.load(os.path.join(self.testing_data_path, "testing_dataset_data.pth"), map_location=self.device)
+        self.testing_labels = torch.load(os.path.join(self.testing_data_path, "testing_dataset_label.pth"), map_location=self.device)
 
         self.model_path = os.path.join(self.content_path, "Model")
         if self.verbose > 0:
@@ -164,6 +192,7 @@ class MMS:
                 confs = batch_run(self.model, training_data, 10)
                 preds = np.argmax(confs, axis=1).squeeze()
                 num_adv_eg = int(len(training_data)/10)
+                # TODO refactor to one utils.py file, remove utils_advanced
                 border_points, curr_samples, tot_num = utils_advanced.get_border_points(model=self.model,
                                                                                      input_x=training_data,
                                                                                      confs=confs,
@@ -171,7 +200,7 @@ class MMS:
                                                                                      device=self.device,
                                                                                      alpha=self.alpha,
                                                                                      num_adv_eg=num_adv_eg,
-                                                                                     num_cls=10,
+                                                                                     # num_cls=10,
                                                                                      lambd=0.05,
                                                                                      verbose=0)
                 t1 = time.time()
@@ -191,6 +220,7 @@ class MMS:
                 location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "advance_border_labels.npy")
                 np.save(location, np.array(border_cls))
             else:
+                # soon to be depercated in the future
                 # border points gen
                 t0 = time.time()
                 border_points = get_border_points(training_data, training_labels, self.model, self.device)
@@ -243,6 +273,26 @@ class MMS:
 
         self.model = self.model.to(self.device)
 
+    def eval_keep_B(self, name=""):
+        # evaluate keep_B metric
+        t_s = time.time()
+        epoch_num = int((self.epoch_end - self.epoch_start) / self.period + 1)
+        for n_epoch in range(self.epoch_start, self.epoch_end + 1, self.period):
+            save_dir = os.path.join(self.model_path, "Epoch_{}".format(n_epoch), "evaluation{}.json".format(name))
+            if os.path.exists(save_dir):
+                with open(save_dir, "r") as f:
+                    evaluation = json.load(f)
+            else:
+                evaluation = {}
+            evaluation['keep_B_train'] = self.keep_B_train(n_epoch)
+            evaluation['keep_B_test'] = self.keep_B_test(n_epoch)
+            evaluation['keep_B_bound'] = self.keep_B_boundary(n_epoch)
+            with open(save_dir, 'w') as f:
+                json.dump(evaluation, f)
+        t_e = time.time()
+        if self.verbose > 0 :
+            print("Average evaluation time for 1 epoch is {:.2f} seconds".format((t_e-t_s) / epoch_num))
+
     def save_evaluation(self, eval=False, name=""):
         # evaluation information
         t_s = time.time()
@@ -258,6 +308,9 @@ class MMS:
             evaluation['nn_test_15'] = self.proj_nn_perseverance_knn_test(n_epoch, 15)
             evaluation['bound_train_15'] = self.proj_boundary_perseverance_knn_train(n_epoch, 15)
             evaluation['bound_test_15'] = self.proj_boundary_perseverance_knn_test(n_epoch, 15)
+            evaluation['keep_B_train'] = self.keep_B_train(n_epoch)
+            evaluation['keep_B_test'] = self.keep_B_test(n_epoch)
+            evaluation['keep_B_bound'] = self.keep_B_boundary(n_epoch)
 
             # for paper evaluation
             if eval:
@@ -300,6 +353,9 @@ class MMS:
             evaluation["time_test_inv"] = round(t3-t2, 3)
             evaluation["test_len"] = test_len
 
+            # evaluation["temporal_train"] = self.proj_temporal_perseverance_train(15)
+            # evaluation["temporal_test"] = self.proj_temporal_perseverance_test(15)
+
             # subject model train/test accuracy
             evaluation['acc_train'] = self.training_accu(n_epoch)
             evaluation['acc_test'] = self.testing_accu(n_epoch)
@@ -326,9 +382,9 @@ class MMS:
         optimizer = tf.keras.optimizers.Adam()
 
         weights_dict = {}
-        losses, loss_weights = define_losses(batch_size, self.temporal, self.step3)
+        losses, loss_weights = define_losses(batch_size, self.temporal, self.step3, self.withoutB, self.attention)
         parametric_model = ParametricModel(encoder, decoder, optimizer, losses, loss_weights, self.temporal, self.step3,
-                                           self.batch_size, prev_trainable_variables=None)
+                                           self.withoutB, self.attention, self.batch_size, prev_trainable_variables=None)
         callbacks = [
             tf.keras.callbacks.EarlyStopping(
                 monitor='loss',
@@ -348,8 +404,8 @@ class MMS:
                     encoder = encoder_in
                 if decoder_in is not None:
                     decoder = decoder_in
-                parametric_model = ParametricModel(encoder, decoder, optimizer, losses, loss_weights,
-                                                   self.temporal, self.step3, self.batch_size,
+                parametric_model = ParametricModel(encoder, decoder, optimizer, losses, loss_weights,self.temporal,
+                                                   self.step3, self.withoutB, self.attention, self.batch_size,
                                                    prev_trainable_variables=None)
             parametric_model.compile(
                 optimizer=optimizer, loss=losses, loss_weights=loss_weights,
@@ -376,40 +432,82 @@ class MMS:
                 print("no border points saved for Epoch {}".format(n_epoch))
                 continue
 
-            complex, sigmas, rhos = fuzzy_complex(train_data, 15)
-            bw_complex, _, _ = boundary_wise_complex(train_data, border_centers, 15)
+            # attention/temporal/complex
             if self.withoutB:
-                # from umap.parametric_umap import construct_edge_dataset
-                (
-                    edge_dataset,
-                    _batch_size,
-                    n_edges,
-                    _head,
-                    _tail,
-                    _edge_weight,
-                ) = construct_edge_dataset(
-                    train_data,
-                    complex,
-                    20,
-                    batch_size,
-                    parametric_embedding=True,
-                    parametric_reconstruction=False,
-                )
+                all_d = np.concatenate((train_data, border_centers), axis=0)
+                complex, sigmas, rhos = fuzzy_complex(all_d, 15)
+                model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
+                self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
+                self.model = self.model.to(self.device)
+                self.model.eval()
+
+                model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
+                model = model.to(self.device)
+                model = model.eval()
+                alpha = get_alpha(model, all_d, temperature=self.temperature, device=self.device, verbose=1)
+                if self.temporal:
+                    prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch-self.period), "train_data.npy")
+                    if self.advance_border_gen:
+                        prev_border_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch),
+                                                          "advance_border_centers.npy")
+                    else:
+                        prev_border_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch),
+                                                          "border_centers.npy")
+                    if os.path.exists(prev_data_loc) and self.epoch_start != n_epoch:
+                        prev_data = np.load(prev_data_loc)
+                        prev_index = self.get_epoch_index(n_epoch-self.period)
+                        prev_data = prev_data[prev_index]
+                        prev_border = np.load(prev_border_centers_loc)
+                    else:
+                        prev_data = None
+                        prev_border = None
+                    if prev_data is not None:
+                        prev_data = np.concatenate((prev_data, prev_border), axis=0)
+                    n_rate = find_neighbor_preserving_rate(prev_data, all_d, n_neighbors=15)
+                    (
+                        edge_dataset,
+                        batch_size,
+                        n_edges,
+                        edge_weight,
+                    ) = construct_temporal_edge_dataset(
+                        all_d,
+                        complex,
+                        10,
+                        batch_size,
+                        n_rate=n_rate,
+                        alpha=alpha,
+                    )
+
+                else:
+                    (
+                        edge_dataset,
+                        batch_size,
+                        n_edges,
+                        edge_weight,
+                    ) = construct_edge_dataset(
+                        all_d,
+                        complex,
+                        10,
+                        batch_size,
+                        alpha=alpha,
+                    )
             else:
+                complex, sigmas, rhos = fuzzy_complex(train_data, 15)
+                bw_complex, _, _ = boundary_wise_complex(train_data, border_centers, 15)
+                fitting_data = np.concatenate((train_data, border_centers), axis=0)
+
+                model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
+                self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
+                self.model = self.model.to(self.device)
+                self.model.eval()
+
+                model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
+                model = model.to(self.device)
+                model = model.eval()
+                alpha = get_alpha(model, fitting_data, temperature=self.temperature, device=self.device, verbose=1)
+                del model
+                gc.collect()
                 if not self.temporal:
-                    fitting_data = np.concatenate((train_data, border_centers), axis=0)
-
-                    model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
-                    self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
-                    self.model = self.model.to(self.device)
-                    self.model.eval()
-
-                    model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
-                    model = model.to(self.device)
-                    model = model.eval()
-                    alpha = get_alpha(model, fitting_data, temperature=self.temperature, device=torch.device("cuda:0"), verbose=1)
-                    del model
-                    gc.collect()
                     (
                         edge_dataset,
                         _batch_size,
@@ -422,8 +520,6 @@ class MMS:
                         10,
                         batch_size,
                         alpha,
-                        parametric_embedding=True,
-                        parametric_reconstruction=True,
                     )
                 else:
                     prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch-self.period), "train_data.npy")
@@ -433,28 +529,14 @@ class MMS:
                         prev_data = prev_data[prev_index]
                     else:
                         prev_data = None
-                    if prev_data is None:
-                        prev_embedding = np.zeros((len(train_data), self.low_dims))
-                    else:
-                        encoder_ = self.get_proj_model(n_epoch-self.period)
-                        prev_embedding = encoder_(prev_data).cpu().numpy()
-                        del encoder_
-                        gc.collect()
+                    # if prev_data is None:
+                    #     prev_embedding = np.zeros((len(train_data), self.low_dims))
+                    # else:
+                    #     encoder_ = self.get_proj_model(n_epoch-self.period)
+                    #     prev_embedding = encoder_(prev_data).cpu().numpy()
+                    #     del encoder_
+                    #     gc.collect()
                     n_rate = find_neighbor_preserving_rate(prev_data, train_data, n_neighbors=15)
-
-                    fitting_data = np.concatenate((train_data, border_centers), axis=0)
-
-                    model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
-                    self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
-                    self.model = self.model.to(self.device)
-                    self.model.eval()
-
-                    model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
-                    model = model.to(self.device)
-                    model = model.eval()
-                    alpha = get_alpha(model, fitting_data, temperature=self.temperature, device=torch.device("cuda:0"), verbose=1)
-                    del model
-                    gc.collect()
 
                     (
                         edge_dataset,
@@ -465,20 +547,17 @@ class MMS:
                         (train_data, border_centers),
                         complex,
                         bw_complex,
-                        20,
+                        10,
                         batch_size,
-                        parametric_embedding=True,
-                        parametric_reconstruction=True,
                         n_rate=n_rate,
                         alpha=alpha,
-                        prev_embedding=prev_embedding
                     )
 
             steps_per_epoch = int(
                 n_edges / batch_size / 10
             )
             # create embedding
-            history = parametric_model.fit(
+            _ = parametric_model.fit(
                 edge_dataset,
                 epochs=200, # a large value, because we have early stop callback
                 steps_per_epoch=steps_per_epoch,
@@ -487,15 +566,21 @@ class MMS:
             )
             # save for later use
             parametric_model.prev_trainable_variables = weights_dict["prev"]
-            flag = ""
+            flag = ""   # record boundary complex and attention
             if self.withoutB:
                 flag += "_withoutB"
             elif self.advance_border_gen:
                 flag += "_advance"
+            if self.attention:
+                flag += "_A"
 
             if self.temporal:
-                encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder_temporal"+flag))
-                decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "decoder_temporal"+flag))
+                if self.step3:
+                    encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder_temporal3" + flag))
+                    decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "decoder_temporal3" + flag))
+                else:
+                    encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder_temporal"+flag))
+                    decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "decoder_temporal"+flag))
             elif self.transfer_learning:
                 encoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "encoder"+flag))
                 decoder.save(os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "decoder"+flag))
@@ -517,7 +602,9 @@ class MMS:
             f = open(save_dir, "r")
             evaluation = json.load(f)
             f.close()
-        if not self.transfer_learning:
+        if self.withoutB:
+            time_label = "vis_model_ParametricUmap"
+        elif not self.transfer_learning:
             time_label = "vis_model_NT"
         elif not self.temporal:
             time_label = "vis_model_T"
@@ -542,9 +629,15 @@ class MMS:
             flag += "_withoutB"
         elif self.advance_border_gen:
             flag = "_advance"
+        if self.attention:
+            flag += "_A"
 
         if self.temporal:
-            encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "encoder_temporal"+flag)
+            if self.step3:
+                encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id),
+                                                "encoder_temporal3" + flag)
+            else:
+                encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "encoder_temporal"+flag)
         elif self.transfer_learning:
             encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "encoder"+flag)
         else:
@@ -569,9 +662,15 @@ class MMS:
             flag += "_withoutB"
         elif self.advance_border_gen:
             flag += "_advance"
+        if self.attention:
+            flag += "_A"
 
         if self.temporal:
-            decoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "decoder_temporal"+flag)
+            if self.step3:
+                decoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id),
+                                                "decoder_temporal3" + flag)
+            else:
+                decoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "decoder_temporal"+flag)
         elif self.transfer_learning:
             decoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "decoder"+flag)
         else:
@@ -839,7 +938,35 @@ class MMS:
             print("No data!")
             return None
 
-    ################################################ Visualization ################################################
+    def is_deltaB(self, epoch_id, data):
+        """
+        check wheter input vectors are lying on delta-boundary or not
+        :param epoch_id:
+        :param data: numpy.ndarray
+        :return: numpy.ndarray, boolean, True stands for is_delta_boundary
+        """
+        preds = self.get_pred(epoch_id, data)
+        border = is_B(preds)
+        return border
+
+    def find_neighbors(self, epoch_id, data, n_neighbors):
+        """
+        return the index to nearest neighbors
+        :param epoch_id:
+        :param data: ndarray, feature vectors
+        :param n_neighbors:
+        :return:
+        """
+        train_data = self.get_epoch_train_repr_data(epoch_id)
+        test_data = self.get_epoch_test_repr_data(epoch_id)
+        fitting_data = np.concatenate((train_data, test_data), axis=0)
+        tree = KDTree(fitting_data)
+
+        _, knn_indices = tree.query(data, k=n_neighbors)
+        return knn_indices
+
+
+    ################################################## Visualization ##################################################
     def get_epoch_plot_measures(self, epoch_id):
         """get plot measure for visualization"""
         train_data = self.get_epoch_train_repr_data(epoch_id)
@@ -1088,37 +1215,10 @@ class MMS:
 
         self.sample_plots = []
 
-        # # labels = prediction
-        # for c in range(self.class_num):
-        #     color = self.cmap(c/(self.class_num-1))
-        #     plot = self.ax.plot([], [], '.', label=self.classes[c], ms=1,
-        #         color=color, zorder=2, picker=mpl.rcParams['lines.markersize'])
-        #     self.sample_plots.append(plot[0])
-        #
-        # # labels != prediction, labels be a large circle
-        # for c in range(self.class_num):
-        #     color = self.cmap(c/(self.class_num-1))
-        #     plot = self.ax.plot([], [], 'o', markeredgecolor=color,
-        #         fillstyle='full', ms=3, mew=2.5, zorder=3)
-        #     self.sample_plots.append(plot[0])
-        #
-        # # labels != prediction, prediction stays inside of circle
-        # for c in range(self.class_num):
-        #     color = self.cmap(c / (self.class_num - 1))
-        #     plot = self.ax.plot([], [], '.', markeredgecolor=color,
-        #                         fillstyle='full', ms=2, zorder=4)
-        #     self.sample_plots.append(plot[0])
-        #
-        # # highlight
-        # color = (0.0, 0.0, 0.0, 1.0)
-        # plot = self.ax.plot([], [], 'o', markeredgecolor=color,
-        #                     fillstyle='full', ms=1, mew=1, zorder=1)
-        # self.sample_plots.append(plot[0])
-
         # train_data labels
         for c in range(self.class_num):
             color = self.cmap(c/(self.class_num-1))
-            plot = self.ax.plot([], [], '.', label=self.classes[c], ms=1,
+            plot = self.ax.plot([], [], '.', label=self.classes[c], ms=5,
                 color=color, zorder=2, picker=mpl.rcParams['lines.markersize'])
             self.sample_plots.append(plot[0])
 
@@ -1140,7 +1240,7 @@ class MMS:
         # self.fig.canvas.mpl_connect('button_press_event', self.show_sample)
         self.disable_synth = False
 
-    def customize_visualize(self, epoch_id, train_data, train_labels, test_data, test_labels, path, highlight_index):
+    def customize_visualize(self, epoch_id, test_data, test_labels, path):
         '''
         Shows the current plot.
         training data in small dot, test data in larger triangle, highlight in red
@@ -1157,46 +1257,21 @@ class MMS:
         self.ax.set_xlim((x_min, x_max))
         self.ax.set_ylim((y_min, y_max))
 
-        # params_str = 'res: %d'
-        # desc = params_str % (self.resolution)
-        # self.desc.set_text(desc)
-
-        # pred = self.get_pred(epoch_id, train_data)
-        # pred = pred.argmax(axis=1)
 
         proj_encoder = self.get_proj_model(epoch_id)
-        embedding = proj_encoder(train_data).cpu().numpy()
+        embedding = proj_encoder(test_data).cpu().numpy()
         # test_embedding = proj_encoder(test_data).cpu().numpy()
-        # for c in range(self.class_num):
-        #     data = embedding[np.logical_and(train_labels == c, train_labels == pred)]
-        #     self.sample_plots[c].set_data(data.transpose())
-        #
-        # for c in range(self.class_num):
-        #     data = embedding[np.logical_and(train_labels == c, train_labels != pred)]
-        #     self.sample_plots[self.class_num + c].set_data(data.transpose())
+        for c in range(self.class_num):
+            # data = embedding[np.logical_and(train_labels == c, train_labels == pred)]
+            data = embedding[(test_labels == c)]
+            self.sample_plots[c].set_data(data.transpose())
+
+        # if os.name == 'posix':
+        #     self.fig.canvas.manager.window.raise_()
         # #
-        # for c in range(self.class_num):
-        #     data = embedding[np.logical_and(pred == c, train_labels != pred)]
-        #     self.sample_plots[2 * self.class_num + c].set_data(data.transpose())
-        #
-        # data = embedding[highlight_index]
-        # self.sample_plots[3 * self.class_num].set_data(data.transpose())
-        # for c in range(self.class_num):
-        #     data = embedding[train_labels == c]
-        #     self.sample_plots[c].set_data(data.transpose())
-        # for c in range(self.class_num):
-        #     data = test_embedding[test_labels == c]
-        #     self.sample_plots[self.class_num + c].set_data(data.transpose())
-        data = embedding[highlight_index]
-        self.sample_plots[2*self.class_num].set_data(data.transpose())
-
-        if os.name == 'posix':
-            self.fig.canvas.manager.window.raise_()
-
         self.fig.canvas.draw()
         self.fig.canvas.flush_events()
 
-        # plt.text(-8, 8, "test", fontsize=18, style='oblique', ha='center', va='top', wrap=True)
         plt.savefig(path, bbox_inches='tight', pad_inches=0)
 
     def _al_visualize_init(self):
@@ -1347,9 +1422,10 @@ class MMS:
 
         return val
 
-    def proj_temporal_perseverance_train(self, n_neighbors=15):
+    def proj_temporal_perseverance_train(self, n_neighbors=15, eval_name=""):
         """evalute training temporal preserving property"""
-        l = len(self.training_labels)
+        l = load_labelled_data_index(os.path.join(self.model_path, "Epoch_{:d}".format(self.epoch_start), "index.json"))
+        l = len(l)
         eval_num = int((self.epoch_end - self.epoch_start) / self.period)
         alpha = np.zeros((eval_num, l))
         delta_x = np.zeros((eval_num, l))
@@ -1380,27 +1456,52 @@ class MMS:
 
         # val_entropy = evaluate_proj_temporal_perseverance_entropy(alpha, delta_x)
         val_corr = evaluate_proj_temporal_perseverance_corr(alpha, delta_x)
+        # save result
+        save_dir = os.path.join(self.model_path,  "time{}.json".format(eval_name))
+        if not os.path.exists(save_dir):
+            evaluation = dict()
+        else:
+            f = open(save_dir, "r")
+            evaluation = json.load(f)
+            f.close()
+        evaluation["temporal_train_{}".format(n_neighbors)] = val_corr
+        with open(save_dir, "w") as f:
+            json.dump(evaluation, f)
+        if self.verbose:
+            print("succefully save train corr {}".format(val_corr))
         return val_corr
 
-    def proj_temporal_perseverance_test(self, n_neighbors=15):
+    def proj_temporal_perseverance_test(self, n_neighbors=15, eval_name=""):
         """evalute testing temporal preserving property"""
-        l = len(self.testing_labels)
+        test_path = os.path.join(self.model_path, "Epoch_{:d}".format(self.epoch_start), "test_index.json")
+        if os.path.exists(test_path):
+            test_l = load_labelled_data_index(test_path)
+            test_l = len(test_l)
+        else:
+            test_l= len(self.testing_labels)
+
+        train_path = os.path.join(self.model_path, "Epoch_{:d}".format(self.epoch_start), "index.json")
+        train_l = load_labelled_data_index(train_path)
+        train_l = len(train_l)
+
+        l = train_l + test_l
+
         eval_num = int((self.epoch_end - self.epoch_start) / self.period)
         alpha = np.zeros((eval_num, l))
         delta_x = np.zeros((eval_num, l))
         for n_epoch in range(self.epoch_start + self.period, self.epoch_end + 1, self.period):
-
-            # prev_data = self.get_representation_data(n_epoch-self.period, self.testing_data)
-            prev_data = self.get_epoch_test_repr_data(n_epoch - self.period)
+            prev_data_test = self.get_epoch_test_repr_data(n_epoch - self.period)
+            prev_data_train = self.get_epoch_train_repr_data(n_epoch - self.period)
+            prev_data = np.concatenate((prev_data_train, prev_data_test), axis=0)
             encoder = self.get_proj_model(n_epoch - self.period)
             prev_embedding = encoder(prev_data).cpu().numpy()
-
             del encoder
             gc.collect()
 
-            # data = self.get_representation_data(n_epoch, self.testing_data)
             encoder = self.get_proj_model(n_epoch)
-            data = self.get_epoch_test_repr_data(n_epoch)
+            test_data = self.get_epoch_test_repr_data(n_epoch)
+            train_data = self.get_epoch_train_repr_data(n_epoch)
+            data = np.concatenate((train_data, test_data), axis=0)
             embedding = encoder(data).cpu().numpy()
 
             del encoder
@@ -1411,8 +1512,21 @@ class MMS:
             alpha[int((n_epoch - self.epoch_start) / self.period - 1)] = alpha_
             delta_x[int((n_epoch - self.epoch_start) / self.period - 1)] = delta_x_
 
-        # val_entropy = evaluate_proj_temporal_perseverance_entropy(alpha, delta_x)
         val_corr = evaluate_proj_temporal_perseverance_corr(alpha, delta_x)
+
+        # save result
+        save_dir = os.path.join(self.model_path,  "time{}.json".format(eval_name))
+        if not os.path.exists(save_dir):
+            evaluation = dict()
+        else:
+            f = open(save_dir, "r")
+            evaluation = json.load(f)
+            f.close()
+        evaluation["temporal_test_{}".format(n_neighbors)] = val_corr
+        with open(save_dir, "w") as f:
+            json.dump(evaluation, f)
+        if self.verbose:
+            print("successfully save test corr {}".format(val_corr))
 
         return val_corr
 
@@ -1538,6 +1652,43 @@ class MMS:
         val = evaluate_inv_conf(labels, ori_pred, new_pred)
         return val
 
+    def keep_B_train(self, epoch_id, resolution=400, threshold=0.7):
+        train_data = self.get_epoch_train_repr_data(epoch_id)
+        preds = self.get_pred(epoch_id, train_data)
+        is_border = is_B(preds)
+        border_points = train_data[is_border]
+        grid_view, decision_view = self.get_epoch_decision_view(epoch_id, resolution=resolution)
+        low_B = self.batch_project(border_points, epoch_id)
+
+        ans = evaluate_keep_B(low_B, grid_view, decision_view, threshold=threshold)
+        if self.verbose:
+            print("{:.2f}% of training boundary points still lie on boundary after dimension reduction...".format(ans*100))
+        return ans
+
+    def keep_B_test(self, epoch_id, resolution=400, threshold=0.7):
+        test_data = self.get_epoch_test_repr_data(epoch_id)
+        preds = self.get_pred(epoch_id, test_data)
+        is_border = is_B(preds)
+        border_points = test_data[is_border]
+
+        grid_view, decision_view = self.get_epoch_decision_view(epoch_id, resolution=resolution)
+        low_B = self.batch_project(border_points, epoch_id)
+
+        ans = evaluate_keep_B(low_B, grid_view, decision_view, threshold=threshold)
+        if self.verbose:
+            print("{:.2f}% of testing boundary points still lie on boundary after dimension reduction...".format(ans*100))
+        return ans
+
+    def keep_B_boundary(self, epoch_id, resolution=400, threshold=0.7):
+        border_points = self.get_epoch_border_centers(epoch_id)
+        grid_view, decision_view = self.get_epoch_decision_view(epoch_id, resolution=resolution)
+        low_B = self.batch_project(border_points, epoch_id)
+
+        ans = evaluate_keep_B(low_B, grid_view, decision_view, threshold=threshold)
+        if self.verbose:
+            print("{:.2f}% of boundary points still lie on boundary after dimension reduction...".format(ans*100))
+        return ans
+
     def point_inv_preserve(self, epoch_id, data):
         """
         get inverse confidence for a single point
@@ -1612,6 +1763,7 @@ class MMS:
                 value = round(value, 2)
                 evaluation_new[item] = value
         return evaluation_new
+
 
     '''subject model'''
     def training_accu(self, epoch_id):
@@ -1742,10 +1894,152 @@ class MMS:
             return [-1 for i in range(train_num+test_num)]
 
     def save_DVI_selection(self, epoch_id, indices):
-        save_location = os.path.join(self.model_path, "Epoch_{}".format(epoch_id),"DVISelection.json")
+        """
+        save the selected index message from DVI frontend
+        :param epoch_id:
+        :param indices: list, selected indices
+        :return:
+        """
+        save_location = os.path.join(self.model_path, "Epoch_{}".format(epoch_id), "DVISelection.json")
         with open(save_location, "w") as f:
             json.dump(indices, f)
-    ############################# DVI tensorboard frontend #################################
+    ######################################## DVI tensorboard frontend ###############################################
+
+    # TODO setup APIs to get attributes for DVI frontend
+    # Subject Model table
+    def subject_model_table(self):
+        """
+        get the dataframe for subject model table
+        :return:
+        """
+        path_list = []
+        epoch_list = []
+        train_accu = []
+        test_accu = []
+        for n_epoch in range(self.epoch_start, self.epoch_end+1, self.period):
+            path = os.path.join(self.model_path, "Epoch_{}".format(n_epoch), "subject_model.pth")
+            path_list.append(path)
+            epoch_list.append(n_epoch)
+            train_accu.append(self.training_accu(n_epoch))
+            test_accu.append(self.testing_accu(n_epoch))
+        df_dict = {
+            "location": path_list,
+            "epoch": epoch_list,
+            "train_accu": train_accu,
+            "test_accu": test_accu
+        }
+        df = pd.DataFrame(df_dict, index=pd.Index(range(len(path_list)), name="idx"))
+        return df
+
+    # Visualization model table
+    def vis_model_table(self):
+        """
+        get the dataframe for vis model table
+        :return:
+        """
+        temporal = False
+        if self.temporal:
+            temporal = True
+        path_list = []
+        epoch_list = []
+        temporal_list = []
+        nn_train = []
+        boundary_train = []
+        ppr_train = []
+        ccr_train = []
+        nn_test = []
+        boundary_test = []
+        ppr_test = []
+        ccr_test = []
+        for n_epoch in range(self.epoch_start, self.epoch_end+1, self.period):
+            path = os.path.join(self.model_path, "Epoch_{}".format(n_epoch))
+            path_list.append(path)
+            epoch_list.append(n_epoch)
+            temporal_list.append(temporal)
+
+            eval_path = os.path.join(self.model_path, "Epoch_{}".format(n_epoch), "evaluation.json")
+            with open(eval_path, "r") as f:
+                eval = json.load(f)
+            nn_train.append(eval["nn_train_15"])
+            nn_test.append(eval["nn_test_15"])
+            boundary_train.append(eval["bound_train_15"])
+            boundary_test.append(eval["bound_test_15"])
+            ppr_train.append(eval["inv_acc_train"])
+            ppr_test.append(eval["inv_acc_test"])
+            ccr_train.append(eval["inv_conf_train"])
+            ccr_test.append(eval["inv_conf_test"])
+        df_dict = {
+            "location": path_list,
+            "epoch": epoch_list,
+            "temporal_loss": temporal_list,
+            "nn_train": nn_train,
+            "nn_test": nn_test,
+            "boundary_train": boundary_train,
+            "boundary_test": boundary_test,
+            "ppr_train": ppr_train,
+            "ppr_test": ppr_test,
+            "ccr_train":ccr_train,
+            "ccr_test": ccr_test
+        }
+        df = pd.DataFrame(df_dict, index=pd.Index(range(len(path_list)), name="idx"))
+        # TODO check epoch_start and epoch_end
+        return df
+
+    # Sample table
+    def sample_table(self):
+        """
+        sample table:
+            label
+            index
+            type:["train", "test", others...]
+            customized attributes
+        :return:
+        """
+        train_labels = self.training_labels.cpu().numpy().tolist()
+        test_labels = self.testing_labels.cpu().numpy().tolist()
+        labels = train_labels + test_labels
+        train_type = ["train" for i in range(len(train_labels))]
+        test_type = ["test" for i in range(len(test_labels))]
+        types = train_type + test_type
+        df_dict = {
+            "labels": labels,
+            "type": types
+        }
+
+        df = pd.DataFrame(df_dict, index=pd.Index(range(len(labels)), name="idx"))
+        return df
+
+    def sample_table_AL(self):
+        """
+        sample table for active learning scenarios
+        :return:
+        """
+        df = self.sample_table()
+        new_selected_epoch = [-1 for _ in range(len(self.training_labels)+len(self.testing_labels))]
+        new_selected_epoch = np.array(new_selected_epoch)
+        for epoch_id in range(self.epoch_start, self.epoch_end+1, self.period):
+            labeled = np.array(self.get_epoch_index(epoch_id))
+            new_selected_epoch[labeled] = epoch_id
+        df["al_selected_epoch"] = new_selected_epoch.tolist()
+        return df
+
+    def sample_table_noisy(self):
+        df = self.sample_table()
+        noisy_data = self.noisy_data_index()
+        is_noisy = np.array([False for _ in range(len(self.training_labels)+len(self.testing_labels))])
+        is_noisy[noisy_data] = True
+
+        original_label = self.get_original_labels().tolist()
+        test_labels = self.testing_labels.cpu().numpy().tolist()
+        for ele in test_labels:
+            original_label.append(ele)
+        # original_label.extend(test_labels)
+
+        df["original_label"] = original_label
+        df["is_noisy"] = is_noisy.tolist()
+        return df
+
+    # customized features
     def filter_label(self, label):
         try:
             index = self.classes.index(label)
@@ -1758,7 +2052,7 @@ class MMS:
         idxs = np.squeeze(idxs)
         return idxs
 
-    def filter_type(self,type, epoch_id):
+    def filter_type(self, type, epoch_id):
         if type == "train":
             res = self.get_epoch_index(epoch_id)
         elif type == "test":
@@ -1784,4 +2078,3 @@ class MMS:
     def filter_prediction(self, pred):
         pass
 
-    # uncertainty or diversity
