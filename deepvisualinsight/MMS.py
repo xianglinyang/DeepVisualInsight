@@ -222,6 +222,31 @@ class MMS:
             location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "border_labels.npy")
             np.save(location, np.array(border_cls))
 
+            border_points, curr_samples, tot_num = utils_advanced.get_border_points(model=self.model,
+                                                                                    input_x=training_data,
+                                                                                    confs=confs,
+                                                                                    predictions=preds,
+                                                                                    device=self.device,
+                                                                                    alpha=self.alpha,
+                                                                                    num_adv_eg=num_adv_eg,
+                                                                                    # num_cls=10,
+                                                                                    lambd=0.05,
+                                                                                    verbose=0)
+
+            # get gap layer data
+            border_points = border_points.to(self.device)
+            border_centers = batch_run(repr_model, border_points, self.repr_num)
+            location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "test_border_centers.npy")
+            np.save(location, border_centers)
+
+            location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "test_ori_border_centers.npy")
+            np.save(location, border_points.cpu().numpy())
+
+            confs = batch_run(self.model, border_points, 10)
+            border_cls = np.argmax(confs, axis=1).squeeze()
+            location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "test_border_labels.npy")
+            np.save(location, np.array(border_cls))
+
             # training data clustering
             data_pool = self.training_data
             data_pool = data_pool.to(self.device)
@@ -279,8 +304,8 @@ class MMS:
         t_s = time.time()
         epoch_num = 0
         # for n_epoch in range(self.epoch_start, self.epoch_end + 1, self.period):
-        # for n_epoch in [self.epoch_start,int((self.epoch_start+ self.epoch_end)/2), self.epoch_end]:
-        for n_epoch in [1,4,10]:
+        for n_epoch in [self.epoch_start,int((self.epoch_start+ self.epoch_end)/2), self.epoch_end]:
+        # for n_epoch in [1,4,10]:
             epoch_num = epoch_num + 1
             save_dir = os.path.join(self.model_path, "Epoch_{}".format(n_epoch), "evaluation{}.json".format(name))
             if os.path.exists(save_dir):
@@ -911,6 +936,16 @@ class MMS:
         else:
             print("No data!")
             return None
+    
+    def get_epoch_test_border_centers(self, epoch_id):
+        """get border representations"""
+        location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "test_border_centers.npy")
+        if os.path.exists(location):
+            data = np.load(location)
+            return data.squeeze()
+        else:
+            print("No data!")
+            return None
 
     def is_deltaB(self, epoch_id, data):
         """
@@ -1490,7 +1525,8 @@ class MMS:
     def proj_boundary_perseverance_knn_test(self, epoch_id, n_neighbors=15):
         """evalute testing boundary preserving property"""
         encoder = self.get_proj_model(epoch_id)
-        border_centers = self.get_epoch_border_centers(epoch_id)
+        # border_centers = self.get_epoch_border_centers(epoch_id)
+        border_centers = self.get_epoch_test_border_centers(epoch_id)
         train_data = self.get_epoch_train_repr_data(epoch_id)
         test_data = self.get_epoch_test_repr_data(epoch_id)
         fitting_data = np.concatenate((train_data, test_data), axis=0)
@@ -1642,10 +1678,17 @@ class MMS:
 
             high_dists[:, (n_epoch-self.epoch_start)//self.period] = high_dist
             low_dists[:, (n_epoch-self.epoch_start)//self.period] = low_dist
-        high_rankings = np.argsort(high_dists, axis=1)[:, :k]
-        low_rankings = np.argsort(low_dists, axis=1)[:, :k]
 
-        corr = np.zeros(len(high_dist))
+        # find the index of top k dists
+        high_orders = np.argsort(high_dists, axis=1)
+        low_orders = np.argsort(low_dists, axis=1)
+        high_rankings = np.zeros((high_orders.shape[0], k), dtype=int)
+        low_rankings = np.zeros((high_orders.shape[0], k), dtype=int)
+        for i in range(len(high_orders)):
+            high_rankings[i] = np.argwhere(high_orders[i]<k).squeeze()
+            low_rankings[i] = np.argwhere(low_orders[i]<k).squeeze()
+
+        corr = np.zeros(len(high_dists))
         for i in range(len(data)):
             corr[i] = len(np.intersect1d(high_rankings[i], low_rankings[i]))
         corr_std = corr.std()
@@ -1700,10 +1743,16 @@ class MMS:
 
             high_dists[:, (n_epoch-self.epoch_start)//self.period] = high_dist
             low_dists[:, (n_epoch-self.epoch_start)//self.period] = low_dist
-        high_rankings = np.argsort(high_dists, axis=1)[:,:k]
-        low_rankings = np.argsort(low_dists, axis=1)[:,:k]
+        # find the index of top k dists
+        high_orders = np.argsort(high_dists, axis=1)
+        low_orders = np.argsort(low_dists, axis=1)
+        high_rankings = np.zeros((high_orders.shape[0], k), dtype=int)
+        low_rankings = np.zeros((high_orders.shape[0], k), dtype=int)
+        for i in range(len(high_orders)):
+            high_rankings[i] = np.argwhere(high_orders[i]<k).squeeze()
+            low_rankings[i] = np.argwhere(low_orders[i]<k).squeeze()
 
-        corr = np.zeros(len(high_dist))
+        corr = np.zeros(len(high_dists))
         for i in range(len(data)):
             corr[i] = len(np.intersect1d(high_rankings[i], low_rankings[i]))
         corr_std = corr.std()
@@ -1731,7 +1780,66 @@ class MMS:
             print("succefully save (test) ranking corr for {}-th epoch {}: mean {:.3f}\t std {:.3f}".format(epoch,k,val_corr, corr_std))
         return val_corr
     
+    def proj_spatial_temporal_nn_train(self, n_neighbors, feature_dim, eval_name=""):
+        """
+            evaluate whether vis model can preserve the ranking of close spatial and temporal neighbors
+        """
+        # TODO: scale up to 100 epochs
+        l = load_labelled_data_index(os.path.join(self.model_path, "Epoch_{:d}".format(self.epoch_start), "index.json"))
+        train_num = len(l)
+        epoch_num = int((self.epoch_end - self.epoch_start) / self.period) + 1
 
+        high_features = np.zeros((epoch_num*train_num, feature_dim))
+        low_features = np.zeros((epoch_num*train_num, 2))
+
+        for t in range(epoch_num):
+            encoder = self.get_proj_model(t * self.period + self.epoch_start)
+            data = self.get_epoch_train_repr_data(t * self.period + self.epoch_start)
+            embedding = encoder(data).cpu().numpy()
+            del encoder
+            gc.collect()
+            high_features[t*train_num:(t+1)*train_num] = data
+            low_features[t*train_num:(t+1)*train_num] = embedding
+        val = evaluate_proj_nn_perseverance_knn(high_features, low_features, n_neighbors)
+
+        if self.verbose:
+            print("Spatial/Temporal nn preserving (train):\t{:.3f}/{:d}".format(val, n_neighbors))
+        return val
+
+    def proj_spatial_temporal_nn_test(self, n_neighbors, feature_dim, eval_name=""):
+        """
+            evaluate whether vis model can preserve the ranking of close spatial and temporal neighbors
+        """
+        # TODO scale up to 100 epochs
+        test_path = os.path.join(self.model_path, "Epoch_{:d}".format(self.epoch_start), "test_index.json")
+        if os.path.exists(test_path):
+            l = load_labelled_data_index(test_path)
+            test_num = len(l)
+        else:
+            test_num = len(self.testing_labels)
+        l = load_labelled_data_index(os.path.join(self.model_path, "Epoch_{:d}".format(self.epoch_start), "index.json"))
+        train_num = len(l)
+        num = train_num + test_num
+        epoch_num = int((self.epoch_end - self.epoch_start) / self.period) + 1
+
+        high_features = np.zeros((epoch_num*num, feature_dim))
+        low_features = np.zeros((epoch_num*num, 2))
+
+        for t in range(epoch_num):
+            encoder = self.get_proj_model(t * self.period + self.epoch_start)
+            train_data = self.get_epoch_train_repr_data(t * self.period + self.epoch_start)
+            test_data = self.get_epoch_test_repr_data(t * self.period + self.epoch_start)
+            data = np.concatenate((train_data, test_data), axis=0)
+            embedding = encoder(data).cpu().numpy()
+            del encoder
+            gc.collect()
+            high_features[t*num:(t+1)*num] = data
+            low_features[t*num:(t+1)*num] = embedding
+        val = evaluate_proj_nn_perseverance_knn(high_features, low_features, n_neighbors)
+
+        if self.verbose:
+            print("Spatial/Temporal nn preserving (test):\t{:.3f}/{:d}".format(val, n_neighbors))
+        return val
 
     
     def proj_temporal_corr_train(self, n_neighbors=15, n_grain=1, eval_name=""):
