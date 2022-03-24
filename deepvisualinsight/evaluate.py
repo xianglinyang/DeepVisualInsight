@@ -2,6 +2,7 @@
 Help functions to evaluate our visualization system
 """
 from sklearn.neighbors import KDTree
+from sklearn.neighbors import NearestNeighbors
 import numpy as np
 from scipy.stats import spearmanr
 from scipy.stats import pearsonr
@@ -77,11 +78,14 @@ def evaluate_proj_boundary_perseverance_knn(data, embedding, high_centers, low_c
     :param n_neighbors: int, the number of neighbors
     :return boundary preserving property: float,boundary preserving property
     """
-    high_tree = KDTree(high_centers)
-    low_tree = KDTree(low_centers)
+    high_neigh = NearestNeighbors(n_neighbors=n_neighbors, radius=0.4)
+    high_neigh.fit(high_centers)
+    high_ind = high_neigh.kneighbors(data, n_neighbors=n_neighbors, return_distance=False)
 
-    _, high_ind = high_tree.query(data, k=n_neighbors)
-    _, low_ind = low_tree.query(embedding, k=n_neighbors)
+    low_neigh = NearestNeighbors(n_neighbors=n_neighbors, radius=0.4)
+    low_neigh.fit(low_centers)
+    low_ind = low_neigh.kneighbors(embedding, n_neighbors=n_neighbors, return_distance=False)
+
     border_pres = np.zeros(len(data))
     for i in range(len(data)):
         border_pres[i] = len(np.intersect1d(high_ind[i], low_ind[i]))
@@ -212,7 +216,7 @@ def evaluate_proj_temporal_temporal_corr(high_rank, low_rank):
         r2 = low_rank[i]
         tau, _ = kendalltau(r1, r2)
         tau_l[i] = tau
-    return tau_l.mean(), tau_l.std()
+    return tau_l
 
 
 def evaluate_keep_B(low_B, grid_view, decision_view, threshold=0.8):
