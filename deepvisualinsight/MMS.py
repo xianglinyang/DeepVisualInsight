@@ -300,84 +300,109 @@ class MMS:
         if self.verbose > 0 :
             print("Average evaluation time for 1 epoch is {:.2f} seconds".format((t_e-t_s) / epoch_num))
 
-    def save_evaluation(self, eval=False, name=""):
+    def save_epoch_evaluation(self, n_epoch, eval=False, save_corr=False, eval_temporal=False, name=""):
         # evaluation information
         t_s = time.time()
-        epoch_num = 0
-        for n_epoch in [self.epoch_start,int((self.epoch_start+ self.epoch_end)/2), self.epoch_end]:
-            epoch_num = epoch_num + 1
-            save_dir = os.path.join(self.model_path, "Epoch_{}".format(n_epoch), "evaluation{}.json".format(name))
-            if os.path.exists(save_dir):
-                with open(save_dir, "r") as f:
-                    evaluation = json.load(f)
-            else:
-                evaluation = {}
-            self.proj_temporal_nn_train(n_epoch, 5, eval_name=name)
-            self.proj_temporal_nn_corr_test(n_epoch, 5, eval_name=name)
+        save_dir = os.path.join(self.model_path, "Epoch_{}".format(n_epoch), "evaluation{}.json".format(name))
+        if os.path.exists(save_dir):
+            with open(save_dir, "r") as f:
+                evaluation = json.load(f)
+        else:
+            evaluation = {}
+
+        evaluation['nn_train_15'] = self.proj_nn_perseverance_knn_train(n_epoch, 15)
+        evaluation['nn_test_15'] = self.proj_nn_perseverance_knn_test(n_epoch, 15)
+        evaluation['bound_train_15'] = self.proj_boundary_perseverance_knn_train(n_epoch, 15)
+        evaluation['bound_test_15'] = self.proj_boundary_perseverance_knn_test(n_epoch, 15)
+        evaluation['tnn_train_5'] = self.proj_temporal_nn_train(n_epoch, 5)
+        evaluation['tnn_test_5'] = self.proj_temporal_nn_test(n_epoch, 5)
+        if save_corr:
+            self.proj_temporal_global_ranking_corr_train(eval_name=name)
+            self.proj_temporal_global_ranking_corr_test(eval_name=name)
+
+        # for paper evaluation
+        if eval:
+            evaluation['nn_train_10'] = self.proj_nn_perseverance_knn_train(n_epoch, 10)
+            evaluation['nn_test_10'] = self.proj_nn_perseverance_knn_test(n_epoch, 10)
+            evaluation['bound_train_10'] = self.proj_boundary_perseverance_knn_train(n_epoch, 10)
+            evaluation['bound_test_10'] = self.proj_boundary_perseverance_knn_test(n_epoch, 10)
+
+            evaluation['nn_train_20'] = self.proj_nn_perseverance_knn_train(n_epoch, 20)
+            evaluation['nn_test_20'] = self.proj_nn_perseverance_knn_test(n_epoch, 20)
+            evaluation['bound_train_20'] = self.proj_boundary_perseverance_knn_train(n_epoch, 20)
+            evaluation['bound_test_20'] = self.proj_boundary_perseverance_knn_test(n_epoch, 20)
+
+            evaluation["temporal_train_10"] = self.proj_temporal_perseverance_train(10)
+            evaluation["temporal_test_10"] = self.proj_temporal_perseverance_test(10)
+            evaluation["temporal_train_20"] = self.proj_temporal_perseverance_train(20)
+            evaluation["temporal_test_20"] = self.proj_temporal_perseverance_test(20)
+
+            evaluation['tnn_train_3'] = self.proj_temporal_nn_train(n_epoch, 3)
+            evaluation['tnn_test_3'] = self.proj_temporal_nn_test(n_epoch, 3)
+            evaluation['tnn_train_7'] = self.proj_temporal_nn_train(n_epoch, 7)
+            evaluation['tnn_test_7'] = self.proj_temporal_nn_test(n_epoch, 7)
             
-            self.proj_temporal_global_ranking_corr_train(self.epoch_start, self.epoch_end, self.epoch_period, eval_name="DVI")
-            self.proj_temporal_global_ranking_corr_test(self.epoch_start, self.epoch_end, self.epoch_period, eval_name="DVI")
-            evaluation['nn_train_15'] = self.proj_nn_perseverance_knn_train(n_epoch, 15)
-            evaluation['nn_test_15'] = self.proj_nn_perseverance_knn_test(n_epoch, 15)
-            evaluation['bound_train_15'] = self.proj_boundary_perseverance_knn_train(n_epoch, 15)
-            evaluation['bound_test_15'] = self.proj_boundary_perseverance_knn_test(n_epoch, 15)
+        print("finish proj eval for Epoch {}".format(n_epoch))
 
-            # for paper evaluation
+        evaluation['inv_acc_train'] = self.inv_accu_train(n_epoch)
+        evaluation['inv_acc_test'] = self.inv_accu_test(n_epoch)
+        evaluation['inv_conf_train'] = self.inv_conf_diff_train(n_epoch)
+        evaluation['inv_conf_test'] = self.inv_conf_diff_test(n_epoch)
+        print("finish inv eval for Epoch {}".format(n_epoch))
+
+        # record time to project and inverse testing data
+        test_data = self.get_epoch_test_repr_data(n_epoch)
+        test_len = len(test_data)
+
+        proj = self.get_proj_model(n_epoch)
+        t0 = time.time()
+        test_embedded = proj(test_data)
+        t1 = time.time()
+        del proj
+        gc.collect()
+
+        inv = self.get_inv_model(n_epoch)
+        t2 = time.time()
+        _ = inv(test_embedded)
+        t3 = time.time()
+        del inv
+        gc.collect()
+
+        evaluation["time_test_proj"] = round(t1-t0, 3)
+        evaluation["time_test_inv"] = round(t3-t2, 3)
+        evaluation["test_len"] = test_len
+        
+        # subject model train/test accuracy
+        evaluation['acc_train'] = self.training_accu(n_epoch)
+        evaluation['acc_test'] = self.testing_accu(n_epoch)
+        print("finish subject model eval for Epoch {}".format(n_epoch))
+
+        with open(save_dir, 'w') as f:
+            json.dump(evaluation, f)
+        
+        # save temporal result
+        if eval_temporal:
+            save_dir = os.path.join(self.model_path,  "temporal{}.json".format(name))
+            if not os.path.exists(save_dir):
+                evaluation = dict()
+            else:
+                f = open(save_dir, "r")
+                evaluation = json.load(f)
+                f.close()
+            evaluation["temporal_train_15"] = self.proj_temporal_perseverance_train(15)
+            evaluation["temporal_test_15"] = self.proj_temporal_perseverance_test(15)
             if eval:
-                evaluation['nn_train_10'] = self.proj_nn_perseverance_knn_train(n_epoch, 10)
-                evaluation['nn_test_10'] = self.proj_nn_perseverance_knn_test(n_epoch, 10)
-                evaluation['bound_train_10'] = self.proj_boundary_perseverance_knn_train(n_epoch, 10)
-                evaluation['bound_test_10'] = self.proj_boundary_perseverance_knn_test(n_epoch, 10)
+                evaluation["temporal_train_10"] = self.proj_temporal_perseverance_train(10)
+                evaluation["temporal_test_10"] = self.proj_temporal_perseverance_test(10)
+                evaluation["temporal_train_20"] = self.proj_temporal_perseverance_train(20)
+                evaluation["temporal_test_20"] = self.proj_temporal_perseverance_test(20)
 
-                evaluation['nn_train_20'] = self.proj_nn_perseverance_knn_train(n_epoch, 20)
-                evaluation['nn_test_20'] = self.proj_nn_perseverance_knn_test(n_epoch, 20)
-                evaluation['bound_train_20'] = self.proj_boundary_perseverance_knn_train(n_epoch, 20)
-                evaluation['bound_test_20'] = self.proj_boundary_perseverance_knn_test(n_epoch, 20)
-                self.proj_temporal_nn_train(n_epoch, 7, eval_name=name)
-                self.proj_temporal_nn_test(n_epoch, 7, eval_name=name)
-            print("finish proj eval for Epoch {}".format(n_epoch))
-
-            evaluation['inv_acc_train'] = self.inv_accu_train(n_epoch)
-            evaluation['inv_acc_test'] = self.inv_accu_test(n_epoch)
-            evaluation['inv_conf_train'] = self.inv_conf_diff_train(n_epoch)
-            evaluation['inv_conf_test'] = self.inv_conf_diff_test(n_epoch)
-            print("finish inv eval for Epoch {}".format(n_epoch))
-
-            # record time to project and inverse testing data
-            test_data = self.get_epoch_test_repr_data(n_epoch)
-            test_len = len(test_data)
-
-            proj = self.get_proj_model(n_epoch)
-            t0 = time.time()
-            test_embedded = proj(test_data)
-            t1 = time.time()
-            del proj
-            gc.collect()
-
-            inv = self.get_inv_model(n_epoch)
-            t2 = time.time()
-            _ = inv(test_embedded)
-            t3 = time.time()
-            del inv
-            gc.collect()
-
-            evaluation["time_test_proj"] = round(t1-t0, 3)
-            evaluation["time_test_inv"] = round(t3-t2, 3)
-            evaluation["test_len"] = test_len
-
-            evaluation["temporal_train"] = self.proj_temporal_perseverance_train(15)
-            evaluation["temporal_test"] = self.proj_temporal_perseverance_test(15)
-
-            # subject model train/test accuracy
-            evaluation['acc_train'] = self.training_accu(n_epoch)
-            evaluation['acc_test'] = self.testing_accu(n_epoch)
-            print("finish subject model eval for Epoch {}".format(n_epoch))
-
-            with open(save_dir, 'w') as f:
+            with open(save_dir, "w") as f:
                 json.dump(evaluation, f)
+
         t_e = time.time()
         if self.verbose > 0 :
-            print("Average evaluation time for 1 epoch is {:.2f} seconds".format((t_e-t_s) / epoch_num))
+            print("Evaluation time for 1 epoch is {:.3f} seconds".format((t_e-t_s)))
 
     def prepare_visualization_for_all(self, encoder_in=None, decoder_in=None):
         """
@@ -1660,7 +1685,7 @@ class MMS:
 
         return val_corr
     
-    def proj_temporal_nn_train(self, epoch, k, eval_name=""):
+    def proj_temporal_nn_train(self, epoch, k):
         """evalute training temporal preserving property"""
 
         l = load_labelled_data_index(os.path.join(self.model_path, "Epoch_{:d}".format(self.epoch_start), "index.json"))
@@ -1700,28 +1725,28 @@ class MMS:
         corr_std = corr.std()
         val_corr = corr.mean()
 
-        # save result
-        save_dir = os.path.join(self.model_path,  "time{}.json".format(eval_name))
-        if not os.path.exists(save_dir):
-            evaluation = dict()
-        else:
-            f = open(save_dir, "r")
-            evaluation = json.load(f)
-            f.close()
-        if "temporal_nn_train" not in evaluation:
-            evaluation["temporal_nn_train"] = dict()
-        if not isinstance(evaluation["temporal_nn_train"], Mapping):
-            evaluation["temporal_nn_train"] = dict()
-        if str(epoch) not in evaluation["temporal_nn_train"]:
-            evaluation["temporal_nn_train"][str(epoch)] = dict()
-        evaluation["temporal_nn_train"][str(epoch)][str(k)] = float(val_corr)
-        with open(save_dir, "w") as f:
-            json.dump(evaluation, f)
+        # # save result
+        # save_dir = os.path.join(self.model_path,  "time{}.json".format(eval_name))
+        # if not os.path.exists(save_dir):
+        #     evaluation = dict()
+        # else:
+        #     f = open(save_dir, "r")
+        #     evaluation = json.load(f)
+        #     f.close()
+        # if "temporal_nn_train" not in evaluation:
+        #     evaluation["temporal_nn_train"] = dict()
+        # if not isinstance(evaluation["temporal_nn_train"], Mapping):
+        #     evaluation["temporal_nn_train"] = dict()
+        # if str(epoch) not in evaluation["temporal_nn_train"]:
+        #     evaluation["temporal_nn_train"][str(epoch)] = dict()
+        # evaluation["temporal_nn_train"][str(epoch)][str(k)] = float(val_corr)
+        # with open(save_dir, "w") as f:
+        #     json.dump(evaluation, f)
         if self.verbose:
             print("succefully save (train) temporal nn for {}-th epoch {}: mean {:.3f}\t std {:.3f}".format(epoch, k, val_corr, corr_std))
         return val_corr
 
-    def proj_temporal_nn_test(self, epoch, k, eval_name=""):
+    def proj_temporal_nn_test(self, epoch, k):
         """evalute testing temporal preserving property"""
         test_path = os.path.join(self.model_path, "Epoch_{:d}".format(self.epoch_start), "test_index.json")
         if os.path.exists(test_path):
@@ -1762,29 +1787,33 @@ class MMS:
         corr_std = corr.std()
         val_corr = corr.mean()
 
-        # save result
-        save_dir = os.path.join(self.model_path,  "time{}.json".format(eval_name))
-        if not os.path.exists(save_dir):
-            evaluation = dict()
-        else:
-            f = open(save_dir, "r")
-            evaluation = json.load(f)
-            f.close()
-        if "temporal_nn_test" not in evaluation:
-            evaluation["temporal_nn_test"] = dict()
-        if not isinstance(evaluation["temporal_nn_test"], Mapping):
-            evaluation["temporal_nn_test"] = dict()
-        if str(epoch) not in evaluation["temporal_nn_test"]:
-            evaluation["temporal_nn_test"][str(epoch)] = dict()
-        evaluation["temporal_nn_test"][str(epoch)][str(k)] = float(val_corr)
+        # # save result
+        # save_dir = os.path.join(self.model_path,  "time{}.json".format(eval_name))
+        # if not os.path.exists(save_dir):
+        #     evaluation = dict()
+        # else:
+        #     f = open(save_dir, "r")
+        #     evaluation = json.load(f)
+        #     f.close()
+        # if "temporal_nn_test" not in evaluation:
+        #     evaluation["temporal_nn_test"] = dict()
+        # if not isinstance(evaluation["temporal_nn_test"], Mapping):
+        #     evaluation["temporal_nn_test"] = dict()
+        # if str(epoch) not in evaluation["temporal_nn_test"]:
+        #     evaluation["temporal_nn_test"][str(epoch)] = dict()
+        # evaluation["temporal_nn_test"][str(epoch)][str(k)] = float(val_corr)
 
-        with open(save_dir, "w") as f:
-            json.dump(evaluation, f)
+        # with open(save_dir, "w") as f:
+        #     json.dump(evaluation, f)
         if self.verbose:
             print("succefully save (test) temporal nn for {}-th epoch {}: mean {:.3f}\t std {:.3f}".format(epoch,k,val_corr, corr_std))
         return val_corr
     
-    def proj_temporal_global_ranking_corr_train(self, start, end, period, eval_name="DVI"):
+    def proj_temporal_global_ranking_corr_train(self, start=None, end=None, period=None, eval_name="DVI"):
+        if start is None:
+            start = self.epoch_start
+            end = self.epoch_end
+            period = self.period
         train_num = self.train_num(start)
         EPOCH = (end - start) // period+1
         LEN = train_num
@@ -1815,7 +1844,11 @@ class MMS:
         np.save(os.path.join(self.model_path, eval_name + "_train_corrs.npy"), corrs)
         np.save(os.path.join(self.model_path, eval_name + "_train_ps.npy"), ps)
     
-    def proj_temporal_global_ranking_corr_test(self, start, end, period, eval_name="DVI"):
+    def proj_temporal_global_ranking_corr_test(self, start=None, end=None, period=None, eval_name="DVI"):
+        if start is None:
+            start = self.epoch_start
+            end = self.epoch_end
+            period = self.period
         test_num = self.test_num(start)
         LEN = test_num
         EPOCH = (end - start) // period +1

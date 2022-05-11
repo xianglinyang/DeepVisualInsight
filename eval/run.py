@@ -52,7 +52,7 @@ if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = visible_device
     # pytorch
     if cuda:
-        attack_device = "cuda:{}".format(visible_device)
+        attack_device = "cuda:{}".format(0)
     else:
         attack_device = "cpu"
 
@@ -90,11 +90,10 @@ if __name__ == "__main__":
         eval_name+="_A"
 
     mms = MMS(content_path, net, epoch_start, epoch_end, epoch_period, embedding_dim, num_classes, classes,
-              temperature=temperature, attention=True,
+              temperature=temperature, attention=attention,
               cmap="tab10", resolution=resolution, verbose=1,
               temporal=temporal, transfer_learning=transfer_learning, step3=False,
               split=split, alpha=alpha, withoutB=parametricUmap, attack_device=attack_device)
-
 
     # encoder_location = os.path.join(content_path, "Model", "Epoch_{:d}".format(136), "encoder_advance")
     # encoder = tf.keras.models.load_model(encoder_location)
@@ -104,22 +103,17 @@ if __name__ == "__main__":
     # if preprocess == 1:
     #     mms.data_preprocessing()
     # mms.prepare_visualization_for_all()
-    mms.save_evaluation(eval=True, name=eval_name)
-    # mms.eval_keep_B(name=eval_name)
-    # mms.proj_temporal_perseverance_train(10, eval_name)
-    # mms.proj_temporal_perseverance_test(10, eval_name)
-    # mms.proj_temporal_corr_train(10, eval_name)
-    # mms.proj_temporal_corr_test(10, eval_name)
-    # mms.proj_temporal_perseverance_train(15, eval_name)
-    # mms.proj_temporal_perseverance_test(15, eval_name)
-    # mms.proj_temporal_corr_train(15, n_grain=2, eval_name=eval_name)
-    # mms.proj_temporal_corr_test(15, n_grain=2, eval_name=eval_name)
-    # mms.proj_temporal_perseverance_train(20, eval_name)
-    # mms.proj_temporal_perseverance_test(20, eval_name)
-    # mms.proj_temporal_corr_train(20, eval_name)
-    # mms.proj_temporal_corr_test(20, eval_name)
-    # mms.eval_temporal_md_train(15, eval_name)
-    # mms.eval_temporal_md_test(15, eval_name)
-    # for i in range(1, 11, 1):
-    #     mms.proj_temporal_ranking_corr_train(i, eval_name="_step2_A")
-    #     mms.proj_temporal_ranking_corr_test(i, eval_name="_step2_A")
+
+    dataset = content_path.split("/")[-1]
+    EVAL_EPOCH_DICT = {
+        "resnet18_mnist":[4, 12, 20],
+        "resnet18_fmnist":[10,30,50],
+        "resnet18_cifar10":[40, 120, 200]
+    }
+    eval_epochs = EVAL_EPOCH_DICT[dataset]
+
+    mms.save_epoch_evaluation(eval_epochs[0], eval=True, save_corr=True, eval_temporal=True, name=eval_name)
+    mms.save_epoch_evaluation(eval_epochs[1], eval=True, save_corr=False, eval_temporal=False, name=eval_name)
+    mms.save_epoch_evaluation(eval_epochs[2], eval=True, save_corr=False, eval_temporal=False, name=eval_name)
+
+    
