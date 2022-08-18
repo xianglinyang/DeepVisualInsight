@@ -12,6 +12,10 @@ from scipy.special import softmax
 from scipy.spatial.distance import cdist
 from sklearn.neighbors import KDTree
 from collections.abc import Mapping
+from scipy.special import softmax
+from scipy import stats
+from scipy.spatial.distance import cosine
+from sklearn.neighbors import NearestNeighbors
 
 # from deepvisualinsight.utils import *
 # from deepvisualinsight.backend import *
@@ -300,7 +304,7 @@ class MMS:
         if self.verbose > 0 :
             print("Average evaluation time for 1 epoch is {:.2f} seconds".format((t_e-t_s) / epoch_num))
 
-    def save_epoch_evaluation(self, n_epoch, eval=False, save_corr=False, eval_temporal=False, name=""):
+    def save_epoch_evaluation(self, n_epoch, eval=False, eval_temporal=False, name=""):
         # evaluation information
         t_s = time.time()
         save_dir = os.path.join(self.model_path, "Epoch_{}".format(n_epoch), "evaluation{}.json".format(name))
@@ -310,15 +314,12 @@ class MMS:
         else:
             evaluation = {}
 
-        evaluation['nn_train_15'] = self.proj_nn_perseverance_knn_train(n_epoch, 15)
-        evaluation['nn_test_15'] = self.proj_nn_perseverance_knn_test(n_epoch, 15)
-        evaluation['bound_train_15'] = self.proj_boundary_perseverance_knn_train(n_epoch, 15)
-        evaluation['bound_test_15'] = self.proj_boundary_perseverance_knn_test(n_epoch, 15)
-        evaluation['tnn_train_5'] = self.proj_temporal_nn_train(n_epoch, 5)
-        evaluation['tnn_test_5'] = self.proj_temporal_nn_test(n_epoch, 5)
-        if save_corr:
-            self.proj_temporal_global_ranking_corr_train(eval_name=name)
-            self.proj_temporal_global_ranking_corr_test(eval_name=name)
+        # evaluation['nn_train_15'] = self.proj_nn_perseverance_knn_train(n_epoch, 15)
+        # evaluation['nn_test_15'] = self.proj_nn_perseverance_knn_test(n_epoch, 15)
+        # evaluation['bound_train_15'] = self.proj_boundary_perseverance_knn_train(n_epoch, 15)
+        # evaluation['bound_test_15'] = self.proj_boundary_perseverance_knn_test(n_epoch, 15)
+        # evaluation['tnn_train_5'] = self.proj_temporal_nn_train(n_epoch, 5)
+        # evaluation['tnn_test_5'] = self.proj_temporal_nn_test(n_epoch, 5)
 
         # for paper evaluation
         if eval:
@@ -332,50 +333,48 @@ class MMS:
             evaluation['bound_train_20'] = self.proj_boundary_perseverance_knn_train(n_epoch, 20)
             evaluation['bound_test_20'] = self.proj_boundary_perseverance_knn_test(n_epoch, 20)
 
-            evaluation["temporal_train_10"] = self.proj_temporal_perseverance_train(10)
-            evaluation["temporal_test_10"] = self.proj_temporal_perseverance_test(10)
-            evaluation["temporal_train_20"] = self.proj_temporal_perseverance_train(20)
-            evaluation["temporal_test_20"] = self.proj_temporal_perseverance_test(20)
-
             evaluation['tnn_train_3'] = self.proj_temporal_nn_train(n_epoch, 3)
             evaluation['tnn_test_3'] = self.proj_temporal_nn_test(n_epoch, 3)
             evaluation['tnn_train_7'] = self.proj_temporal_nn_train(n_epoch, 7)
             evaluation['tnn_test_7'] = self.proj_temporal_nn_test(n_epoch, 7)
             
-        print("finish proj eval for Epoch {}".format(n_epoch))
+        # print("finish proj eval for Epoch {}".format(n_epoch))
 
-        evaluation['inv_acc_train'] = self.inv_accu_train(n_epoch)
-        evaluation['inv_acc_test'] = self.inv_accu_test(n_epoch)
-        evaluation['inv_conf_train'] = self.inv_conf_diff_train(n_epoch)
-        evaluation['inv_conf_test'] = self.inv_conf_diff_test(n_epoch)
-        print("finish inv eval for Epoch {}".format(n_epoch))
+        # evaluation['inv_acc_train'] = self.inv_accu_train(n_epoch)
+        # evaluation['inv_acc_test'] = self.inv_accu_test(n_epoch)
+        # evaluation['inv_conf_train'] = self.inv_conf_diff_train(n_epoch)
+        # evaluation['inv_conf_test'] = self.inv_conf_diff_test(n_epoch)
+        # print("finish inv eval for Epoch {}".format(n_epoch))
 
-        # record time to project and inverse testing data
-        test_data = self.get_epoch_test_repr_data(n_epoch)
-        test_len = len(test_data)
+        evaluation['tr_train'] = self.proj_temporal_global_ranking_corr_train(n_epoch)
+        evaluation['tr_test'] = self.proj_temporal_global_ranking_corr_test(n_epoch)
 
-        proj = self.get_proj_model(n_epoch)
-        t0 = time.time()
-        test_embedded = proj(test_data)
-        t1 = time.time()
-        del proj
-        gc.collect()
+        # # record time to project and inverse testing data
+        # test_data = self.get_epoch_test_repr_data(n_epoch)
+        # test_len = len(test_data)
 
-        inv = self.get_inv_model(n_epoch)
-        t2 = time.time()
-        _ = inv(test_embedded)
-        t3 = time.time()
-        del inv
-        gc.collect()
+        # proj = self.get_proj_model(n_epoch)
+        # t0 = time.time()
+        # test_embedded = proj(test_data)
+        # t1 = time.time()
+        # del proj
+        # gc.collect()
 
-        evaluation["time_test_proj"] = round(t1-t0, 3)
-        evaluation["time_test_inv"] = round(t3-t2, 3)
-        evaluation["test_len"] = test_len
+        # inv = self.get_inv_model(n_epoch)
+        # t2 = time.time()
+        # _ = inv(test_embedded)
+        # t3 = time.time()
+        # del inv
+        # gc.collect()
+
+        # evaluation["time_test_proj"] = round(t1-t0, 3)
+        # evaluation["time_test_inv"] = round(t3-t2, 3)
+        # evaluation["test_len"] = test_len
         
-        # subject model train/test accuracy
-        evaluation['acc_train'] = self.training_accu(n_epoch)
-        evaluation['acc_test'] = self.testing_accu(n_epoch)
-        print("finish subject model eval for Epoch {}".format(n_epoch))
+        # # subject model train/test accuracy
+        # evaluation['acc_train'] = self.training_accu(n_epoch)
+        # evaluation['acc_test'] = self.testing_accu(n_epoch)
+        # print("finish subject model eval for Epoch {}".format(n_epoch))
 
         with open(save_dir, 'w') as f:
             json.dump(evaluation, f)
@@ -452,14 +451,14 @@ class MMS:
             train_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "train_data.npy")
 
             try:
-                train_data = np.load(train_data_loc)
+                train_data = np.load(train_data_loc).squeeze()
                 current_index = self.get_epoch_index(n_epoch)
                 train_data = train_data[current_index]
             except Exception as e:
                 print("no train data saved for Epoch {}".format(n_epoch))
                 continue
             try:
-                border_centers = np.load(border_centers_loc)
+                border_centers = np.load(border_centers_loc).squeeze()
             except Exception as e:
                 print("no border points saved for Epoch {}".format(n_epoch))
                 continue
@@ -481,10 +480,10 @@ class MMS:
                     prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch-self.period), "train_data.npy")
                     prev_border_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "border_centers.npy")
                     if os.path.exists(prev_data_loc) and self.epoch_start != n_epoch:
-                        prev_data = np.load(prev_data_loc)
+                        prev_data = np.load(prev_data_loc).squeeze()
                         prev_index = self.get_epoch_index(n_epoch-self.period)
                         prev_data = prev_data[prev_index]
-                        prev_border = np.load(prev_border_centers_loc)
+                        prev_border = np.load(prev_border_centers_loc).squeeze()
                     else:
                         prev_data = None
                         prev_border = None
@@ -551,7 +550,7 @@ class MMS:
                 else:
                     prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch-self.period), "train_data.npy")
                     if os.path.exists(prev_data_loc) and self.epoch_start != n_epoch:
-                        prev_data = np.load(prev_data_loc)
+                        prev_data = np.load(prev_data_loc).squeeze()
                         prev_index = self.get_epoch_index(n_epoch-self.period)
                         prev_data = prev_data[prev_index]
                     else:
@@ -1809,7 +1808,7 @@ class MMS:
             print("succefully save (test) temporal nn for {}-th epoch {}: mean {:.3f}\t std {:.3f}".format(epoch,k,val_corr, corr_std))
         return val_corr
     
-    def proj_temporal_global_ranking_corr_train(self, start=None, end=None, period=None, eval_name="DVI"):
+    def proj_temporal_global_ranking_corr_train(self, epoch,  start=None, end=None, period=None):
         if start is None:
             start = self.epoch_start
             end = self.epoch_end
@@ -1826,25 +1825,20 @@ class MMS:
             high_repr[index] = self.get_epoch_train_repr_data(i)
             low_repr[index] = self.batch_project(high_repr[index], i)
 
-        epochs = [i for i in range(start, end+1, period)]
-
-        corrs = np.zeros((EPOCH,LEN))
-        ps = np.zeros((EPOCH,LEN))
+        corrs = np.zeros(LEN)
+        e = (epoch - start) // period
         for i in range(LEN):
             high_embeddings = high_repr[:,i,:].squeeze()
             low_embeddings = low_repr[:,i,:].squeeze()
-            for epoch in epochs:
-                e = (epoch - start) // period
-                high_dists = np.linalg.norm(high_embeddings - high_embeddings[e], axis=1)
-                low_dists = np.linalg.norm(low_embeddings - low_embeddings[e], axis=1)
-                corr, p = spearmanr(high_dists, low_dists)
-                corrs[e][i] = corr
-                ps[e][i] = p
-        
-        np.save(os.path.join(self.model_path, eval_name + "_train_corrs.npy"), corrs)
-        np.save(os.path.join(self.model_path, eval_name + "_train_ps.npy"), ps)
+                
+            high_dists = np.linalg.norm(high_embeddings - high_embeddings[e], axis=1)
+            low_dists = np.linalg.norm(low_embeddings - low_embeddings[e], axis=1)
+            corr, _ = spearmanr(high_dists, low_dists)
+            corrs[i] = corr
+
+        return corrs.mean()
     
-    def proj_temporal_global_ranking_corr_test(self, start=None, end=None, period=None, eval_name="DVI"):
+    def proj_temporal_global_ranking_corr_test(self, epoch, start=None, end=None, period=None):
         if start is None:
             start = self.epoch_start
             end = self.epoch_end
@@ -1860,23 +1854,18 @@ class MMS:
 
             high_repr[index] = self.get_epoch_test_repr_data(i)
             low_repr[index] = self.batch_project(high_repr[index], i)
-        epochs = [i for i in range(start, end+1, period)]
-        corrs = np.zeros((EPOCH,LEN))
-        ps = np.zeros((EPOCH,LEN))
-
+        corrs = np.zeros(LEN)
+        e = (epoch - start) // period
         for i in range(LEN):
             high_embeddings = high_repr[:,i,:].squeeze()
             low_embeddings = low_repr[:,i,:].squeeze()
-            for epoch in epochs:
-                e = (epoch - start) // period
-                high_dists = np.linalg.norm(high_embeddings - high_embeddings[e], axis=1)
-                low_dists = np.linalg.norm(low_embeddings - low_embeddings[e], axis=1)
-                corr, p = spearmanr(high_dists, low_dists)
-                corrs[e][i] = corr
-                ps[e][i] = p
+                
+            high_dists = np.linalg.norm(high_embeddings - high_embeddings[e], axis=1)
+            low_dists = np.linalg.norm(low_embeddings - low_embeddings[e], axis=1)
+            corr, _ = spearmanr(high_dists, low_dists)
+            corrs[i] = corr
         
-        np.save(os.path.join(self.model_path, eval_name+"_test_corrs.npy"), corrs)
-        np.save(os.path.join(self.model_path, eval_name+"_test_ps.npy"), ps)
+        return corrs.mean()
     
     def proj_spatial_temporal_nn_train(self, n_neighbors, feature_dim, eval_name=""):
         """
@@ -2163,6 +2152,200 @@ class MMS:
         conf_diff = old_conf - new_conf
 
         return l, conf_diff
+    
+    def moving_invariants_train(self, e_s, e_t, resolution):
+        train_data_s = self.get_epoch_train_repr_data(e_s)
+        train_data_t = self.get_epoch_train_repr_data(e_t)
+
+        pred_s = self.get_pred(e_s, train_data_s)
+        pred_t = self.get_pred(e_t, train_data_t)
+
+        low_s = self.batch_project(train_data_s, e_s)
+        low_t = self.batch_project(train_data_t, e_t)
+
+
+        grid_view_s, _ = self.get_epoch_decision_view(e_s, resolution)
+        grid_view_t, _ = self.get_epoch_decision_view(e_t, resolution)
+
+        grid_view_s = grid_view_s.reshape(resolution*resolution, -1)
+        grid_view_t = grid_view_t.reshape(resolution*resolution, -1)
+
+        s_inv_m = self.get_inv_model(e_s)
+        t_inv_m = self.get_inv_model(e_s)
+
+
+        grid_samples_s = s_inv_m(grid_view_s).cpu().numpy()
+        grid_samples_t = t_inv_m(grid_view_t).cpu().numpy()
+
+
+        grid_pred_s = self.get_pred(e_s, grid_samples_s)+1e-8
+        grid_pred_t = self.get_pred(e_t, grid_samples_t)+1e-8
+
+        s_B = is_B(pred_s)
+        t_B = is_B(pred_t)
+
+        predictions_s = pred_s.argmax(1)
+        predictions_t = pred_t.argmax(1)
+
+        confident_sample = np.logical_and(np.logical_not(s_B),np.logical_not(t_B))
+        diff_pred = predictions_s!=predictions_t
+
+        selected = np.logical_and(diff_pred, confident_sample)
+
+        grid_s_B = is_B(grid_pred_s)
+        grid_t_B = is_B(grid_pred_t)
+
+        grid_predictions_s = grid_pred_s.argmax(1)
+        grid_predictions_t = grid_pred_t.argmax(1)
+
+        high_neigh = NearestNeighbors(n_neighbors=1, radius=0.4)
+        high_neigh.fit(grid_view_s)
+        _, knn_indices = high_neigh.kneighbors(low_s, n_neighbors=1, return_distance=True)
+
+        close_s_pred = grid_predictions_s[knn_indices].squeeze()
+        close_s_B = grid_s_B[knn_indices].squeeze()
+        s_true = np.logical_and(close_s_pred==predictions_s, close_s_B == s_B)
+        
+        high_neigh = NearestNeighbors(n_neighbors=1, radius=0.4)
+        high_neigh.fit(grid_view_t)
+        _, knn_indices = high_neigh.kneighbors(low_t, n_neighbors=1, return_distance=True)
+
+        close_t_pred = grid_predictions_t[knn_indices].squeeze()
+        close_t_B = grid_t_B[knn_indices].squeeze()
+        t_true = np.logical_and(close_t_pred==predictions_t, close_t_B == t_B)
+        return np.sum(np.logical_and(s_true[selected], t_true[selected])), np.sum(s_true[selected]), np.sum(t_true[selected]), np.sum(selected)
+
+    def moving_invariants_test(self, e_s, e_t, resolution):
+        test_data_s = self.get_epoch_test_repr_data(e_s)
+        test_data_t = self.get_epoch_test_repr_data(e_t)
+
+        pred_s = self.get_pred(e_s, test_data_s)
+        pred_t = self.get_pred(e_t, test_data_t)
+
+        low_s = self.batch_project(test_data_s, e_s)
+        low_t = self.batch_project(test_data_t, e_t)
+
+
+        grid_view_s, _ = self.get_epoch_decision_view(e_s, resolution)
+        grid_view_t, _ = self.get_epoch_decision_view(e_t, resolution)
+
+        grid_view_s = grid_view_s.reshape(resolution*resolution, -1)
+        grid_view_t = grid_view_t.reshape(resolution*resolution, -1)
+
+        s_inv_m = self.get_inv_model(e_s)
+        t_inv_m = self.get_inv_model(e_s)
+
+
+        grid_samples_s = s_inv_m(grid_view_s).cpu().numpy()
+        grid_samples_t = t_inv_m(grid_view_t).cpu().numpy()
+
+
+        grid_pred_s = self.get_pred(e_s, grid_samples_s)+1e-8
+        grid_pred_t = self.get_pred(e_t, grid_samples_t)+1e-8
+
+        s_B = is_B(pred_s)
+        t_B = is_B(pred_t)
+
+        predictions_s = pred_s.argmax(1)
+        predictions_t = pred_t.argmax(1)
+
+        confident_sample = np.logical_and(np.logical_not(s_B),np.logical_not(t_B))
+        diff_pred = predictions_s!=predictions_t
+
+        selected = np.logical_and(diff_pred, confident_sample)
+
+        grid_s_B = is_B(grid_pred_s)
+        grid_t_B = is_B(grid_pred_t)
+
+        grid_predictions_s = grid_pred_s.argmax(1)
+        grid_predictions_t = grid_pred_t.argmax(1)
+
+        high_neigh = NearestNeighbors(n_neighbors=1, radius=0.4)
+        high_neigh.fit(grid_view_s)
+        _, knn_indices = high_neigh.kneighbors(low_s, n_neighbors=1, return_distance=True)
+
+        close_s_pred = grid_predictions_s[knn_indices].squeeze()
+        close_s_B = grid_s_B[knn_indices].squeeze()
+        s_true = np.logical_and(close_s_pred==predictions_s, close_s_B == s_B)
+        
+        high_neigh = NearestNeighbors(n_neighbors=1, radius=0.4)
+        high_neigh.fit(grid_view_t)
+        _, knn_indices = high_neigh.kneighbors(low_t, n_neighbors=1, return_distance=True)
+
+        close_t_pred = grid_predictions_t[knn_indices].squeeze()
+        close_t_B = grid_t_B[knn_indices].squeeze()
+        t_true = np.logical_and(close_t_pred==predictions_t, close_t_B == t_B)
+        return np.sum(np.logical_and(s_true[selected], t_true[selected])), np.sum(s_true[selected]), np.sum(t_true[selected]), np.sum(selected)
+
+    def fixing_invariants_train(self, e_s, e_t, low_threshold, metric="euclidean"):
+        train_data_s = self.get_epoch_train_repr_data(e_s)
+        train_data_t = self.get_epoch_train_repr_data(e_t)
+
+        pred_s = self.get_pred(e_s, train_data_s)
+        pred_t = self.get_pred(e_t, train_data_t)
+
+        softmax_s = softmax(pred_s, axis=1)
+        softmax_t = softmax(pred_t, axis=1)
+
+        low_s = self.batch_project(train_data_s, e_s)
+        low_t = self.batch_project(train_data_t, e_t)
+
+        # normalize low_t
+        y_max = max(low_s[:, 1].max(), low_t[:, 1].max())
+        y_min = max(low_s[:, 1].min(), low_t[:, 1].min())
+        x_max = max(low_s[:, 0].max(), low_t[:, 0].max())
+        x_min = max(low_s[:, 0].min(), low_t[:, 0].min())
+        scale =min(100/(x_max - x_min), 100/(y_max - y_min))
+        low_t = low_t*scale
+        low_s = low_s*scale
+
+        if metric == "euclidean":
+            high_dists = np.linalg.norm(train_data_s-train_data_t, axis=1)
+        elif metric == "cosine":
+            high_dists = np.array([cosine(low_t[i], low_s[i]) for i in range(len(low_s))])
+        elif metric == "softmax":
+            high_dists = np.array([js_div(softmax_s[i], softmax_t[i]) for i in range(len(softmax_t))])
+        low_dists = np.linalg.norm(low_s-low_t, axis=1)
+        
+        high_threshold = find_nearest_dist(train_data_s)
+        selected = high_dists <= high_threshold
+
+        return np.sum(np.logical_and(selected, low_dists<=low_threshold)), np.sum(selected)
+    
+    def fixing_invariants_test(self, e_s, e_t, low_threshold, metric="euclidean"):
+        test_data_s = self.get_epoch_test_repr_data(e_s)
+        test_data_t = self.get_epoch_test_repr_data(e_t)
+
+        pred_s = self.get_pred(e_s, test_data_s)
+        pred_t = self.get_pred(e_t, test_data_t)
+
+        softmax_s = softmax(pred_s, axis=1)
+        softmax_t = softmax(pred_t, axis=1)
+
+        low_s = self.batch_project(test_data_s, e_s)
+        low_t = self.batch_project(test_data_t, e_t)
+
+        # normalize low_t
+        y_max = max(low_s[:, 1].max(), low_t[:, 1].max())
+        y_min = max(low_s[:, 1].min(), low_t[:, 1].min())
+        x_max = max(low_s[:, 0].max(), low_t[:, 0].max())
+        x_min = max(low_s[:, 0].min(), low_t[:, 0].min())
+        scale = min(100/(x_max - x_min), 100/(y_max - y_min))
+        low_t = low_t*scale
+        low_s = low_s*scale
+
+        if metric == "euclidean":
+            high_dists = np.linalg.norm(test_data_s-test_data_t, axis=1)
+        elif metric == "cosine":
+            high_dists = np.array([cosine(low_t[i], low_s[i]) for i in range(len(low_s))])
+        elif metric == "softmax":
+            high_dists = np.array([js_div(softmax_s[i], softmax_t[i]) for i in range(len(softmax_t))])
+        low_dists = np.linalg.norm(low_s-low_t, axis=1)
+        
+        high_threshold = find_nearest_dist(test_data_s)
+        selected = high_dists <= high_threshold
+
+        return np.sum(np.logical_and(selected, low_dists<=low_threshold)), np.sum(selected)
 
     def get_eval(self, epoch_id):
         with open(os.path.join(self.model_path, "Epoch_{}".format(epoch_id),"evaluation.json"), 'r') as f:

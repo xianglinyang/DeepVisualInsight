@@ -47,7 +47,7 @@ if __name__ == "__main__":
     attention = args.attention
     preprocess = args.preprocess
 
-    visible_device = "3"
+    visible_device = "1"
     # tensorflow
     os.environ["CUDA_VISIBLE_DEVICES"] = visible_device
     # pytorch
@@ -106,14 +106,13 @@ if __name__ == "__main__":
 
     dataset = content_path.split("/")[-1]
     EVAL_EPOCH_DICT = {
-        "resnet18_mnist":[4, 12, 20],
-        "resnet18_fmnist":[10,30,50],
-        "resnet18_cifar10":[40, 120, 200]
+        "resnet18_mnist":[1,2,3,10,15,20],
+        "resnet18_fmnist":[1,2,3,4,5,15,20,25,40,45,50],
+        "resnet18_cifar10":[1,5,10,20,30,100, 150, 190,200]
     }
     eval_epochs = EVAL_EPOCH_DICT[dataset]
 
-    mms.save_epoch_evaluation(eval_epochs[0], eval=True, save_corr=True, eval_temporal=True, name=eval_name)
-    mms.save_epoch_evaluation(eval_epochs[1], eval=True, save_corr=False, eval_temporal=False, name=eval_name)
-    mms.save_epoch_evaluation(eval_epochs[2], eval=True, save_corr=False, eval_temporal=False, name=eval_name)
+    for eval_epoch in eval_epochs:
+        mms.save_epoch_evaluation(eval_epoch, eval=False, eval_temporal=False, name=eval_name)
 
     
