@@ -314,8 +314,8 @@ class MMS:
         else:
             evaluation = {}
 
-        # evaluation['nn_train_15'] = self.proj_nn_perseverance_knn_train(n_epoch, 15)
-        # evaluation['nn_test_15'] = self.proj_nn_perseverance_knn_test(n_epoch, 15)
+        evaluation['nn_train_15'] = self.proj_nn_perseverance_knn_train(n_epoch, 15)
+        evaluation['nn_test_15'] = self.proj_nn_perseverance_knn_test(n_epoch, 15)
         # evaluation['bound_train_15'] = self.proj_boundary_perseverance_knn_train(n_epoch, 15)
         # evaluation['bound_test_15'] = self.proj_boundary_perseverance_knn_test(n_epoch, 15)
         # evaluation['tnn_train_5'] = self.proj_temporal_nn_train(n_epoch, 5)
@@ -340,14 +340,17 @@ class MMS:
             
         # print("finish proj eval for Epoch {}".format(n_epoch))
 
-        # evaluation['inv_acc_train'] = self.inv_accu_train(n_epoch)
-        # evaluation['inv_acc_test'] = self.inv_accu_test(n_epoch)
+        evaluation['inv_acc_train'] = self.inv_accu_train(n_epoch)
+        evaluation['inv_acc_test'] = self.inv_accu_test(n_epoch)
         # evaluation['inv_conf_train'] = self.inv_conf_diff_train(n_epoch)
         # evaluation['inv_conf_test'] = self.inv_conf_diff_test(n_epoch)
         # print("finish inv eval for Epoch {}".format(n_epoch))
 
-        evaluation['tr_train'] = self.proj_temporal_global_ranking_corr_train(n_epoch)
-        evaluation['tr_test'] = self.proj_temporal_global_ranking_corr_test(n_epoch)
+        # evaluation['tr_train'] = self.proj_temporal_global_ranking_corr_train(n_epoch)
+        # evaluation['tr_test'] = self.proj_temporal_global_ranking_corr_test(n_epoch)
+
+        evaluation['tlr_train'] = self.proj_temporal_local_ranking_corr_train(n_epoch, 3)
+        evaluation['tlr_test'] = self.proj_temporal_local_ranking_corr_test(n_epoch, 3)
 
         # # record time to project and inverse testing data
         # test_data = self.get_epoch_test_repr_data(n_epoch)
@@ -1865,6 +1868,77 @@ class MMS:
             corr, _ = spearmanr(high_dists, low_dists)
             corrs[i] = corr
         
+        return corrs.mean()
+    
+    def proj_temporal_local_ranking_corr_train(self, epoch, stage, start=None, end=None, period=None):
+        if start is None:
+            start = self.epoch_start
+            end = self.epoch_end
+            period = self.period
+        
+        # choose stage
+        timeline = np.arange(start, end+period, period)
+        # divide into several stages
+        stage_idxs =  np.array_split(timeline, stage)
+        selected_stage = stage_idxs[np.where([epoch in i for i in stage_idxs])[0][0]]
+        s = selected_stage[0]
+
+        LEN = self.train_num(start)
+        EPOCH = len(selected_stage)
+        repr_dim = np.prod(self.get_epoch_train_repr_data(start).shape[1:])
+        high_repr = np.zeros((EPOCH,LEN,repr_dim))
+        low_repr = np.zeros((EPOCH,LEN,2))
+
+        for i in selected_stage:
+            index = (i-s) // period
+            high_repr[index] = self.get_epoch_train_repr_data(i)
+            low_repr[index] = self.batch_project(high_repr[index], i)
+
+        corrs = np.zeros(LEN)
+        e = (epoch - s) // period
+        for i in range(LEN):
+            high_embeddings = high_repr[:,i,:].squeeze()
+            low_embeddings = low_repr[:,i,:].squeeze()
+                
+            high_dists = np.linalg.norm(high_embeddings - high_embeddings[e], axis=1)
+            low_dists = np.linalg.norm(low_embeddings - low_embeddings[e], axis=1)
+            corr, _ = spearmanr(high_dists, low_dists)
+            corrs[i] = corr
+
+        return corrs.mean()
+    
+    def proj_temporal_local_ranking_corr_test(self, epoch, stage, start=None, end=None, period=None):
+        if start is None:
+            start = self.epoch_start
+            end = self.epoch_end
+            period = self.period
+        timeline = np.arange(start, end+period, period)
+        # divide into several stages
+        stage_idxs =  np.array_split(timeline, stage)
+        selected_stage = stage_idxs[np.where([epoch in i for i in stage_idxs])[0][0]]
+        s = selected_stage[0]
+
+        LEN = self.test_num(start)
+        EPOCH = len(selected_stage)
+        repr_dim = np.prod(self.get_epoch_test_repr_data(s).shape[1:])
+        high_repr = np.zeros((EPOCH,LEN,repr_dim))
+        low_repr = np.zeros((EPOCH,LEN,2))
+
+        for i in selected_stage:
+            index = (i -s) // period
+            high_repr[index] = self.get_epoch_test_repr_data(i)
+            low_repr[index] = self.batch_project(high_repr[index], i)
+
+        corrs = np.zeros(LEN)
+        e = (epoch - s) // period
+        for i in range(LEN):
+            high_embeddings = high_repr[:,i,:].squeeze()
+            low_embeddings = low_repr[:,i,:].squeeze()
+                
+            high_dists = np.linalg.norm(high_embeddings - high_embeddings[e], axis=1)
+            low_dists = np.linalg.norm(low_embeddings - low_embeddings[e], axis=1)
+            corr, _ = spearmanr(high_dists, low_dists)
+            corrs[i] = corr
         return corrs.mean()
     
     def proj_spatial_temporal_nn_train(self, n_neighbors, feature_dim, eval_name=""):
