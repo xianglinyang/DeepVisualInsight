@@ -325,18 +325,18 @@ class MMS:
         if eval:
             evaluation['nn_train_10'] = self.proj_nn_perseverance_knn_train(n_epoch, 10)
             evaluation['nn_test_10'] = self.proj_nn_perseverance_knn_test(n_epoch, 10)
-            evaluation['bound_train_10'] = self.proj_boundary_perseverance_knn_train(n_epoch, 10)
-            evaluation['bound_test_10'] = self.proj_boundary_perseverance_knn_test(n_epoch, 10)
+            # evaluation['bound_train_10'] = self.proj_boundary_perseverance_knn_train(n_epoch, 10)
+            # evaluation['bound_test_10'] = self.proj_boundary_perseverance_knn_test(n_epoch, 10)
 
             evaluation['nn_train_20'] = self.proj_nn_perseverance_knn_train(n_epoch, 20)
             evaluation['nn_test_20'] = self.proj_nn_perseverance_knn_test(n_epoch, 20)
-            evaluation['bound_train_20'] = self.proj_boundary_perseverance_knn_train(n_epoch, 20)
-            evaluation['bound_test_20'] = self.proj_boundary_perseverance_knn_test(n_epoch, 20)
+            # evaluation['bound_train_20'] = self.proj_boundary_perseverance_knn_train(n_epoch, 20)
+            # evaluation['bound_test_20'] = self.proj_boundary_perseverance_knn_test(n_epoch, 20)
 
-            evaluation['tnn_train_3'] = self.proj_temporal_nn_train(n_epoch, 3)
-            evaluation['tnn_test_3'] = self.proj_temporal_nn_test(n_epoch, 3)
-            evaluation['tnn_train_7'] = self.proj_temporal_nn_train(n_epoch, 7)
-            evaluation['tnn_test_7'] = self.proj_temporal_nn_test(n_epoch, 7)
+            # evaluation['tnn_train_3'] = self.proj_temporal_nn_train(n_epoch, 3)
+            # evaluation['tnn_test_3'] = self.proj_temporal_nn_test(n_epoch, 3)
+            # evaluation['tnn_train_7'] = self.proj_temporal_nn_train(n_epoch, 7)
+            # evaluation['tnn_test_7'] = self.proj_temporal_nn_test(n_epoch, 7)
             
         # print("finish proj eval for Epoch {}".format(n_epoch))
 
