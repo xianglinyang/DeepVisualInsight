@@ -616,8 +616,21 @@ def define_autoencoder(dims, n_components, units, encoder=None, decoder=None):
             tf.keras.layers.Dense(units=units, activation="relu", name="e_4"),
             tf.keras.layers.Dense(units=n_components, name="e_5"),
         ])
+        # encoder = tf.keras.Sequential([
+        #     tf.keras.layers.InputLayer(input_shape=dims),
+        #     tf.keras.layers.Flatten(),
+        #     tf.keras.layers.Dense(units=units, activation="relu", name="e_1"),
+        #     tf.keras.layers.Dense(units=n_components, name="e_5"),
+        # ])
     # define the decoder
     if decoder is None:
+        # decoder = tf.keras.Sequential([
+        #     tf.keras.layers.InputLayer(input_shape=(n_components, )),
+        #     tf.keras.layers.Dense(units=units, activation="relu", name="d_1"),
+        #     tf.keras.layers.Dense(units=np.product(dims), name="recon", activation=None),
+        #     tf.keras.layers.Reshape(dims),
+
+        # ])
         decoder = tf.keras.Sequential([
             tf.keras.layers.InputLayer(input_shape=(n_components, )),
             tf.keras.layers.Dense(units=units, activation="relu", name="d_1"),
@@ -626,7 +639,6 @@ def define_autoencoder(dims, n_components, units, encoder=None, decoder=None):
             tf.keras.layers.Dense(units=units, activation="relu", name="d_4"),
             tf.keras.layers.Dense(units=np.product(dims), name="recon", activation=None),
             tf.keras.layers.Reshape(dims),
-
         ])
         return encoder, decoder
 

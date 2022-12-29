@@ -56,8 +56,8 @@ class ParametricModel(keras.Model):
             if self.attention:
                 reconstruct_loss = self.loss["reconstruction"](tf.cast(to_x, dtype=tf.float32), tf.cast(from_x, dtype=tf.float32), embedding_to_recon, embedding_from_recon, to_alpha, from_alpha)
             else:
-                reconstruct_loss = self.loss["reconstruction"](y_true=to_x, y_pred=embedding_to_recon) + \
-                                   self.loss["reconstruction"](y_true=from_x, y_pred=embedding_from_recon)
+                reconstruct_loss = self.loss["reconstruction"](y_true=to_x, y_pred=embedding_to_recon)/2 + \
+                                   self.loss["reconstruction"](y_true=from_x, y_pred=embedding_from_recon)/2
 
 
             # umap loss
