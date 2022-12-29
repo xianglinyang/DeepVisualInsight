@@ -171,6 +171,7 @@ class MMS:
         save data for later training
         '''
         time_borders_gen = list()
+        time_gen = list()
         for n_epoch in range(self.epoch_start, self.epoch_end+1, self.period):
             index_file = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "index.json")
             index = load_labelled_data_index(index_file)
@@ -190,67 +191,71 @@ class MMS:
             self.model = self.model.to(self.device)
             self.model.eval()
 
-            repr_model = torch.nn.Sequential(*(list(self.model.children())[:self.split]))
+            # repr_model = torch.nn.Sequential(*(list(self.model.children())[:self.split]))
+            repr_model = self.model.feature
 
-            n_clusters = math.floor(len(index) / 10)
+            n_clusters = math.floor(len(index) / self.class_num)
 
             t0 = time.time()
             training_data = training_data.to(self.device)
-            confs = batch_run(self.model, training_data, 10)
-            preds = np.argmax(confs, axis=1).squeeze()
-            num_adv_eg = int(len(training_data)/10)
-            # TODO refactor to one utils.py file, remove utils_advanced
-            border_points, curr_samples, tot_num = utils_advanced.get_border_points(model=self.model,
-                                                                                    input_x=training_data,
-                                                                                    confs=confs,
-                                                                                    predictions=preds,
-                                                                                    device=self.device,
-                                                                                    alpha=self.alpha,
-                                                                                    num_adv_eg=num_adv_eg,
-                                                                                    # num_cls=10,
-                                                                                    lambd=0.05,
-                                                                                    verbose=0)
-            t1 = time.time()
-            time_borders_gen.append(round(t1 - t0, 4))
+            
+            if not self.withoutB:
+                confs = batch_run(self.model, training_data, self.class_num)
+                preds = np.argmax(confs, axis=1).squeeze()
+                num_adv_eg = int(len(training_data)/self.class_num)
+                # TODO refactor to one utils.py file, remove utils_advanced
+                border_points, curr_samples, tot_num = utils_advanced.get_border_points(model=self.model,
+                                                                                        input_x=training_data,
+                                                                                        confs=confs,
+                                                                                        predictions=preds,
+                                                                                        device=self.device,
+                                                                                        alpha=self.alpha,
+                                                                                        num_adv_eg=num_adv_eg,
+                                                                                        # num_cls=10,
+                                                                                        lambd=0.05,
+                                                                                        verbose=0)
+                t1 = time.time()
+                time_borders_gen.append(round(t1 - t0, 4))
 
-            # get gap layer data
-            border_points = border_points.to(self.device)
-            border_centers = batch_run(repr_model, border_points, self.repr_num)
-            location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "border_centers.npy")
-            np.save(location, border_centers)
+                # get gap layer data
+                border_points = border_points.to(self.device)
+                border_centers = batch_run(repr_model, border_points, self.repr_num)
+                location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "border_centers.npy")
+                np.save(location, border_centers)
 
-            location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "ori_border_centers.npy")
-            np.save(location, border_points.cpu().numpy())
+                location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "ori_border_centers.npy")
+                np.save(location, border_points.cpu().numpy())
 
-            confs = batch_run(self.model, border_points, 10)
-            border_cls = np.argmax(confs, axis=1).squeeze()
-            location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "border_labels.npy")
-            np.save(location, np.array(border_cls))
+                confs = batch_run(self.model, border_points, self.class_num)
+                border_cls = np.argmax(confs, axis=1).squeeze()
+                location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "border_labels.npy")
+                np.save(location, np.array(border_cls))
 
-            border_points, curr_samples, tot_num = utils_advanced.get_border_points(model=self.model,
-                                                                                    input_x=training_data,
-                                                                                    confs=confs,
-                                                                                    predictions=preds,
-                                                                                    device=self.device,
-                                                                                    alpha=self.alpha,
-                                                                                    num_adv_eg=num_adv_eg,
-                                                                                    # num_cls=10,
-                                                                                    lambd=0.05,
-                                                                                    verbose=0)
+                border_points, curr_samples, tot_num = utils_advanced.get_border_points(model=self.model,
+                                                                                        input_x=training_data,
+                                                                                        confs=confs,
+                                                                                        predictions=preds,
+                                                                                        device=self.device,
+                                                                                        alpha=self.alpha,
+                                                                                        num_adv_eg=num_adv_eg,
+                                                                                        # num_cls=10,
+                                                                                        lambd=0.05,
+                                                                                        verbose=0)
 
-            # get gap layer data
-            border_points = border_points.to(self.device)
-            border_centers = batch_run(repr_model, border_points, self.repr_num)
-            location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "test_border_centers.npy")
-            np.save(location, border_centers)
+                # get gap layer data
+                border_points = border_points.to(self.device)
+                border_centers = batch_run(repr_model, border_points, self.repr_num)
+                location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "test_border_centers.npy")
+                np.save(location, border_centers)
 
-            location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "test_ori_border_centers.npy")
-            np.save(location, border_points.cpu().numpy())
+                location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "test_ori_border_centers.npy")
+                np.save(location, border_points.cpu().numpy())
 
-            confs = batch_run(self.model, border_points, 10)
-            border_cls = np.argmax(confs, axis=1).squeeze()
-            location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "test_border_labels.npy")
-            np.save(location, np.array(border_cls))
+                confs = batch_run(self.model, border_points, self.class_num)
+                border_cls = np.argmax(confs, axis=1).squeeze()
+                location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "test_border_labels.npy")
+                np.save(location, np.array(border_cls))
+
 
             # training data clustering
             data_pool = self.training_data
@@ -265,10 +270,13 @@ class MMS:
             location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "test_data.npy")
             np.save(location, test_data_representation)
 
+            t2 = time.time()
+            time_gen.append(t2-t0)
+
             if self.verbose > 0:
                 print("Finish data preprocessing for Epoch {:d}...".format(n_epoch))
         print(
-            "Average time for generate border points: {:.4f}".format(sum(time_borders_gen) / len(time_borders_gen)))
+            "Average time for preprocessing data: {:.4f}".format(sum(time_gen) / len(time_gen)))
 
         # save result
         save_dir = os.path.join(self.model_path,  "time.json")
@@ -278,7 +286,9 @@ class MMS:
             f = open(save_dir, "r")
             evaluation = json.load(f)
             f.close()
-        evaluation["data_gene"] = round(sum(time_borders_gen) / len(time_borders_gen), 3)
+        if not self.withoutB:
+            evaluation["data_border_gene"] = round(sum(time_borders_gen) / len(time_borders_gen), 3)
+        evaluation["data_gene"] = round(sum(time_gen) / len(time_gen), 3)
         with open(save_dir, 'w') as f:
             json.dump(evaluation, f)
 
@@ -314,12 +324,17 @@ class MMS:
         else:
             evaluation = {}
 
-        evaluation['nn_train_15'] = self.proj_nn_perseverance_knn_train(n_epoch, 15)
-        evaluation['nn_test_15'] = self.proj_nn_perseverance_knn_test(n_epoch, 15)
+        # evaluation['nn_train_15'] = self.proj_nn_perseverance_knn_train(n_epoch, 15)
+        # evaluation['nn_test_15'] = self.proj_nn_perseverance_knn_test(n_epoch, 15)
         # evaluation['bound_train_15'] = self.proj_boundary_perseverance_knn_train(n_epoch, 15)
         # evaluation['bound_test_15'] = self.proj_boundary_perseverance_knn_test(n_epoch, 15)
-        # evaluation['tnn_train_5'] = self.proj_temporal_nn_train(n_epoch, 5)
-        # evaluation['tnn_test_5'] = self.proj_temporal_nn_test(n_epoch, 5)
+        evaluation['tnn_train_5'] = self.proj_temporal_nn_train(n_epoch, 5)
+        evaluation['tnn_test_5'] = self.proj_temporal_nn_test(n_epoch, 5)
+        evaluation['tnn_train_10'] = self.proj_temporal_nn_train(n_epoch, 10)
+        evaluation['tnn_test_10'] = self.proj_temporal_nn_test(n_epoch, 10)
+        evaluation['tnn_train_15'] = self.proj_temporal_nn_train(n_epoch, 15)
+        evaluation['tnn_test_15'] = self.proj_temporal_nn_test(n_epoch, 15)
+
 
         # for paper evaluation
         if eval:
@@ -340,17 +355,21 @@ class MMS:
             
         # print("finish proj eval for Epoch {}".format(n_epoch))
 
-        evaluation['inv_acc_train'] = self.inv_accu_train(n_epoch)
-        evaluation['inv_acc_test'] = self.inv_accu_test(n_epoch)
-        # evaluation['inv_conf_train'] = self.inv_conf_diff_train(n_epoch)
-        # evaluation['inv_conf_test'] = self.inv_conf_diff_test(n_epoch)
+        # evaluation['inv_acc_train'] = self.inv_accu_train(n_epoch)
+        # evaluation['inv_acc_test'] = self.inv_accu_test(n_epoch)
+        # evaluation['inv_dist_train'] = self.inv_dist_train(n_epoch)
+        # evaluation['inv_dist_test'] = self.inv_dist_test(n_epoch)
         # print("finish inv eval for Epoch {}".format(n_epoch))
 
         # evaluation['tr_train'] = self.proj_temporal_global_ranking_corr_train(n_epoch)
         # evaluation['tr_test'] = self.proj_temporal_global_ranking_corr_test(n_epoch)
+        
+        # weighted global temporal ranking
+        # evaluation['wtr_train'] = self.proj_temporal_weighted_global_ranking_corr_train(n_epoch)
+        # evaluation['wtr_test'] = self.proj_temporal_weighted_global_ranking_corr_test(n_epoch)
 
-        evaluation['tlr_train'] = self.proj_temporal_local_ranking_corr_train(n_epoch, 3)
-        evaluation['tlr_test'] = self.proj_temporal_local_ranking_corr_test(n_epoch, 3)
+        # evaluation['tlr_train'] = self.proj_temporal_local_ranking_corr_train(n_epoch, 3)
+        # evaluation['tlr_test'] = self.proj_temporal_local_ranking_corr_test(n_epoch, 3)
 
         # # record time to project and inverse testing data
         # test_data = self.get_epoch_test_repr_data(n_epoch)
@@ -460,46 +479,39 @@ class MMS:
             except Exception as e:
                 print("no train data saved for Epoch {}".format(n_epoch))
                 continue
-            try:
-                border_centers = np.load(border_centers_loc).squeeze()
-            except Exception as e:
-                print("no border points saved for Epoch {}".format(n_epoch))
-                continue
 
             # attention/temporal/complex
             if self.withoutB:
-                all_d = np.concatenate((train_data, border_centers), axis=0)
-                complex, sigmas, rhos = fuzzy_complex(all_d, 15)
-                model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
-                self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
-                self.model = self.model.to(self.device)
-                self.model.eval()
+                complex, _, _ = fuzzy_complex(train_data, 15)
+                if self.attention:
+                    model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
+                    self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
+                    self.model = self.model.to(self.device)
+                    self.model.eval()
 
-                model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
-                model = model.to(self.device)
-                model = model.eval()
-                alpha = get_alpha(model, all_d, temperature=self.temperature, device=self.device, verbose=1)
+                    # model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
+                    # model = model.to(self.device)
+                    # model = model.eval()
+                    model = self.model.prediction
+                    alpha = get_alpha(model, train_data, temperature=self.temperature, device=self.device, verbose=1)
+                else:
+                    alpha = np.zeros(len(train_data))
                 if self.temporal:
                     prev_data_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch-self.period), "train_data.npy")
-                    prev_border_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "border_centers.npy")
                     if os.path.exists(prev_data_loc) and self.epoch_start != n_epoch:
                         prev_data = np.load(prev_data_loc).squeeze()
                         prev_index = self.get_epoch_index(n_epoch-self.period)
                         prev_data = prev_data[prev_index]
-                        prev_border = np.load(prev_border_centers_loc).squeeze()
                     else:
                         prev_data = None
-                        prev_border = None
-                    if prev_data is not None:
-                        prev_data = np.concatenate((prev_data, prev_border), axis=0)
-                    n_rate = find_neighbor_preserving_rate(prev_data, all_d, n_neighbors=15)
+                    n_rate = find_neighbor_preserving_rate(prev_data, train_data, n_neighbors=15)
                     (
                         edge_dataset,
                         batch_size,
                         n_edges,
                         edge_weight,
                     ) = construct_temporal_edge_dataset(
-                        all_d,
+                        train_data,
                         complex,
                         10,
                         batch_size,
@@ -514,26 +526,33 @@ class MMS:
                         n_edges,
                         edge_weight,
                     ) = construct_edge_dataset(
-                        all_d,
+                        train_data,
                         complex,
                         10,
                         batch_size,
                         alpha=alpha,
                     )
             else:
+                try:
+                    border_centers = np.load(border_centers_loc).squeeze()
+                except Exception as e:
+                    print("no border points saved for Epoch {}".format(n_epoch))
+                    continue
                 complex, sigmas, rhos = fuzzy_complex(train_data, 15)
                 bw_complex, _, _ = boundary_wise_complex(train_data, border_centers, 15)
                 fitting_data = np.concatenate((train_data, border_centers), axis=0)
-
-                model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
-                self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
-                self.model = self.model.to(self.device)
-                self.model.eval()
-
-                model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
-                model = model.to(self.device)
-                model = model.eval()
-                alpha = get_alpha(model, fitting_data, temperature=self.temperature, device=self.device, verbose=1)
+                if self.attention:
+                    model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
+                    self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
+                    self.model = self.model.to(self.device)
+                    self.model.eval()
+                    # model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
+                    # model = model.to(self.device)
+                    # model = model.eval()
+                    model = self.model.prediction
+                    alpha = get_alpha(model, fitting_data, temperature=self.temperature, device=self.device, verbose=1)
+                else:
+                    alpha = np.zeros(len(fitting_data))
                 del model
                 gc.collect()
                 if not self.temporal:
@@ -558,13 +577,6 @@ class MMS:
                         prev_data = prev_data[prev_index]
                     else:
                         prev_data = None
-                    # if prev_data is None:
-                    #     prev_embedding = np.zeros((len(train_data), self.low_dims))
-                    # else:
-                    #     encoder_ = self.get_proj_model(n_epoch-self.period)
-                    #     prev_embedding = encoder_(prev_data).cpu().numpy()
-                    #     del encoder_
-                    #     gc.collect()
                     n_rate = find_neighbor_preserving_rate(prev_data, train_data, n_neighbors=15)
 
                     (
@@ -595,7 +607,7 @@ class MMS:
             )
             # save for later use
             parametric_model.prev_trainable_variables = weights_dict["prev"]
-            flag = ""   # record boundary complex and attention
+            flag = "_id"   # record boundary complex and attention
             if self.withoutB:
                 flag += "_withoutB"
             if self.attention:
@@ -665,7 +677,7 @@ class MMS:
         :param epoch_id: int
         :return: encoder of epoch epoch_id
         '''
-        flag = ""
+        flag = "_id"
         if self.withoutB:
             flag += "_withoutB"
         if self.attention:
@@ -696,7 +708,7 @@ class MMS:
         :param epoch_id: int
         :return: decoder model of epoch_id
         '''
-        flag = ""
+        flag = "_id"
         if self.withoutB:
             flag += "_withoutB"
         if self.attention:
@@ -799,7 +811,8 @@ class MMS:
         self.model = self.model.to(self.device)
         self.model.eval()
 
-        fc_model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
+        # fc_model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
+        fc_model = self.model.prediction
         data = data.to(device=self.device, dtype=torch.float)
         pred = batch_run(fc_model, data, self.class_num)
         pred = pred.argmax(axis=1)
@@ -823,7 +836,8 @@ class MMS:
         self.model = self.model.to(self.device)
         self.model.eval()
 
-        repr_model = torch.nn.Sequential(*(list(self.model.children())[:self.split]))
+        # repr_model = torch.nn.Sequential(*(list(self.model.children())[:self.split]))
+        repr_model = self.model.feature
 
         data = data.to(self.device)
         representation_data = batch_run(repr_model, data, self.repr_num)
@@ -851,7 +865,8 @@ class MMS:
         self.model = self.model.to(self.device)
         self.model.eval()
 
-        fc_model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
+        # fc_model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
+        fc_model = self.model.prediction
 
         data = torch.from_numpy(data)
         data = data.to(self.device)
@@ -874,7 +889,8 @@ class MMS:
         self.model = self.model.to(self.device)
         self.model.eval()
 
-        fc_model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
+        # fc_model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
+        fc_model = self.model.feature
 
         data = self.get_epoch_train_repr_data(epoch_id)
         data = torch.from_numpy(data)
@@ -899,7 +915,8 @@ class MMS:
         self.model = self.model.to(self.device)
         self.model.eval()
 
-        fc_model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
+        # fc_model = torch.nn.Sequential(*(list(self.model.children())[self.split:]))
+        fc_model = self.model.prediction
 
         data = self.get_epoch_test_repr_data(epoch_id)
         data = torch.from_numpy(data)
@@ -1103,7 +1120,7 @@ class MMS:
         plt.ion()
         self.fig, self.ax = plt.subplots(1, 1, figsize=(8, 8))
         if not only_img:
-            self.ax.set_title(self.title)
+            # self.ax.set_title(self.title)
             self.ax.set_title("DVI visualization")
             self.desc = self.fig.text(0.5, 0.02, '', fontsize=8, ha='center')
             self.ax.legend()
@@ -1870,6 +1887,69 @@ class MMS:
         
         return corrs.mean()
     
+    def proj_temporal_weighted_global_ranking_corr_train(self, epoch,  start=None, end=None, period=None):
+        if start is None:
+            start = self.epoch_start
+            end = self.epoch_end
+            period = self.period
+        train_num = self.train_num(start)
+        EPOCH = (end - start) // period+1
+        LEN = train_num
+        repr_dim = np.prod(self.get_epoch_train_repr_data(start).shape[1:])
+        high_repr = np.zeros((EPOCH,LEN,repr_dim))
+        low_repr = np.zeros((EPOCH,LEN,2))
+
+        for i in range(start, end +1, period):
+            index = (i -start) // period
+            high_repr[index] = self.get_epoch_train_repr_data(i)
+            low_repr[index] = self.batch_project(high_repr[index], i)
+
+        corrs = np.zeros(LEN)
+        e = (epoch - start) // period
+        for i in range(LEN):
+            high_embeddings = high_repr[:,i,:].squeeze()
+            low_embeddings = low_repr[:,i,:].squeeze()
+                
+            high_dists = np.linalg.norm(high_embeddings - high_embeddings[e], axis=1)
+            low_dists = np.linalg.norm(low_embeddings - low_embeddings[e], axis=1)
+            high_ranking = np.argsort(high_dists)
+            low_ranking = np.argsort(low_dists)
+            corr = evaluate_proj_temporal_weighted_global_corr(high_ranking, low_ranking)
+            corrs[i] = corr
+
+        return corrs.mean()
+    
+    def proj_temporal_weighted_global_ranking_corr_test(self, epoch, start=None, end=None, period=None):
+        if start is None:
+            start = self.epoch_start
+            end = self.epoch_end
+            period = self.period
+        test_num = self.test_num(start)
+        LEN = test_num
+        EPOCH = (end - start) // period +1
+        repr_dim = np.prod(self.get_epoch_test_repr_data(start).shape[1:])
+        high_repr = np.zeros((EPOCH,LEN,repr_dim))
+        low_repr = np.zeros((EPOCH,LEN,2))
+        for i in range(start, end +1, period):
+            index = (i -start) // period
+
+            high_repr[index] = self.get_epoch_test_repr_data(i)
+            low_repr[index] = self.batch_project(high_repr[index], i)
+        corrs = np.zeros(LEN)
+        e = (epoch - start) // period
+        for i in range(LEN):
+            high_embeddings = high_repr[:,i,:].squeeze()
+            low_embeddings = low_repr[:,i,:].squeeze()
+                
+            high_dists = np.linalg.norm(high_embeddings - high_embeddings[e], axis=1)
+            low_dists = np.linalg.norm(low_embeddings - low_embeddings[e], axis=1)
+            high_ranking = np.argsort(high_dists)
+            low_ranking = np.argsort(low_dists)
+            corr = evaluate_proj_temporal_weighted_global_corr(high_ranking, low_ranking)
+            corrs[i] = corr
+        
+        return corrs.mean()
+    
     def proj_temporal_local_ranking_corr_train(self, epoch, stage, start=None, end=None, period=None):
         if start is None:
             start = self.epoch_start
@@ -2059,7 +2139,7 @@ class MMS:
         gc.collect()
 
         val = evaluate_inv_distance(data, inv_data)
-        return val
+        return float(val)
 
     def inv_dist_test(self, epoch_id):
         """inverse testing difference"""
@@ -2076,7 +2156,7 @@ class MMS:
         gc.collect()
 
         val = evaluate_inv_distance(data, inv_data)
-        return val
+        return float(val)
 
     def inv_conf_diff_train(self, epoch_id):
         """inverser training confidence difference"""
