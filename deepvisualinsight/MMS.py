@@ -32,7 +32,7 @@ from VisualizationModel import ParametricModel
 
 class MMS:
     def __init__(self, content_path, model_structure, epoch_start, epoch_end, period, repr_num, class_num, classes,
-                 low_dims=2, cmap="tab10", resolution=100, neurons=None, batch_size=1000, verbose=1, split=-1, attack_device="cpu",
+                 low_dims=2, cmap="tab10", resolution=100, neurons=None, batch_size=1000, verbose=1, attack_device="cpu",
                  alpha=0.7, withoutB=False,    # boundary complex
                  attention=True, temperature=None,                      # reconstruction loss
                  temporal=False, transfer_learning=True, step3=False):  # temporal
@@ -82,8 +82,6 @@ class MMS:
         attention: bool, by default True
             whether to use attention for reconstruction loss(increase inv accu)
         verbose : int, by default 1
-        split: int, by default -1
-            number of layers for feature function
         alpha: float
             lower bound for, new_image = alpha*m1+(1-alpha)*m2
             upper bound in paper, but they are same
@@ -114,7 +112,6 @@ class MMS:
         self.transfer_learning = transfer_learning
         self.batch_size = batch_size
         self.verbose = verbose
-        self.split = split
         self.alpha = alpha
         self.withoutB = withoutB
         self.device = torch.device(attack_device)

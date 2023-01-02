@@ -56,7 +56,6 @@ if __name__ == "__main__":
         net = resnet18()
     except:
         net = ResNet18()
-    # net = CIFAR_17()
 
     if dataset == "CIFAR10":
         classes = ("airplane", "car", "bird", "cat", "deer", "dog", "frog", "horse", "ship", "truck")
