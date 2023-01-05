@@ -35,7 +35,8 @@ class MMS:
                  low_dims=2, cmap="tab10", resolution=100, neurons=None, batch_size=1000, verbose=1, attack_device="cpu",
                  alpha=0.7, withoutB=False,    # boundary complex
                  attention=True, temperature=None,                      # reconstruction loss
-                 temporal=False, transfer_learning=True, step3=False):  # temporal
+                 temporal=False, transfer_learning=True, step3=False,   # temporal
+                 n_neighbors=15):  
 
         '''
         This class contains the model management system (super DB) and provides
@@ -116,6 +117,7 @@ class MMS:
         self.withoutB = withoutB
         self.device = torch.device(attack_device)
         self.attention = attention
+        self.n_neighbors = n_neighbors
         # TODO change tensorflow to pytorch
         if len(tf.config.list_physical_devices('GPU')) > 0:
             # self.tf_device = tf.config.list_physical_devices('GPU')[0]
@@ -479,7 +481,7 @@ class MMS:
 
             # attention/temporal/complex
             if self.withoutB:
-                complex, _, _ = fuzzy_complex(train_data, 15)
+                complex, _, _ = fuzzy_complex(train_data, self.n_neighbors)
                 if self.attention:
                     model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
                     self.model.load_state_dict(torch.load(model_location, map_location=torch.device("cpu")))
@@ -501,7 +503,7 @@ class MMS:
                         prev_data = prev_data[prev_index]
                     else:
                         prev_data = None
-                    n_rate = find_neighbor_preserving_rate(prev_data, train_data, n_neighbors=15)
+                    n_rate = find_neighbor_preserving_rate(prev_data, train_data, n_neighbors=self.n_neighbors)
                     (
                         edge_dataset,
                         batch_size,
@@ -535,8 +537,8 @@ class MMS:
                 except Exception as e:
                     print("no border points saved for Epoch {}".format(n_epoch))
                     continue
-                complex, sigmas, rhos = fuzzy_complex(train_data, 15)
-                bw_complex, _, _ = boundary_wise_complex(train_data, border_centers, 15)
+                complex, sigmas, rhos = fuzzy_complex(train_data, self.n_neighbors)
+                bw_complex, _, _ = boundary_wise_complex(train_data, border_centers, self.n_neighbors)
                 fitting_data = np.concatenate((train_data, border_centers), axis=0)
                 if self.attention:
                     model_location = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "subject_model.pth")
@@ -574,7 +576,7 @@ class MMS:
                         prev_data = prev_data[prev_index]
                     else:
                         prev_data = None
-                    n_rate = find_neighbor_preserving_rate(prev_data, train_data, n_neighbors=15)
+                    n_rate = find_neighbor_preserving_rate(prev_data, train_data, n_neighbors=self.n_neighbors)
 
                     (
                         edge_dataset,

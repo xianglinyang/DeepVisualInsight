@@ -26,6 +26,7 @@ def get_arguments():
     parser.add_argument("--preprocess", type=int, choices=[0, 1], help="with 0 being false and 1 being true")
     parser.add_argument("--model", type=str, help="Model name")
     parser.add_argument("--num_class", type=int)
+    parser.add_argument("--n_neighbors", type=int)
 
     return parser.parse_args()
 
@@ -50,6 +51,7 @@ if __name__ == "__main__":
     model_name = args.model
     num_classes = args.num_classes
     temporal_lw = args.temporal_lw
+    n_neighbors = args.n_neighbors
 
 
     visible_device = "1"
@@ -100,7 +102,7 @@ if __name__ == "__main__":
               temperature=temperature, attention=attention,
               cmap="tab20", resolution=resolution, verbose=1,
               temporal=temporal_lw, transfer_learning=transfer_learning, step3=0,
-              alpha=alpha, withoutB=parametricUmap, attack_device=attack_device)
+              alpha=alpha, withoutB=parametricUmap, attack_device=attack_device, n_neighbors=n_neighbors)
 
     # encoder_location = os.path.join(content_path, "Model", "Epoch_{:d}".format(136), "encoder_advance")
     # encoder = tf.keras.models.load_model(encoder_location)
