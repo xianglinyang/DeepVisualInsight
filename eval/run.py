@@ -20,6 +20,7 @@ def get_arguments():
     parser.add_argument("-t", type=float)
     parser.add_argument("-a", type=float)
     parser.add_argument("--temporal", type=int, choices=[1, 2, 3])
+    parser.add_argument("--temporal_lw", type=float)
     parser.add_argument("--parametricUmap", type=int, choices=[0, 1], default=0, help="whether to run baseline parametric...")
     parser.add_argument("--attention", type=int, choices=[0, 1], default=1, help="whether to add attention to renconstruction loss")
     parser.add_argument("--preprocess", type=int, choices=[0, 1], help="with 0 being false and 1 being true")
@@ -48,6 +49,7 @@ if __name__ == "__main__":
     preprocess = args.preprocess
     model_name = args.model
     num_classes = args.num_classes
+    temporal_lw = args.temporal_lw
 
 
     visible_device = "1"
@@ -97,7 +99,7 @@ if __name__ == "__main__":
     mms = MMS(content_path, net, epoch_start, epoch_end, epoch_period, embedding_dim, num_classes, classes,
               temperature=temperature, attention=attention,
               cmap="tab20", resolution=resolution, verbose=1,
-              temporal=temporal, transfer_learning=transfer_learning, step3=False,
+              temporal=temporal_lw, transfer_learning=transfer_learning, step3=0,
               alpha=alpha, withoutB=parametricUmap, attack_device=attack_device)
 
     # encoder_location = os.path.join(content_path, "Model", "Epoch_{:d}".format(136), "encoder_advance")

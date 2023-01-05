@@ -691,6 +691,18 @@ def define_model(dims, low_dims, encoder, decoder, temporal, stop_grad=False):
 
 
 def define_losses(batch_size, temporal, step3, withoutB, attention):
+    """_summary_
+
+    Args:
+        batch_size (int): _description_
+        temporal (float): the loss weight for temporal loss
+        step3 (float): the loss weight for step3 loss
+        withoutB (boolean): if parametricUmap
+        attention (boolean): if attention
+
+    Returns:
+        _type_: _description_
+    """
     # compile models
     losses = {}
     loss_weights = {}
@@ -721,11 +733,11 @@ def define_losses(batch_size, temporal, step3, withoutB, attention):
         if not step3:
             regularize_loss_fn = regularize_loss()
             losses["regularization"] = regularize_loss_fn
-            loss_weights["regularization"] = 0.3  # TODO: change this weight
+            loss_weights["regularization"] = temporal  # TODO: change this weight 0.3
         else:
             regularize_loss_fn = regularize_loss_3()
             losses["regularization"] = regularize_loss_fn
-            loss_weights["regularization"] = 1.0  # TODO: change this weight
+            loss_weights["regularization"] = step3  # TODO: change this weight
 
         embedding_to_loss_fn = embedding_loss()
         losses["embedding_to"] = embedding_to_loss_fn
