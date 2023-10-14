@@ -730,7 +730,7 @@ def define_losses(batch_size, temporal, step3, withoutB, attention):
         if not step3:
             regularize_loss_fn = regularize_loss()
             losses["regularization"] = regularize_loss_fn
-            loss_weights["regularization"] = temporal  # TODO: change this weight 0.3
+            loss_weights["regularization"] = 0.3  # TODO: change this weight 0.3 temporal
         else:
             regularize_loss_fn = regularize_loss_3()
             losses["regularization"] = regularize_loss_fn
