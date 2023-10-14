@@ -2,7 +2,7 @@ from math import e
 import sys
 import argparse
 import os
-sys.path.append("/home/xianglin/projects/git_space/DeepVisualInsight/deepvisualinsight")
+sys.path.append("/home/xianglin/git_space/DeepVisualInsight/deepvisualinsight")
 from MMS import MMS
 
 
@@ -115,7 +115,7 @@ if __name__ == "__main__":
 
     img_save_location = os.path.join(mms.content_path, "img")
     os.makedirs(img_save_location, exist_ok=True)
-    for i in range(epoch_start, epoch_end+1, epoch_period*4):
+    for i in range(epoch_start, epoch_end+1, epoch_period):
         mms.savefig(i, os.path.join(img_save_location, "tf-dvi_{:d}".format(i)))
 
     # dataset = content_path.split("/")[-1]
@@ -125,8 +125,8 @@ if __name__ == "__main__":
     #     "resnet18_cifar10":[1,100,199]
     # }
     # eval_epochs = EVAL_EPOCH_DICT[dataset]
-    # eval_epochs = [epoch_start, epoch_end]
-    # for eval_epoch in eval_epochs:
-    #     mms.save_epoch_evaluation(eval_epoch, eval=False, eval_temporal=False, name=eval_name)
+    eval_epochs = range(epoch_start, epoch_end+epoch_period, epoch_period)
+    for eval_epoch in eval_epochs:
+        mms.save_epoch_evaluation(eval_epoch, eval=False, eval_temporal=False, name=eval_name)
 
     

@@ -323,16 +323,16 @@ class MMS:
         else:
             evaluation = {}
 
-        # evaluation['nn_train_15'] = self.proj_nn_perseverance_knn_train(n_epoch, 15)
-        # evaluation['nn_test_15'] = self.proj_nn_perseverance_knn_test(n_epoch, 15)
+        evaluation['nn_train_15'] = self.proj_nn_perseverance_knn_train(n_epoch, 15)
+        evaluation['nn_test_15'] = self.proj_nn_perseverance_knn_test(n_epoch, 15)
         # evaluation['bound_train_15'] = self.proj_boundary_perseverance_knn_train(n_epoch, 15)
         # evaluation['bound_test_15'] = self.proj_boundary_perseverance_knn_test(n_epoch, 15)
-        evaluation['tnn_train_5'] = self.proj_temporal_nn_train(n_epoch, 5)
-        evaluation['tnn_test_5'] = self.proj_temporal_nn_test(n_epoch, 5)
-        evaluation['tnn_train_10'] = self.proj_temporal_nn_train(n_epoch, 10)
-        evaluation['tnn_test_10'] = self.proj_temporal_nn_test(n_epoch, 10)
-        evaluation['tnn_train_15'] = self.proj_temporal_nn_train(n_epoch, 15)
-        evaluation['tnn_test_15'] = self.proj_temporal_nn_test(n_epoch, 15)
+        evaluation['tnn_train_3'] = self.proj_temporal_nn_train(n_epoch, 3)
+        evaluation['tnn_test_3'] = self.proj_temporal_nn_test(n_epoch, 3)
+        # evaluation['tnn_train_10'] = self.proj_temporal_nn_train(n_epoch, 10)
+        # evaluation['tnn_test_10'] = self.proj_temporal_nn_test(n_epoch, 10)
+        # evaluation['tnn_train_15'] = self.proj_temporal_nn_train(n_epoch, 15)
+        # evaluation['tnn_test_15'] = self.proj_temporal_nn_test(n_epoch, 15)
 
 
         # for paper evaluation
@@ -354,8 +354,8 @@ class MMS:
             
         # print("finish proj eval for Epoch {}".format(n_epoch))
 
-        # evaluation['inv_acc_train'] = self.inv_accu_train(n_epoch)
-        # evaluation['inv_acc_test'] = self.inv_accu_test(n_epoch)
+        evaluation['inv_acc_train'] = self.inv_accu_train(n_epoch)
+        evaluation['inv_acc_test'] = self.inv_accu_test(n_epoch)
         # evaluation['inv_dist_train'] = self.inv_dist_train(n_epoch)
         # evaluation['inv_dist_test'] = self.inv_dist_test(n_epoch)
         # print("finish inv eval for Epoch {}".format(n_epoch))
@@ -417,8 +417,8 @@ class MMS:
                 evaluation["temporal_train_20"] = self.proj_temporal_perseverance_train(20)
                 evaluation["temporal_test_20"] = self.proj_temporal_perseverance_test(20)
 
-            with open(save_dir, "w") as f:
-                json.dump(evaluation, f)
+        with open(save_dir, "w") as f:
+            json.dump(evaluation, f)
 
         t_e = time.time()
         if self.verbose > 0 :
