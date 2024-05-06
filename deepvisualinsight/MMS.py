@@ -126,7 +126,7 @@ class MMS:
         # else:
         #     self.tf_device = tf.config.list_physical_devices('CPU')[0]
         if neurons is None:
-            self.neurons = self.repr_num / 2
+            self.neurons = self.repr_num // 2
         else:
             self.neurons = neurons
         self.load_content()
@@ -465,7 +465,8 @@ class MMS:
                                                    self.step3, self.withoutB, self.attention, self.batch_size,
                                                    prev_trainable_variables=None)
             parametric_model.compile(
-                optimizer=optimizer, loss=losses, loss_weights=loss_weights,
+                optimizer=optimizer, loss=losses, loss_weights=loss_weights, 
+                run_eagerly=True,
             )
 
             border_centers_loc = os.path.join(self.model_path, "Epoch_{:d}".format(n_epoch), "border_centers.npy")
@@ -602,7 +603,7 @@ class MMS:
                 epochs=200, # a large value, because we have early stop callback
                 steps_per_epoch=steps_per_epoch,
                 callbacks=callbacks,
-                max_queue_size=100,
+                # max_queue_size=100,
             )
             # save for later use
             parametric_model.prev_trainable_variables = weights_dict["prev"]
@@ -611,6 +612,8 @@ class MMS:
                 flag += "_withoutB"
             if self.attention:
                 flag += "_A"
+            
+            flag += ".h5"
 
             if self.temporal:
                 if self.step3:
@@ -692,6 +695,7 @@ class MMS:
             encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "encoder"+flag)
         else:
             encoder_location = os.path.join(self.model_path, "Epoch_{:d}".format(epoch_id), "encoder_independent"+flag)
+        flag += ".h5"
         if os.path.exists(encoder_location):
             encoder = tf.keras.models.load_model(encoder_location)
             if self.verbose > 0:
@@ -712,6 +716,8 @@ class MMS:
             flag += "_withoutB"
         if self.attention:
             flag += "_A"
+        
+        flag += ".h5"
 
         if self.temporal:
             if self.step3:
