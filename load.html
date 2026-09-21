@@ -1,0 +1,38 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Load hyperparameters</title>
+  </head>
+  <body>
+    <button id="load" type="button">Load</button>
+    <input id="config" type="file" accept="application/json">
+    <script>
+      var loadButton = document.getElementById('load');
+      var configInput = document.getElementById('config');
+      loadButton.addEventListener('click', function () {
+        configInput.click();
+      });
+      configInput.addEventListener('change', function (event) {
+        var file = event.target.files[0];
+        if (!file) {
+          return;
+        }
+        var reader = new FileReader();
+        reader.onload = function () {
+          try {
+            var config = JSON.parse(reader.result);
+            window.hyperparameters = config;
+            document.dispatchEvent(new CustomEvent('hyperparameters-loaded', {detail: config}));
+            if (typeof window.init === 'function') {
+              window.init(config);
+            }
+          } catch (error) {
+            console.error('Failed to load hyperparameters', error);
+          }
+        };
+        reader.readAsText(file);
+      });
+    </script>
+  </body>
+</html>
